@@ -1,0 +1,3635 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>TaskMind</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            background: #f5f5f5;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        #canvas-container.panning {
+            cursor: grabbing;
+        }
+
+        #canvas {
+            position: absolute;
+            transform-origin: 0 0;
+            will-change: transform;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: all;
+            overflow: visible;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke: #999;
+            stroke-width: 2;
+            pointer-events: none;
+            cursor: pointer;
+        }
+
+        .conn-group:hover .connection-line {
+            stroke: #666;
+            stroke-width: 3;
+        }
+
+        .connection-label {
+            fill: #555;
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            background: rgba(255,255,255,0.9);
+        }
+
+        .node {
+            position: absolute;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            min-width: 160px;
+            cursor: default;
+            transition: box-shadow 0.2s;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .node:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+
+        .node.selected {
+            outline: 2px solid #4a90d9;
+            outline-offset: 2px;
+        }
+
+        .node.drop-target {
+            outline: 3px solid #4a90d9;
+            outline-offset: 3px;
+            box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.2);
+        }
+
+        .node-header {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .node-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .node-title {
+            flex: 1;
+            font-weight: 600;
+            font-size: 15px;
+            color: #333;
+            cursor: default;
+            user-select: none;
+            outline: none;
+            min-width: 0;
+            word-break: break-word;
+        }
+
+        .node-title.completed {
+            text-decoration: line-through;
+            color: #aaa;
+        }
+
+        .node-title:focus {
+            background: #f0f8ff;
+            padding: 2px 4px;
+            margin: -2px -4px;
+            border-radius: 3px;
+        }
+
+        .expand-btn {
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .expand-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .node-tasks {
+            padding: 8px 12px;
+            overflow: hidden;
+        }
+
+        .node-tasks.collapsed {
+            display: none;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .node-header input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            cursor: pointer;
+            margin-right: 4px;
+        }
+
+        .node-title.completed {
+            text-decoration: line-through;
+            color: #aaa;
+        }
+
+        .task-item input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #4a90d9;
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .resize-handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
+        .resize-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+        .resize-handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .resize-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+
+        .node:hover .resize-handle {
+            opacity: 1;
+        }
+
+        .node.resizing {
+            outline: 2px solid #4a90d9;
+            outline-offset: 2px;
+        }
+
+        .node.dragging-child {
+            background: rgba(74, 144, 217, 0.05);
+            border-left: 3px solid #4a90d9;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            min-height: auto !important;
+        }
+
+        .node.dragging-child .node-title {
+            font-size: 13px;
+        }
+
+        .resize-handle.resizing {
+            opacity: 1;
+            background: #2e6da4;
+        }
+
+        .context-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 4px 0;
+            z-index: 1000;
+            min-width: 120px;
+        }
+
+        .context-menu-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #333;
+            transition: background 0.15s;
+        }
+
+        .context-menu-item:hover {
+            background: #f0f0f0;
+        }
+
+        .context-menu-separator {
+            height: 1px;
+            background: #eee;
+            margin: 4px 0;
+        }
+
+        .task-item .task-text {
+            flex: 1;
+            cursor: text;
+            user-select: text;
+            outline: none;
+            word-break: break-word;
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+            color: #aaa;
+        }
+
+        .task-item .task-text:focus {
+            background: #f0f8ff;
+            padding: 1px 3px;
+            margin: -1px -3px;
+            border-radius: 2px;
+        }
+
+        .task-delete-btn {
+            width: 18px;
+            height: 18px;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #999;
+            font-size: 14px;
+            margin-left: 4px;
+            border-radius: 3px;
+            opacity: 0;
+            transition: opacity 0.15s, color 0.15s, background 0.15s;
+            display: flex;
+        }
+
+        .task-item:hover .task-delete-btn {
+            opacity: 1;
+        }
+
+        .task-delete-btn:hover {
+            color: #d32f2f;
+            background: #f5f5f5;
+        }
+
+        .add-task {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 0 2px;
+            font-size: 12px;
+            color: #999;
+            cursor: pointer;
+        }
+
+        .add-task:hover {
+            color: #666;
+        }
+
+        .add-task::before {
+            content: '+';
+            width: 14px;
+            text-align: center;
+        }
+
+        .task-item {
+            --depth: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            padding-left: calc(4px + var(--depth) * 16px) !important;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .task-item:hover {
+            background: rgba(0,0,0,0.03);
+        }
+
+        .task-item.selected {
+            background: rgba(74, 144, 217, 0.15);
+            box-shadow: 0 0 0 2px #4a90d9;
+        }
+
+        .task-item.drop-target {
+            background-color: #e3f2fd !important;
+            box-shadow: inset 0 0 0 2px #4a90d9 !important;
+        }
+
+        .task-item .task-text {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Depth-based styling using CSS variables */
+        .task-item[data-depth="0"] {
+            border-left: 3px solid #4a90d9;
+            margin-left: 4px;
+            background: rgba(74, 144, 217, 0.05);
+        }
+
+        .task-item[data-depth="0"]:hover {
+            background: rgba(74, 144, 217, 0.1);
+        }
+
+        .task-item[data-depth="1"] .task-text {
+            color: #444;
+            font-size: 13px;
+        }
+
+        .task-item[data-depth="2"] .task-text {
+            color: #555;
+            font-size: 12px;
+        }
+
+        .task-item[data-depth="3"] .task-text {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .task-item[data-depth="4"] .task-text {
+            color: #777;
+            font-size: 11px;
+        }
+
+        .task-item[data-depth="5"] .task-text {
+            color: #888;
+            font-size: 11px;
+        }
+
+        .task-item[data-depth="6"] .task-text {
+            color: #999;
+            font-size: 11px;
+        }
+
+        /* 7+ depth uses same text style as 6, but padding continues via CSS var */
+
+        .node-parent-indicator {
+            position: absolute;
+            background: rgba(74, 144, 217, 0.08);
+            border: 1px dashed rgba(74, 144, 217, 0.4);
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: -1;
+            transition: all 0.2s;
+        }
+
+        .selection-box {
+            position: absolute;
+            border: 1px dashed #4a90d9;
+            background: rgba(74, 144, 217, 0.1);
+            pointer-events: none;
+            z-index: 500;
+        }
+
+        .conn-point {
+            fill: #4a90d9;
+            stroke: white;
+            stroke-width: 2;
+            cursor: grab;
+            pointer-events: all;
+            opacity: 0;
+            transition: opacity 0.2s;
+            r: 6;
+        }
+
+        .conn-group:hover .conn-point {
+            opacity: 1;
+        }
+
+        .conn-point:hover {
+            fill: #2a70b9;
+            r: 8;
+        }
+
+        .conn-point.dragging {
+            cursor: grabbing;
+            fill: #d32f2f;
+            opacity: 1;
+        }
+
+        .conn-delete-hint {
+            display: none;
+        }
+
+        .group-label {
+            position: absolute;
+            top: -22px;
+            left: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #789;
+            background: rgba(255,255,255,0.8);
+            padding: 2px 8px;
+            border-radius: 4px;
+            pointer-events: auto;
+            cursor: text;
+            user-select: text;
+            outline: none;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            display: flex;
+            gap: 6px;
+            background: white;
+            padding: 6px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+
+        .tool-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .tool-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .tool-btn.active {
+            background: #e0e8f0;
+        }
+
+        .tool-separator {
+            width: 1px;
+            background: #ddd;
+            margin: 0 2px;
+        }
+
+        /* Zoom controls */
+        .zoom-controls {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: white;
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .zoom-level {
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            padding: 4px 0;
+        }
+
+        /* Context Menu */
+        .context-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .context-item:hover {
+            background: #f0f0f0;
+        }
+
+        .context-item.delete {
+            color: #d32f2f;
+        }
+
+        .context-separator {
+            height: 1px;
+            background: #eee;
+            margin: 4px 0;
+        }
+
+        /* Color picker */
+        .color-picker {
+            position: fixed;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            padding: 8px;
+            z-index: 2000;
+            display: grid;
+            grid-template-columns: repeat(4, 24px);
+            gap: 6px;
+        }
+
+        .color-option {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .color-option:hover {
+            border-color: #333;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            z-index: 3000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* Connection mode indicator */
+        .mode-indicator {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4a90d9;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .mode-indicator.active {
+            display: block;
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .toolbar {
+                top: auto;
+                bottom: 60px;
+                left: 8px;
+                flex-wrap: wrap;
+                max-width: calc(100vw - 80px);
+            }
+
+            .zoom-controls {
+                bottom: 60px;
+                right: 8px;
+            }
+
+            .node {
+                min-width: 140px;
+                max-width: 260px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <button class="tool-btn" id="btn-pan" title="移動 (Space)" data-mode="pan">✋</button>
+        <button class="tool-btn active" id="btn-select" title="選択 (V)" data-mode="select">👆</button>
+        <button class="tool-btn" id="btn-node" title="ノード追加 (N)" data-mode="node">📦</button>
+        <button class="tool-btn" id="btn-connect" title="接続 (C)" data-mode="connect">🔗</button>
+        <div class="tool-separator"></div>
+        <button class="tool-btn" id="btn-group" title="グループ化 (G)" data-mode="group">📁</button>
+        <div class="tool-separator"></div>
+        <button class="tool-btn" id="btn-save" title="保存 (Ctrl+S)">💾</button>
+        <button class="tool-btn" id="btn-load" title="読込">📂</button>
+    </div>
+
+    <!-- Mode Indicator -->
+    <div class="mode-indicator" id="mode-indicator">接続モード: 開始ノードを選択</div>
+
+    <!-- Canvas -->
+    <div id="canvas-container">
+        <div id="canvas">
+            <svg id="connections" width="5000" height="5000"></svg>
+            <div id="selection-box" class="selection-box" style="display:none;"></div>
+            <div id="groups"></div>
+            <div id="nodes"></div>
+        </div>
+    </div>
+
+    <!-- Zoom Controls -->
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in">+</button>
+        <div class="zoom-level" id="zoom-level">100%</div>
+        <button class="zoom-btn" id="zoom-out">-</button>
+        <button class="zoom-btn" id="zoom-fit" title="全体表示">⬛</button>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="file-input" accept=".json" style="display:none">
+
+    <script>
+        // ==================== State ====================
+        const state = {
+            mode: 'select',
+            nodes: [],
+            connections: [],
+            groups: [],
+            nextId: 1,
+            scale: 1,
+            panX: 0,
+            panY: 0,
+            isPanning: false,
+            lastMouseX: 0,
+            lastMouseY: 0,
+            selectedNodeId: null,
+            selectedNodeIds: [],
+            isSelecting: false,
+            selectionStartX: 0,
+            selectionStartY: 0,
+            connectingFrom: null,
+            dragNode: null,
+            dragOffsetX: 0,
+            dragOffsetY: 0,
+            groupDrag: null,
+            groupDragOffsetX: 0,
+            groupDragOffsetY: 0,
+            lastPinchDist: 0,
+            lastPinchScale: 1,
+            draggingConn: null,
+            connDragTarget: null,
+            pendingConnectionFrom: null,
+            resizingNode: null,
+            resizeStartX: 0,
+            resizeStartY: 0,
+            resizeStartWidth: 0,
+            resizeStartHeight: 0,
+            colors: ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4dd0e1', '#4db6ac', '#81c784', '#aed581', '#dce775', '#fff176', '#ffd54f', '#ffb74d', '#ff8a65', '#a1887f', '#e0e0e0']
+        };
+
+        // ==================== DOM refs ====================
+        const container = document.getElementById('canvas-container');
+        const canvas = document.getElementById('canvas');
+        const nodesEl = document.getElementById('nodes');
+        const groupsEl = document.getElementById('groups');
+        const connectionsSvg = document.getElementById('connections');
+        const toastEl = document.getElementById('toast');
+        const modeIndicator = document.getElementById('mode-indicator');
+        const zoomLevelEl = document.getElementById('zoom-level');
+        const fileInput = document.getElementById('file-input');
+
+        // Connection line double-click via event delegation (more reliable than per-element listeners)
+        let svgConnLastMouseDown = 0;
+        let svgConnMouseDownPos = { x: 0, y: 0 };
+        connectionsSvg.addEventListener('mousedown', (e) => {
+            // Find the conn-group ancestor first, then query hitPath within it
+            const group = e.target.closest('.conn-group');
+            if (!group) return;
+            const hitPath = group.querySelector('path[stroke-width="20"]');
+            if (!hitPath) return;
+            const from = parseInt(group.getAttribute('data-from'));
+            const to = parseInt(group.getAttribute('data-to'));
+            const conn = state.connections.find(c => c.from === from && c.to === to);
+            if (!conn) return;
+            const now = Date.now();
+            const dx = e.clientX - svgConnMouseDownPos.x;
+            const dy = e.clientY - svgConnMouseDownPos.y;
+            const dist = Math.hypot(dx, dy);
+            if (now - svgConnLastMouseDown < 300 && dist < 10) {
+                svgConnLastMouseDown = 0;
+                e.stopPropagation();
+                e.preventDefault();
+                conn.collapsed = !conn.collapsed;
+                if (conn.collapsed && !conn.originalToPos) {
+                    const toNode = state.nodes.find(n => n.id === to);
+                    if (toNode) conn.originalToPos = { x: toNode.x, y: toNode.y };
+                }
+                renderNodes();
+                renderConnections();
+            } else {
+                svgConnLastMouseDown = now;
+                svgConnMouseDownPos = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        // ==================== Zoom ====================
+        function setZoom(scale, cx, cy) {
+            const oldScale = state.scale;
+            state.scale = Math.max(0.1, Math.min(3, scale));
+
+            if (cx !== undefined && cy !== undefined) {
+                // Zoom towards cursor
+                const rect = container.getBoundingClientRect();
+                const x = cx - rect.left;
+                const y = cy - rect.top;
+                state.panX = x - (x - state.panX) * (state.scale / oldScale);
+                state.panY = y - (y - state.panY) * (state.scale / oldScale);
+            }
+
+            updateTransform();
+            zoomLevelEl.textContent = Math.round(state.scale * 100) + '%';
+        }
+
+        function updateTransform() {
+            canvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale})`;
+        }
+
+        function fitToView() {
+            if (state.nodes.length === 0) {
+                state.scale = 1;
+                state.panX = 0;
+                state.panY = 0;
+                updateTransform();
+                return;
+            }
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.nodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + (n.width || 200));
+                maxY = Math.max(maxY, n.y + (n.height || 100));
+            });
+
+            const padding = 60;
+            const viewW = container.clientWidth;
+            const viewH = container.clientHeight;
+            const contentW = maxX - minX + padding * 2;
+            const contentH = maxY - minY + padding * 2;
+
+            state.scale = Math.min(viewW / contentW, viewH / contentH, 1.5);
+            state.panX = (viewW - contentW * state.scale) / 2 - (minX - padding) * state.scale;
+            state.panY = (viewH - contentH * state.scale) / 2 - (minY - padding) * state.scale;
+            updateTransform();
+            zoomLevelEl.textContent = Math.round(state.scale * 100) + '%';
+        }
+
+        document.getElementById('zoom-in').addEventListener('click', () => setZoom(state.scale * 1.2));
+        document.getElementById('zoom-out').addEventListener('click', () => setZoom(state.scale / 1.2));
+        document.getElementById('zoom-fit').addEventListener('click', fitToView);
+
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            setZoom(state.scale * delta, e.clientX, e.clientY);
+        }, { passive: false });
+
+        // ==================== Mode ====================
+        function setMode(mode) {
+            state.mode = mode;
+            document.querySelectorAll('.tool-btn[data-mode]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+
+            if (mode === 'connect') {
+                modeIndicator.textContent = '接続モード: 開始ノードを選択';
+                modeIndicator.classList.add('active');
+            } else if (mode === 'group') {
+                modeIndicator.textContent = 'グループモード: Ctrl+クリックで複数選択してグループ化';
+                modeIndicator.classList.add('active');
+            } else {
+                modeIndicator.classList.remove('active');
+                state.connectingFrom = null;
+            }
+
+            if (mode !== 'group' && mode !== 'select') {
+                clearSelection();
+            }
+            if (mode !== 'select') {
+                state.selectedNodeId = null;
+            }
+            renderNodes();
+        }
+
+        function clearSelection() {
+            state.selectedNodeIds = [];
+            state.selectedNodeId = null;
+            renderNodes();
+        }
+
+        function toggleNodeSelection(nodeId, append = false) {
+            if (!append) {
+                state.selectedNodeIds = [];
+                state.selectedNodeId = null;
+            }
+            const idx = state.selectedNodeIds.indexOf(nodeId);
+            if (idx >= 0) {
+                state.selectedNodeIds.splice(idx, 1);
+                if (state.selectedNodeId === nodeId) state.selectedNodeId = null;
+            } else {
+                state.selectedNodeIds.push(nodeId);
+                state.selectedNodeId = nodeId;
+            }
+            renderNodes();
+        }
+
+        document.querySelectorAll('.tool-btn[data-mode]').forEach(btn => {
+            btn.addEventListener('click', () => setMode(btn.dataset.mode));
+        });
+
+        // ==================== Node Operations ====================
+        function createNode(x, y, title = '新規ノード') {
+            const node = {
+                id: state.nextId++,
+                x: x,
+                y: y,
+                title: title,
+                color: state.colors[Math.floor(Math.random() * state.colors.length)],
+                completed: false,
+                expanded: true,
+                width: null,
+                height: null,
+                groupId: null,
+                parentId: null
+            };
+            state.nodes.push(node);
+            renderNodes();
+            return node;
+        }
+
+        function deleteNode(nodeId) {
+            const deletedNode = state.nodes.find(n => n.id === nodeId);
+            const hadGroupId = deletedNode?.groupId;
+
+            state.nodes = state.nodes.filter(n => n.id !== nodeId);
+            state.connections = state.connections.filter(c => c.from !== nodeId && c.to !== nodeId);
+
+            // Remove node from any group it belonged to
+            if (hadGroupId) {
+                const group = state.groups.find(g => g.id === hadGroupId);
+                if (group) {
+                    group.nodeIds = group.nodeIds.filter(id => id !== nodeId);
+                    // Remove empty groups
+                    if (group.nodeIds.length < 2) {
+                        state.groups = state.groups.filter(g => g.id !== hadGroupId);
+                        group.nodeIds.forEach(nid => {
+                            const n = state.nodes.find(node => node.id === nid);
+                            if (n) n.groupId = null;
+                        });
+                    }
+                }
+            }
+
+            // Clear parentId of child nodes if this node was their parent
+            state.nodes.forEach(n => {
+                if (n.parentId === nodeId) {
+                    n.parentId = null;
+                }
+            });
+
+            // Also remove from groups where this node was a member (redundant safety)
+            state.groups.forEach(g => {
+                g.nodeIds = g.nodeIds.filter(id => id !== nodeId);
+                if (g.nodeIds.length < 2) {
+                    // Mark for deletion after loop
+                }
+            });
+            state.groups = state.groups.filter(g => g.nodeIds.length >= 2);
+            state.nodes.forEach(n => {
+                if (!state.groups.some(g => g.id === n.groupId)) n.groupId = null;
+            });
+
+            renderNodes();
+            renderConnections();
+            renderGroups();
+        }
+
+        // ==================== Connection Operations ====================
+        function createConnection(from, to, label = '') {
+            // Prevent duplicate
+            const exists = state.connections.some(c => c.from === from && c.to === to);
+            if (exists) return;
+
+            state.connections.push({ from, to, label });
+            renderConnections();
+        }
+
+        function deleteConnection(from, to) {
+            state.connections = state.connections.filter(c => !(c.from === from && c.to === to));
+            renderConnections();
+        }
+
+        // ==================== Group Operations ====================
+        function createGroup(nodeIds, label = 'グループ') {
+            if (nodeIds.length < 2) return;
+
+            // Use the last selected node as parent, others as children
+            const parentId = state.selectedNodeId || nodeIds[0];
+            const childIds = nodeIds.filter(id => id !== parentId);
+
+            if (childIds.length === 0) return;
+
+            const parent = state.nodes.find(n => n.id === parentId);
+            if (!parent) return;
+
+            // Position children inside parent area
+            childIds.forEach((childId, index) => {
+                const child = state.nodes.find(n => n.id === childId);
+                if (child) {
+                    child.parentId = parentId;
+                    // Position child below parent with offset
+                    child.x = parent.x + 20;
+                    child.y = parent.y + parent.height + 10 + (index * 60);
+                }
+            });
+
+            // Expand parent to show children
+            parent.expanded = true;
+
+            renderNodes();
+            renderConnections();
+        }
+
+        function updateGroupBounds(group) {
+            const nodes = state.nodes.filter(n => group.nodeIds.includes(n.id));
+            if (nodes.length === 0) return;
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            nodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + (n.width || 200));
+                maxY = Math.max(maxY, n.y + (n.height || 100));
+            });
+
+            group.x = minX - 20;
+            group.y = minY - 20;
+            group.width = maxX - minX + 40;
+            group.height = maxY - minY + 40;
+        }
+
+        container.addEventListener('click', (e) => {
+            if (!e.target.closest('.context-menu')) {
+                const menu = document.querySelector('.context-menu');
+                if (menu) menu.remove();
+            }
+        });
+
+        function renderGroups() {
+            groupsEl.innerHTML = '';
+        }
+
+        // ==================== Helpers ====================
+        function getNodeEdgePoint(node, targetNode) {
+            // Use actual DOM dimensions when available for accurate edge calculation
+            let nodeWidth = node.width || 200;
+            let nodeHeight = node.height || 50;
+            const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+            if (domEl) {
+                nodeWidth = domEl.offsetWidth;
+                nodeHeight = domEl.offsetHeight;
+            }
+            
+            const cx = node.x + nodeWidth / 2;
+            const cy = node.y + nodeHeight / 2;
+            const halfW = nodeWidth / 2;
+            const halfH = nodeHeight / 2;
+            
+            let targetWidth = targetNode.width || 200;
+            let targetHeight = targetNode.height || 50;
+            const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
+            if (targetDomEl) {
+                targetWidth = targetDomEl.offsetWidth;
+                targetHeight = targetDomEl.offsetHeight;
+            }
+            
+            const tx = targetNode.x + targetWidth / 2;
+            const ty = targetNode.y + targetHeight / 2;
+            const dx = tx - cx;
+            const dy = ty - cy;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+
+            if (absDx < 0.001 && absDy < 0.001) {
+                return { x: cx + halfW, y: cy };
+            }
+
+            const t = Math.min(halfW / absDx, halfH / absDy);
+            return {
+                x: cx + dx * t,
+                y: cy + dy * t
+            };
+        }
+
+        function enableTitleEdit(titleEl, node) {
+            console.log('enableTitleEdit called', titleEl, node);
+            
+            let rect;
+            if (titleEl && document.contains(titleEl)) {
+                rect = titleEl.getBoundingClientRect();
+            } else {
+                // Fallback: calculate position from node coordinates
+                const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
+                rect = {
+                    left: containerRect.left + node.x * state.scale + state.panX,
+                    top: containerRect.top + node.y * state.scale + state.panY,
+                    width: 200,
+                    height: 30
+                };
+            }
+            
+            const originalText = node.title || '無題';
+            
+            // Create overlay input positioned over the title element
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = originalText;
+            input.style.cssText = `
+                position: fixed;
+                left: ${rect.left}px;
+                top: ${rect.top}px;
+                width: ${Math.max(rect.width + 20, 150)}px;
+                height: ${Math.max(rect.height + 8, 30)}px;
+                font-size: 14px;
+                font-weight: 500;
+                color: #333;
+                border: 2px solid #4a90d9;
+                border-radius: 4px;
+                background: #fff;
+                padding: 2px 6px;
+                outline: none;
+                z-index: 10000;
+                box-sizing: border-box;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            `;
+            
+            document.body.appendChild(input);
+            input.focus();
+            input.select();
+            console.log('Overlay input created and focused');
+            
+            const cleanup = () => {
+                if (input.parentNode) {
+                    input.parentNode.removeChild(input);
+                }
+            };
+            
+            const save = () => {
+                if (!input.parentNode) return; // Already cleaned up
+                node.title = input.value || '無題';
+                cleanup();
+                renderNodes();
+            };
+            
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    save();
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cleanup();
+                    renderNodes();
+                }
+            });
+        }
+
+        function enableConnectionLabelEdit(conn) {
+            const fromNode = state.nodes.find(n => n.id === conn.from);
+            const toNode = state.nodes.find(n => n.id === conn.to);
+            if (!fromNode || !toNode) return;
+
+            // Calculate label position (midpoint of connection)
+            const fromCx = fromNode.x;
+            const fromCy = fromNode.y + 18;
+            const toCx = toNode.x;
+            const toCy = toNode.y + 18;
+            const labelX = (fromCx + toCx) / 2;
+            const labelY = (fromCy + toCy) / 2 - 10;
+
+            // Convert canvas coordinates to screen coordinates
+            const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
+            const screenX = containerRect.left + labelX * state.scale + state.panX;
+            const screenY = containerRect.top + labelY * state.scale + state.panY;
+
+            // Create overlay input
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = conn.label || '';
+            input.placeholder = 'ラベル';
+            input.style.cssText = `
+                position: fixed;
+                left: ${screenX - 75}px;
+                top: ${screenY - 15}px;
+                width: 150px;
+                height: 30px;
+                font-size: 14px;
+                color: #333;
+                border: 2px solid #4a90d9;
+                border-radius: 4px;
+                background: #fff;
+                padding: 2px 6px;
+                outline: none;
+                z-index: 10000;
+                box-sizing: border-box;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                text-align: center;
+            `;
+
+            document.body.appendChild(input);
+            input.focus();
+            input.select();
+
+            const cleanup = () => {
+                if (input.parentNode) {
+                    input.parentNode.removeChild(input);
+                }
+            };
+
+            const save = () => {
+                if (!input.parentNode) return;
+                conn.label = input.value || '';
+                cleanup();
+                renderConnections();
+            };
+
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    save();
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cleanup();
+                    renderConnections();
+                }
+            });
+        }
+
+        function renderNodes() {
+            nodesEl.innerHTML = '';
+
+            // Collect all nodes hidden by cascade collapse
+            const hiddenNodeIds = new Set();
+            state.connections.forEach(conn => {
+                if (conn.collapsed) {
+                    const hideDescendants = (nodeId) => {
+                        hiddenNodeIds.add(nodeId);
+                        state.connections
+                            .filter(c => c.from === nodeId)
+                            .forEach(c => hideDescendants(c.to));
+                    };
+                    hideDescendants(conn.to);
+                }
+            });
+            state.hiddenNodeIds = hiddenNodeIds;
+
+            // Helper: recursively render children of a node
+            function renderChildren(parentNode, containerEl, depth) {
+                const childNodes = state.nodes.filter(n => n.parentId === parentNode.id);
+                childNodes.forEach(child => {
+                    // Skip if this child is currently being dragged
+                    if (state.dragNode?.id === child.id) return;
+                    // Skip hidden nodes
+                    if (hiddenNodeIds.has(child.id)) return;
+
+                    const childEl = document.createElement('div');
+                    childEl.className = 'task-item'
+                        + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
+                        + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
+                        + (child.completed ? ' completed' : '');
+                    childEl.dataset.childId = child.id;
+                    childEl.style.setProperty('--depth', depth);
+                    childEl.dataset.depth = depth;
+
+                    // Indent indicator - L-shape for depth 0, spacer for deeper
+                    if (depth === 0) {
+                        const indent = document.createElement('span');
+                        indent.style.cssText = 'width:12px;height:12px;border-left:2px solid #4a90d9;border-bottom:2px solid #4a90d9;margin-right:4px;flex-shrink:0;border-bottom-left-radius:2px;';
+                        childEl.appendChild(indent);
+                    } else {
+                        const spacer = document.createElement('span');
+                        spacer.style.cssText = 'width:16px;flex-shrink:0;';
+                        childEl.appendChild(spacer);
+                    }
+
+                    const childCheckbox = document.createElement('span');
+                    childCheckbox.className = 'node-color';
+                    childCheckbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${child.color || '#4a90d9'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;margin-right:4px;`;
+                    childCheckbox.textContent = child.completed ? '✓' : '';
+                    childCheckbox.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        child.completed = !child.completed;
+                        renderNodes();
+                    });
+
+                    const childTitle = document.createElement('span');
+                    childTitle.className = 'task-text';
+                    childTitle.textContent = child.title;
+
+
+                    // Expand/collapse button
+                    const expandBtn = document.createElement('span');
+                    expandBtn.style.cssText = 'margin-left:4px;font-size:11px;color:#4a90d9;cursor:pointer;width:14px;text-align:center;flex-shrink:0;';
+                    expandBtn.textContent = child.expanded ? '▼' : '▶';
+                    const hasChildren = state.nodes.some(n => n.parentId === child.id);
+                    if (!hasChildren) expandBtn.style.visibility = 'hidden';
+                    expandBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        child.expanded = !child.expanded;
+                        renderNodes();
+                    });
+
+                    // Task count badge
+                    const badge = document.createElement('span');
+                    badge.style.cssText = 'font-size:11px;color:#999;margin-left:4px;flex-shrink:0;';
+                    const descCount = state.nodes.filter(n => n.parentId === child.id).length;
+                    badge.textContent = descCount > 0 ? '(' + descCount + ')' : '';
+
+                    childEl.appendChild(childCheckbox);
+                    childEl.appendChild(childTitle);
+                    childEl.appendChild(expandBtn);
+                    childEl.appendChild(badge);
+
+                    // Drag handlers (unified for all depths)
+                    childEl.addEventListener('mousedown', (e) => {
+                        if (e.button !== 0) return;
+                        if (e.target.classList.contains('expand-btn') || e.target.closest('.node-color')) return;
+                        e.stopPropagation();
+                        
+                        // Double-click detection: if e.detail === 2, toggle expand and skip drag
+                        if (e.detail === 2) {
+                            child.expanded = !child.expanded;
+                            renderNodes();
+                            return;
+                        }
+                        
+                        state.childDragCandidate = {
+                            node: child,
+                            element: childEl,
+                            startClientX: e.clientX,
+                            startClientY: e.clientY,
+                            startX: child.x,
+                            startY: child.y,
+                            parentId: child.parentId,
+                            originalParentId: child.parentId
+                        };
+                    });
+
+                    childEl.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showCanvasContextMenu(e.clientX, e.clientY, e);
+                    });
+
+                    childEl.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'INPUT' || e.target.classList.contains('expand-btn')) return;
+                        e.stopPropagation();
+                    });
+
+                    childEl.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        child.expanded = !child.expanded;
+                        renderNodes();
+                    });
+
+                    containerEl.appendChild(childEl);
+
+                    // Recursively render grandchildren if expanded
+                    if (child.expanded) {
+                        renderChildren(child, containerEl, depth + 1);
+                    }
+                });
+            }
+
+            // Render root nodes
+            state.nodes.forEach(node => {
+                // Skip child nodes unless they are being dragged
+                if (node.parentId !== null && state.dragNode?.id !== node.id) return;
+
+                const el = document.createElement('div');
+                el.className = 'node' + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
+                    + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '');
+                
+                // Use absolute position for dragged child nodes
+                if (node.parentId !== null && state.dragNode?.id === node.id) {
+                    let absX, absY;
+                    if (node.absX !== undefined && node.absY !== undefined) {
+                        absX = node.absX;
+                        absY = node.absY;
+                    } else {
+                        const parent = state.nodes.find(n => n.id === node.parentId);
+                        if (parent) {
+                            absX = parent.x + node.x;
+                            absY = parent.y + node.y;
+                        } else {
+                            absX = node.x;
+                            absY = node.y;
+                        }
+                    }
+                    el.style.left = absX + 'px';
+                    el.style.top = absY + 'px';
+                } else {
+                    el.style.left = node.x + 'px';
+                    el.style.top = node.y + 'px';
+                }
+                el.dataset.id = node.id;
+                
+                // Set explicit width/height for resizable nodes
+                if (node.width) {
+                    el.style.width = node.width + 'px';
+                }
+                // Only apply explicit height when expanded - collapsed nodes should auto-shrink to header
+                if (node.height && node.expanded) {
+                    el.style.height = node.height + 'px';
+                }
+
+                if (hiddenNodeIds.has(node.id)) {
+                    el.style.display = 'none';
+                }
+
+                // If dragging a child node, render as simplified element
+                if (node.parentId !== null && state.dragNode?.id === node.id) {
+                    el.classList.add('dragging-child');
+                    if (state.dropTarget && state.dropTarget.id === node.id) {
+                        el.classList.add('drop-target');
+                    }
+                    el.style.width = (node.width || 200) + 'px';
+                    el.style.minHeight = 'auto';
+                    el.style.padding = '8px 10px';
+                    
+                    const wrapper = document.createElement('div');
+                    wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;';
+                    
+                    const checkbox = document.createElement('span');
+                    checkbox.className = 'node-color';
+                    checkbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${node.color || '#4a90d9'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;`;
+                    checkbox.textContent = node.completed ? '✓' : '';
+                    checkbox.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        node.completed = !node.completed;
+                        renderNodes();
+                    });
+                    
+                    const title = document.createElement('span');
+                    title.textContent = node.title;
+                    title.className = 'node-title' + (node.completed ? ' completed' : '');
+                    title.style.cssText = 'flex:1;font-size:13px;word-break:break-word;';
+                    
+                    wrapper.appendChild(checkbox);
+                    wrapper.appendChild(title);
+                    el.appendChild(wrapper);
+                    
+                    el.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showCanvasContextMenu(e.clientX, e.clientY, e);
+                    });
+                    
+                    el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
+                    el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+                    
+                    nodesEl.appendChild(el);
+                    return;
+                }
+
+                // Standard root node rendering
+                const header = document.createElement('div');
+                header.className = 'node-header';
+
+                const color = document.createElement('div');
+                color.className = 'node-color';
+                color.style.backgroundColor = node.color;
+                color.style.cssText = `width:16px;height:16px;border-radius:3px;background-color:${node.color};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:12px;font-weight:bold;`;
+                color.textContent = node.completed ? '✓' : '';
+                color.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    node.completed = !node.completed;
+                    renderNodes();
+                });
+                color.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showColorPicker(e, node);
+                });
+
+                const title = document.createElement('span');
+                title.className = 'node-title' + (node.completed ? ' completed' : '');
+                title.textContent = node.title;
+
+                const expandBtn = document.createElement('button');
+                expandBtn.className = 'expand-btn';
+                expandBtn.textContent = node.expanded ? '▼' : '▶';
+                const hasChildren = state.nodes.some(n => n.parentId === node.id);
+                if (!hasChildren) expandBtn.style.visibility = 'hidden';
+                expandBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    node.expanded = !node.expanded;
+                    renderNodes();
+                });
+
+                header.appendChild(color);
+                header.appendChild(title);
+                header.appendChild(expandBtn);
+                el.appendChild(header);
+
+                el.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showCanvasContextMenu(e.clientX, e.clientY, e);
+                });
+
+                // Child nodes area with recursive rendering
+                const tasksEl = document.createElement('div');
+                tasksEl.className = 'node-tasks';
+                if (!node.expanded) {
+                    tasksEl.classList.add('collapsed');
+                }
+
+                if (node.expanded) {
+                    renderChildren(node, tasksEl, 0);
+                }
+
+                el.appendChild(tasksEl);
+
+                el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
+                el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+
+                nodesEl.appendChild(el);
+
+                // Show/hide resize handles on node hover
+                el.addEventListener('mouseenter', () => {
+                    document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(h => {
+                        h.style.opacity = '1';
+                    });
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(h => {
+                        h.style.opacity = '';
+                    });
+                });
+
+                // Resize handles - appended to nodesEl (outside .node) to avoid overflow clipping
+                const resizeHandles = ['nw', 'ne', 'sw', 'se'];
+                resizeHandles.forEach(pos => {
+                    const resizeHandle = document.createElement('div');
+                    resizeHandle.className = 'resize-handle ' + pos;
+                    resizeHandle.dataset.nodeId = node.id;
+                    resizeHandle.dataset.pos = pos;
+                    
+                    resizeHandle.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                        state.resizingNode = node;
+                        state.resizeHandle = pos;
+                        state.resizeStartX = e.clientX;
+                        state.resizeStartY = e.clientY;
+                        state.resizeStartWidth = node.width || 200;
+                        state.resizeStartHeight = node.height || (domEl ? domEl.offsetHeight : 50);
+                        
+                        // Calculate absolute position for resize start
+                        let resizeStartLeft, resizeStartTop;
+                        if (node.parentId !== null) {
+                            const parent = state.nodes.find(n => n.id === node.parentId);
+                            if (parent) {
+                                resizeStartLeft = parent.x + node.x;
+                                resizeStartTop = parent.y + node.y;
+                            } else {
+                                resizeStartLeft = node.x;
+                                resizeStartTop = node.y;
+                            }
+                        } else {
+                            resizeStartLeft = node.x;
+                            resizeStartTop = node.y;
+                        }
+                        state.resizeStartLeft = resizeStartLeft;
+                        state.resizeStartTop = resizeStartTop;
+                        
+                        if (domEl) {
+                            domEl.classList.add('resizing');
+                        }
+                        resizeHandle.classList.add('resizing');
+                    });
+                    
+                    nodesEl.appendChild(resizeHandle);
+                });
+            });
+            
+            // Update all resize handle positions after DOM rendering is fully complete
+            // Use double requestAnimationFrame to ensure layout is calculated
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    updateAllHandlePositions();
+                });
+            });
+        }
+        
+        // Update all resize handle positions based on actual DOM state
+        function updateAllHandlePositions() {
+            state.nodes.forEach(node => {
+                let nx, ny;
+                if (node.parentId !== null) {
+                    // Child node: calculate absolute position
+                    const parent = state.nodes.find(n => n.id === node.parentId);
+                    if (parent) {
+                        nx = parent.x + node.x;
+                        ny = parent.y + node.y;
+                    } else {
+                        nx = node.x;
+                        ny = node.y;
+                    }
+                } else {
+                    nx = node.x;
+                    ny = node.y;
+                }
+                const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                if (!domEl) return;
+                
+                const nw = domEl.offsetWidth;
+                const actualH = domEl.offsetHeight;
+                
+                document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(handle => {
+                    const pos = handle.dataset.pos;
+                    let hx, hy;
+                    if (pos === 'nw') { hx = nx - 5; hy = ny - 5; }
+                    else if (pos === 'ne') { hx = nx + nw - 5; hy = ny - 5; }
+                    else if (pos === 'sw') { hx = nx - 5; hy = ny + actualH - 5; }
+                    else if (pos === 'se') { hx = nx + nw - 5; hy = ny + actualH - 5; }
+                    handle.style.left = hx + 'px';
+                    handle.style.top = hy + 'px';
+                });
+            });
+        }
+
+        function renderConnections() {
+            connectionsSvg.innerHTML = '';
+
+            // Collect all nodes that are hidden due to parent connection collapse (cascade)
+            const hiddenNodeIds = new Set();
+            state.connections.forEach(conn => {
+                if (conn.collapsed) {
+                    const hideDescendants = (nodeId) => {
+                        hiddenNodeIds.add(nodeId);
+                        state.connections
+                            .filter(c => c.from === nodeId)
+                            .forEach(c => hideDescendants(c.to));
+                    };
+                    hideDescendants(conn.to);
+                }
+            });
+
+            state.connections.forEach(conn => {
+                // Skip connections whose source is hidden by parent collapse
+                if (hiddenNodeIds.has(conn.from)) return;
+
+                const fromNode = state.nodes.find(n => n.id === conn.from);
+                const toNode = state.nodes.find(n => n.id === conn.to);
+                if (!fromNode || !toNode) return;
+
+                // Skip connections involving child nodes (rendered inside parent's task list)
+                if (fromNode.parentId !== null || toNode.parentId !== null) return;
+
+                // Calculate edge points (intersection with node boundaries)
+                const fromEdge = getNodeEdgePoint(fromNode, toNode);
+                const toEdge = getNodeEdgePoint(toNode, fromNode);
+
+                const x1 = fromEdge.x;
+                const y1 = fromEdge.y;
+                const x2 = toEdge.x;
+                const y2 = toEdge.y;
+
+                const fromCx = fromNode.x + (fromNode.width || 200) / 2;
+                const fromCy = fromNode.y + (fromNode.height || 50) / 2;
+                const toCx = toNode.x + (toNode.width || 200) / 2;
+                const toCy = toNode.y + (toNode.height || 50) / 2;
+
+                const dx = toCx - fromCx;
+                const dy = toCy - fromCy;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const cx1 = fromCx + dx * 0.3;
+                const cy1 = fromCy + Math.max(len * 0.2, 40) * (dy >= 0 ? 1 : -1);
+                const cx2 = toCx - dx * 0.3;
+                const cy2 = toCy - Math.max(len * 0.2, 40) * (dy >= 0 ? 1 : -1);
+
+                const pathD = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+
+                // Group for hover management
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.classList.add('conn-group');
+                group.setAttribute('data-from', conn.from);
+                group.setAttribute('data-to', conn.to);
+
+                // Invisible wider path for easier hit testing
+                const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                hitPath.setAttribute('d', pathD);
+                hitPath.setAttribute('fill', 'none');
+                hitPath.setAttribute('stroke', 'rgba(0,0,0,0.01)');
+                hitPath.setAttribute('stroke-width', '20');
+                hitPath.setAttribute('pointer-events', 'all');
+                hitPath.style.pointerEvents = 'all';
+                hitPath.style.cursor = 'pointer';
+
+                // Visible line - no pointer events, let hitPath handle interactions
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathD);
+                path.setAttribute('class', 'connection-line');
+                path.setAttribute('pointer-events', 'none');
+                path.style.pointerEvents = 'none';
+
+                // Double-click to toggle collapse (mousedown-based for reliability + dblclick fallback)
+                let connLastMouseDown = 0;
+                let connMouseDownPos = { x: 0, y: 0 };
+                
+                const doToggleCollapse = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    conn.collapsed = !conn.collapsed;
+                    if (conn.collapsed && !conn.originalToPos) {
+                        conn.originalToPos = { x: toNode.x, y: toNode.y };
+                    }
+                    // Clear saved indicator position when expanding so it recalculates to mid-point
+                    if (!conn.collapsed) {
+                        delete conn.indX;
+                        delete conn.indY;
+                    }
+                    renderNodes();
+                    renderConnections();
+                };
+                
+                hitPath.addEventListener('dblclick', doToggleCollapse);
+                
+                // mousedown-based double-click detection for SVG reliability
+                hitPath.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    const now = Date.now();
+                    const dx = e.clientX - connMouseDownPos.x;
+                    const dy = e.clientY - connMouseDownPos.y;
+                    const dist = Math.hypot(dx, dy);
+                    
+                    if (now - connLastMouseDown < 300 && dist < 10) {
+                        // Double-click detected
+                        connLastMouseDown = 0;
+                        doToggleCollapse(e);
+                        // Clear saved indicator position when toggling collapse via connection line
+                        delete conn.indX;
+                        delete conn.indY;
+                    } else {
+                        connLastMouseDown = now;
+                        connMouseDownPos = { x: e.clientX, y: e.clientY };
+                    }
+                });
+
+                // For collapsed connections, shorten line to indicator at mid-point
+                if (conn.collapsed) {
+                    let indX, indY;
+                    if (state.dragIndicator && state.dragIndicator.conn === conn) {
+                        // Use drag position for smooth mouse tracking
+                        indX = state.dragIndicator.currentIndX;
+                        indY = state.dragIndicator.currentIndY;
+                    } else if (conn.indX !== undefined && conn.indY !== undefined) {
+                        // Use saved indicator position from previous drag
+                        indX = conn.indX;
+                        indY = conn.indY;
+                    } else {
+                        indX = (fromCx + toCx) / 2;
+                        indY = (fromCy + toCy) / 2;
+                    }
+                    const shortD = `M ${x1} ${y1} L ${indX} ${indY}`;
+                    path.setAttribute('d', shortD);
+                    hitPath.setAttribute('d', shortD);
+                    path.setAttribute('stroke-dasharray', '5,3');
+                }
+
+                group.appendChild(hitPath);
+                group.appendChild(path);
+
+                // Collapsed indicator at mid-point (where label would be)
+                let indX, indY;
+                if (conn.collapsed) {
+                    if (state.dragIndicator && state.dragIndicator.conn === conn) {
+                        // Use drag position for smooth mouse tracking
+                        indX = state.dragIndicator.currentIndX;
+                        indY = state.dragIndicator.currentIndY;
+                    } else if (conn.indX !== undefined && conn.indY !== undefined) {
+                        // Use saved indicator position from previous drag
+                        indX = conn.indX;
+                        indY = conn.indY;
+                    } else {
+                        indX = (fromCx + toCx) / 2;
+                        indY = (fromCy + toCy) / 2;
+                    }
+
+                    const indicator = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    indicator.setAttribute('cx', indX);
+                    indicator.setAttribute('cy', indY);
+                    indicator.setAttribute('r', '12');
+                    indicator.setAttribute('fill', '#fff');
+                    indicator.setAttribute('stroke', '#4a90d9');
+                    indicator.setAttribute('stroke-width', '2');
+                    indicator.setAttribute('class', 'collapse-indicator');
+                    indicator.style.cursor = 'pointer';
+                    indicator.style.pointerEvents = 'all';
+
+                    const plus = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    plus.setAttribute('x', indX);
+                    plus.setAttribute('y', indY + 4);
+                    plus.setAttribute('text-anchor', 'middle');
+                    plus.setAttribute('font-size', '14');
+                    plus.setAttribute('fill', '#4a90d9');
+                    plus.setAttribute('class', 'collapse-plus');
+                    plus.style.pointerEvents = 'all';
+                    plus.style.cursor = 'pointer';
+                    plus.textContent = '+';
+
+                    // Click indicator to expand
+                    // +インジケータのダブルクリック/ドラッグ処理（indicatorとplusで変数を共有）
+                    // 注意: renderConnections()の呼び出しごとにリセットされないようstateで管理
+                    if (!state.indClickState) state.indClickState = {};
+                    const indClickKey = conn.from + '-' + conn.to;
+                    if (!state.indClickState[indClickKey]) {
+                        state.indClickState[indClickKey] = { lastMouseDown: 0, mouseDownPos: { x: 0, y: 0 } };
+                    }
+                    const indClick = state.indClickState[indClickKey];
+
+                    [indicator, plus].forEach(el => {
+                        // Drag indicator to move collapsed node and all hidden descendants
+                        // Also handles double-click to toggle collapse/expand
+                        el.addEventListener('mousedown', (e) => {
+                            if (e.button !== 0) return;
+                            const now = Date.now();
+                            const dx = e.clientX - indClick.mouseDownPos.x;
+                            const dy = e.clientY - indClick.mouseDownPos.y;
+                            const dist = Math.hypot(dx, dy);
+
+                            if (now - indClick.lastMouseDown < 300 && dist < 10) {
+                                // Double-click: toggle collapse (same as connection line)
+                                indClick.lastMouseDown = 0;
+                                e.stopPropagation();
+                                e.preventDefault();
+                                conn.collapsed = !conn.collapsed;
+                                if (!conn.collapsed && conn.originalToPos) {
+                                    toNode.x = conn.originalToPos.x;
+                                    toNode.y = conn.originalToPos.y;
+                                    delete conn.originalToPos;
+                                    // Clear saved indicator position when expanding
+                                    delete conn.indX;
+                                    delete conn.indY;
+                                } else if (conn.collapsed && !conn.originalToPos) {
+                                    conn.originalToPos = { x: toNode.x, y: toNode.y };
+                                    // Clear saved indicator position when re-collapsing (will use midpoint)
+                                    delete conn.indX;
+                                    delete conn.indY;
+                                }
+                                renderNodes();
+                                renderConnections();
+                                return;
+                            }
+
+                            indClick.lastMouseDown = now;
+                            indClick.mouseDownPos = { x: e.clientX, y: e.clientY };
+                            
+                            // Single click: start drag
+                            e.stopPropagation();
+                            e.preventDefault();
+                            
+                            // Collect all hidden descendant nodes with their offsets from indicator
+                            const hiddenDescendants = [];
+                            
+                            // Include the direct target node (B) first
+                            const toNode = state.nodes.find(n => n.id === conn.to);
+                            if (toNode) {
+                                hiddenDescendants.push({
+                                    node: toNode,
+                                    offsetX: toNode.x - indX,
+                                    offsetY: toNode.y - indY,
+                                    conn: conn
+                                });
+                            }
+                            
+                            // Recursively collect ALL descendants (not just collapsed connections)
+                            // In cascade collapse, child connections may not have collapsed flag
+                            const collectHidden = (nodeId) => {
+                                state.connections
+                                    .filter(c => c.from === nodeId)
+                                    .forEach(c => {
+                                        const n = state.nodes.find(node => node.id === c.to);
+                                        if (n) {
+                                            hiddenDescendants.push({
+                                                node: n,
+                                                offsetX: n.x - indX,
+                                                offsetY: n.y - indY,
+                                                conn: c
+                                            });
+                                            collectHidden(c.to);
+                                        }
+                                    });
+                            };
+                            collectHidden(conn.to);
+                            
+                            state.dragIndicator = {
+                                conn: conn,
+                                indOffsetX: (e.clientX - container.getBoundingClientRect().left - state.panX) / state.scale - indX,
+                                indOffsetY: (e.clientY - container.getBoundingClientRect().top - state.panY) / state.scale - indY,
+                                hiddenDescendants: hiddenDescendants,
+                                currentIndX: indX,
+                                currentIndY: indY
+                            };
+                        });
+                    });
+
+                    group.appendChild(indicator);
+                    group.appendChild(plus);
+                }
+
+                // Label
+                if (conn.label && !conn.collapsed) {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('class', 'connection-label');
+                    text.setAttribute('x', (fromCx + toCx) / 2);
+                    text.setAttribute('y', (fromCy + toCy) / 2 - 10);
+                    text.textContent = conn.label;
+                    text.style.pointerEvents = 'all';
+                    text.style.cursor = 'pointer';
+                    text.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        conn.collapsed = !conn.collapsed;
+                        if (conn.collapsed && !conn.originalToPos) {
+                            conn.originalToPos = { x: toNode.x, y: toNode.y };
+                        }
+                        renderNodes();
+                        renderConnections();
+                    });
+                    group.appendChild(text);
+                }
+
+                // Connection point on "from" node (draggable to change source)
+                const fromPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromPoint.setAttribute('class', 'conn-point');
+                fromPoint.setAttribute('cx', x1);
+                fromPoint.setAttribute('cy', y1);
+                fromPoint.setAttribute('r', '6');
+                fromPoint.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    state.draggingConn = conn;
+                    state.draggingConn.isSource = true;
+                    fromPoint.classList.add('dragging');
+                });
+                group.appendChild(fromPoint);
+
+                // Connection point on "to" node (draggable to change destination) - hidden when collapsed
+                if (!conn.collapsed) {
+                    const toPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    toPoint.setAttribute('class', 'conn-point');
+                    toPoint.setAttribute('cx', x2);
+                    toPoint.setAttribute('cy', y2);
+                    toPoint.setAttribute('r', '6');
+                    toPoint.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        state.draggingConn = conn;
+                        state.draggingConn.isSource = false;
+                        toPoint.classList.add('dragging');
+                    });
+                    group.appendChild(toPoint);
+                }
+
+                // Arrowhead - hidden when collapsed
+                if (!conn.collapsed) {
+                    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    const angle = Math.atan2(y2 - cy2, x2 - cx2);
+                    const arrowLen = 10;
+                    const arrowAngle = 0.5;
+                    arrow.setAttribute('points', `
+                        ${x2},${y2}
+                        ${x2 - arrowLen * Math.cos(angle - arrowAngle)},${y2 - arrowLen * Math.sin(angle - arrowAngle)}
+                        ${x2 - arrowLen * Math.cos(angle + arrowAngle)},${y2 - arrowLen * Math.sin(angle + arrowAngle)}
+                    `);
+                    arrow.setAttribute('fill', '#999');
+                    group.appendChild(arrow);
+                }
+
+                // Right-click on connection to delete
+                group.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showConnectionContextMenu(e.clientX, e.clientY, conn);
+                });
+
+                // Wider invisible hover area
+                const hoverPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                // Use shortened path when collapsed to avoid hidden node area
+                if (conn.collapsed) {
+                    const indX = (fromCx + toCx) / 2;
+                    const indY = (fromCy + toCy) / 2;
+                    hoverPath.setAttribute('d', `M ${x1} ${y1} L ${indX} ${indY}`);
+                } else {
+                    hoverPath.setAttribute('d', pathD);
+                }
+                hoverPath.setAttribute('fill', 'none');
+                hoverPath.setAttribute('stroke', 'transparent');
+                hoverPath.setAttribute('stroke-width', '30');
+                hoverPath.setAttribute('pointer-events', 'stroke');
+                hoverPath.setAttribute('cursor', 'pointer');
+                hoverPath.style.opacity = '0';
+                group.insertBefore(hoverPath, path);
+
+                connectionsSvg.appendChild(group);
+            });
+        }
+
+        // ==================== Virtual Connection Line ====================
+        function updatePendingConnection(x, y, fromNodeId) {
+            let tempLine = document.getElementById('pending-connection');
+            const sourceId = fromNodeId || state.connectingFrom;
+            if (!sourceId && !state.draggingConn) {
+                if (tempLine) tempLine.remove();
+                return;
+            }
+
+            let fromNode;
+            if (state.draggingConn) {
+                const anchorNodeId = state.draggingConn.isSource ? state.draggingConn.to : state.draggingConn.from;
+                fromNode = state.nodes.find(n => n.id === anchorNodeId);
+            } else {
+                fromNode = state.nodes.find(n => n.id === sourceId);
+            }
+            if (!fromNode) {
+                if (tempLine) tempLine.remove();
+                return;
+            }
+
+            const x1 = fromNode.x + (fromNode.width || 200) / 2;
+            const y1 = fromNode.y + (fromNode.height || 50) / 2;
+            const x2 = (x - state.panX) / state.scale;
+            const y2 = (y - state.panY) / state.scale;
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const cx1 = x1 + dx * 0.5;
+            const cy1 = y1;
+            const cx2 = x2 - dx * 0.5;
+            const cy2 = y2;
+
+            const pathD = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+
+            if (!tempLine) {
+                tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                tempLine.id = 'pending-connection';
+                tempLine.setAttribute('fill', 'none');
+                tempLine.setAttribute('stroke', '#4a90d9');
+                tempLine.setAttribute('stroke-width', '2');
+                tempLine.setAttribute('stroke-dasharray', '6,4');
+                tempLine.setAttribute('pointer-events', 'none');
+                connectionsSvg.appendChild(tempLine);
+            }
+
+            tempLine.setAttribute('d', pathD);
+        }
+        function showColorPicker(e, node) {
+            const existing = document.querySelector('.color-picker');
+            if (existing) existing.remove();
+
+            const picker = document.createElement('div');
+            picker.className = 'color-picker';
+            picker.style.left = e.clientX + 'px';
+            picker.style.top = e.clientY + 'px';
+
+            state.colors.forEach(c => {
+                const opt = document.createElement('div');
+                opt.className = 'color-option';
+                opt.style.backgroundColor = c;
+                opt.addEventListener('click', () => {
+                    node.color = c;
+                    renderNodes();
+                    picker.remove();
+                });
+                picker.appendChild(opt);
+            });
+
+            document.body.appendChild(picker);
+
+            const close = (e) => {
+                if (!picker.contains(e.target)) {
+                    picker.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        // ==================== Mouse/Touch Handlers ====================
+        const nodeDblClickState = new Map();
+
+        function handleNodeMouseDown(e, node) {
+            if (e.button !== 0) return;
+            // Guard: skip drag if clicking on interactive elements
+            if (e.target.closest('.task-text') || e.target.closest('.task-delete-btn') ||
+                e.target.closest('.expand-btn') || e.target.closest('.color-picker') ||
+                e.target.closest('.node-color') || e.target.closest('.add-task') ||
+                e.target.closest('.resize-handle')) return;
+
+            e.stopPropagation();
+
+            const now = Date.now();
+            const dblState = nodeDblClickState.get(node.id) || { lastMouseDownTime: 0, cooldown: false };
+
+            if (dblState.cooldown) {
+                e.preventDefault();
+                return;
+            }
+
+            const timeDiff = now - dblState.lastMouseDownTime;
+            if (timeDiff < 300) {
+                e.preventDefault();
+                window.getSelection().removeAllRanges();
+                dblState.cooldown = true;
+                dblState.lastMouseDownTime = 0;
+                nodeDblClickState.set(node.id, dblState);
+
+                node.expanded = !node.expanded;
+                renderNodes();
+
+                setTimeout(() => {
+                    dblState.cooldown = false;
+                    nodeDblClickState.set(node.id, dblState);
+                }, 200);
+                return;
+            }
+
+            dblState.lastMouseDownTime = now;
+            nodeDblClickState.set(node.id, dblState);
+
+            // Calculate absolute position for drag offset
+            let nodeAbsX = node.x;
+            let nodeAbsY = node.y;
+            if (node.parentId !== null) {
+                const parent = state.nodes.find(n => n.id === node.parentId);
+                if (parent) {
+                    nodeAbsX = parent.x + node.x;
+                    nodeAbsY = parent.y + node.y;
+                }
+            }
+
+            // Store drag start position to distinguish click from drag
+            state.dragStartX = nodeAbsX;
+            state.dragStartY = nodeAbsY;
+
+            // Multi-select drag: if node is already selected, keep selection and start drag
+            if (!e.ctrlKey && !e.metaKey && state.mode !== 'group' &&
+                state.mode !== 'connect' &&
+                state.selectedNodeIds.length > 0 && state.selectedNodeIds.includes(node.id)) {
+                state.dragNode = node;
+                state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
+                state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
+                return;
+            }
+
+            if (state.mode === 'connect') {
+                if (!state.connectingFrom) {
+                    state.connectingFrom = node.id;
+                    modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                } else if (state.connectingFrom !== node.id) {
+                    createConnection(state.connectingFrom, node.id);
+                    state.connectingFrom = null;
+                    modeIndicator.textContent = '接続モード: 開始ノードを選択';
+                    setMode('select');
+                }
+                return;
+            }
+
+            if (e.ctrlKey || e.metaKey || state.mode === 'group') {
+                toggleNodeSelection(node.id, true);
+                return;
+            }
+
+            if (state.mode === 'group') {
+                toggleNodeSelection(node.id, true);
+                return;
+            }
+
+            clearSelection();
+            state.selectedNodeId = node.id;
+            state.dragNode = node;
+            state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
+            state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
+            renderNodes();
+        }
+
+        let longPressTimer = null;
+        let isLongPress = false;
+
+        function handleNodeTouchStart(e, node) {
+            if (e.target.closest('.task-text') || e.target.closest('.add-task') ||
+                e.target.closest('input[type="checkbox"]') || e.target.closest('.node-color')) return;
+
+            e.stopPropagation();
+            e.preventDefault();
+
+            const touch = e.touches[0];
+
+            if (state.mode === 'connect') {
+                if (!state.connectingFrom) {
+                    state.connectingFrom = node.id;
+                    modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                } else if (state.connectingFrom !== node.id) {
+                    createConnection(state.connectingFrom, node.id);
+                    state.connectingFrom = null;
+                    setMode('select');
+                }
+                return;
+            }
+
+            isLongPress = false;
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                toggleNodeSelection(node.id, true);
+            }, 500);
+
+            state.selectedNodeId = node.id;
+            state.dragNode = node;
+            // Calculate absolute position for drag offset
+            let nodeAbsX = node.x;
+            let nodeAbsY = node.y;
+            if (node.parentId !== null) {
+                const parent = state.nodes.find(n => n.id === node.parentId);
+                if (parent) {
+                    nodeAbsX = parent.x + node.x;
+                    nodeAbsY = parent.y + node.y;
+                }
+            }
+            state.dragOffsetX = (touch.clientX - state.panX) / state.scale - nodeAbsX;
+            state.dragOffsetY = (touch.clientY - state.panY) / state.scale - nodeAbsY;
+            renderNodes();
+        }
+
+        container.addEventListener('mousedown', (e) => {
+            if (e.target !== container && e.target !== canvas && !e.target.classList.contains('selection-box')) return;
+
+            if (state.mode === 'node') {
+                const x = (e.clientX - state.panX) / state.scale;
+                const y = (e.clientY - state.panY) / state.scale;
+                createNode(x, y);
+                setMode('select');
+                return;
+            }
+
+            if (state.mode === 'pan' || e.button === 1 || e.button === 2 || e.shiftKey) {
+                state.isPanning = true;
+                state.lastMouseX = e.clientX;
+                state.lastMouseY = e.clientY;
+                container.classList.add('panning');
+                e.preventDefault();
+            } else {
+                // Range selection start
+                if (!e.ctrlKey && !e.metaKey) {
+                    clearSelection();
+                }
+                state.isSelecting = true;
+                state.selectionStartX = (e.clientX - state.panX) / state.scale;
+                state.selectionStartY = (e.clientY - state.panY) / state.scale;
+                updateSelectionBox();
+                e.preventDefault();
+            }
+        });
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+
+                if (state.mode === 'node') {
+                    const x = (touch.clientX - state.panX) / state.scale;
+                    const y = (touch.clientY - state.panY) / state.scale;
+                    createNode(x, y);
+                    setMode('select');
+                    return;
+                }
+
+                state.isPanning = true;
+                state.lastMouseX = touch.clientX;
+                state.lastMouseY = touch.clientY;
+            } else if (e.touches.length === 2) {
+                state.lastPinchDist = getPinchDistance(e.touches);
+                state.lastPinchScale = state.scale;
+            }
+        }, { passive: false });
+
+        window.addEventListener('mousemove', (e) => {
+            // Update pending connection line
+            if (state.connectingFrom || state.draggingConn) {
+                updatePendingConnection(e.clientX, e.clientY);
+            }
+
+            // Drag collapsed indicator to move hidden node and all descendants
+            if (state.dragIndicator) {
+                const containerRect = container.getBoundingClientRect();
+                const newIndX = (e.clientX - containerRect.left - state.panX) / state.scale - state.dragIndicator.indOffsetX;
+                const newIndY = (e.clientY - containerRect.top - state.panY) / state.scale - state.dragIndicator.indOffsetY;
+                
+                // Update current indicator position for rendering
+                state.dragIndicator.currentIndX = newIndX;
+                state.dragIndicator.currentIndY = newIndY;
+
+                // Move all hidden descendants following the indicator with relative offsets
+                state.dragIndicator.hiddenDescendants.forEach(desc => {
+                    desc.node.x = newIndX + desc.offsetX;
+                    desc.node.y = newIndY + desc.offsetY;
+                    // Update original position tracking
+                    if (desc.conn.originalToPos) {
+                        desc.conn.originalToPos.x = desc.node.x;
+                        desc.conn.originalToPos.y = desc.node.y;
+                    }
+                });
+                // Save indicator position on the main connection only (not descendants)
+                // to avoid incorrect position references when descendants are independently collapsed
+                state.dragIndicator.conn.indX = newIndX;
+                state.dragIndicator.conn.indY = newIndY;
+
+                renderNodes();
+                renderConnections();
+                return;
+            }
+
+            if (state.isPanning) {
+                state.panX += e.clientX - state.lastMouseX;
+                state.panY += e.clientY - state.lastMouseY;
+                state.lastMouseX = e.clientX;
+                state.lastMouseY = e.clientY;
+                updateTransform();
+            }
+
+            // Connection dragging - change source or destination node
+            if (state.draggingConn) {
+                const mx = (e.clientX - state.panX) / state.scale;
+                const my = (e.clientY - state.panY) / state.scale;
+
+                // Find node under cursor - unified hit detection: closest center wins
+                let candidates = [];
+                for (const node of state.nodes) {
+                    if (node.id === state.draggingConn.from || node.id === state.draggingConn.to) continue;
+                    const nx = node.x;
+                    const ny = node.y;
+                    const nw = node.width || 200;
+                    const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                    const nh = domEl ? domEl.offsetHeight : (node.height || 50);
+                    if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                        const centerX = nx + nw / 2;
+                        const centerY = ny + nh / 2;
+                        const dist = Math.hypot(mx - centerX, my - centerY);
+                        candidates.push({ node, dist });
+                    }
+                }
+                let targetNode = null;
+                let minDist = Infinity;
+                for (const c of candidates) {
+                    if (c.dist < minDist) {
+                        minDist = c.dist;
+                        targetNode = c.node;
+                    }
+                }
+
+                state.connDragTarget = targetNode;
+
+                // Visual feedback: highlight target node
+                document.querySelectorAll('.node').forEach(el => {
+                    const nid = parseInt(el.dataset.id);
+                    if (targetNode && nid === targetNode.id) {
+                        el.style.outline = '3px solid #4a90d9';
+                        el.style.outlineOffset = '2px';
+                    } else {
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    }
+                });
+                return;
+            }
+
+            if (state.groupDrag) {
+                const newX = (e.clientX - state.panX) / state.scale - state.groupDragOffsetX;
+                const newY = (e.clientY - state.panY) / state.scale - state.groupDragOffsetY;
+                const dx = newX - state.groupDrag.x;
+                const dy = newY - state.groupDrag.y;
+                state.groupDrag.x = newX;
+                state.groupDrag.y = newY;
+
+                // Move all member nodes relative to group
+                state.groupDrag.nodeIds.forEach(id => {
+                    const node = state.nodes.find(n => n.id === id);
+                    const orig = state.groupDragNodePositions.get(id);
+                    if (node && orig) {
+                        node.x = orig.x + dx;
+                        node.y = orig.y + dy;
+                    }
+                });
+
+                renderNodes();
+                renderConnections();
+                renderGroups();
+                return;
+            }
+
+            if (state.isSelecting) {
+                const curX = (e.clientX - state.panX) / state.scale;
+                const curY = (e.clientY - state.panY) / state.scale;
+                updateSelectionBox(state.selectionStartX, state.selectionStartY, curX, curY);
+
+                // Select nodes inside box
+                const minX = Math.min(state.selectionStartX, curX);
+                const minY = Math.min(state.selectionStartY, curY);
+                const maxX = Math.max(state.selectionStartX, curX);
+                const maxY = Math.max(state.selectionStartY, curY);
+
+                state.selectedNodeIds = state.nodes.filter(n => {
+                    const nx = n.x;
+                    const ny = n.y;
+                    const nw = n.width || 200;
+                    const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
+                    const nh = domEl ? domEl.offsetHeight : (n.height || 50);
+                    return nx < maxX && nx + nw > minX && ny < maxY && ny + nh > minY;
+                }).map(n => n.id);
+
+                if (state.selectedNodeIds.length > 0) {
+                    state.selectedNodeId = state.selectedNodeIds[state.selectedNodeIds.length - 1];
+                }
+                renderNodes();
+                return;
+            }
+
+            // Resize node
+            if (state.resizingNode) {
+                const dx = (e.clientX - state.resizeStartX) / state.scale;
+                const dy = (e.clientY - state.resizeStartY) / state.scale;
+                const pos = state.resizeHandle;
+                
+                let newWidth = state.resizeStartWidth;
+                let newHeight = state.resizeStartHeight;
+                let newX = state.resizeStartLeft;
+                let newY = state.resizeStartTop;
+                
+                if (pos.includes('e')) {
+                    newWidth = Math.max(160, state.resizeStartWidth + dx);
+                }
+                if (pos.includes('w')) {
+                    newWidth = Math.max(160, state.resizeStartWidth - dx);
+                    newX = state.resizeStartLeft + dx;
+                }
+                if (pos.includes('s')) {
+                    newHeight = Math.max(50, state.resizeStartHeight + dy);
+                }
+                if (pos.includes('n')) {
+                    newHeight = Math.max(50, state.resizeStartHeight - dy);
+                    newY = state.resizeStartTop + dy;
+                }
+                
+                state.resizingNode.width = newWidth;
+                state.resizingNode.height = newHeight;
+                
+                // Update position - use absX/absY for child nodes, x/y for root nodes
+                if (state.resizingNode.parentId !== null) {
+                    state.resizingNode.absX = newX;
+                    state.resizingNode.absY = newY;
+                } else {
+                    state.resizingNode.x = newX;
+                    state.resizingNode.y = newY;
+                }
+                
+                // Update DOM directly to avoid full re-render during resize
+                const domEl = document.querySelector(`.node[data-id="${state.resizingNode.id}"]`);
+                if (domEl) {
+                    domEl.style.width = newWidth + 'px';
+                    domEl.style.height = newHeight + 'px';
+                    domEl.style.left = newX + 'px';
+                    domEl.style.top = newY + 'px';
+                }
+                
+                // Update resize handles position during resize
+                document.querySelectorAll(`.resize-handle[data-node-id="${state.resizingNode.id}"]`).forEach(handle => {
+                    const pos = handle.dataset.pos;
+                    let hx, hy;
+                    if (pos === 'nw') { hx = newX - 5; hy = newY - 5; }
+                    else if (pos === 'ne') { hx = newX + newWidth - 5; hy = newY - 5; }
+                    else if (pos === 'sw') { hx = newX - 5; hy = newY + newHeight - 5; }
+                    else if (pos === 'se') { hx = newX + newWidth - 5; hy = newY + newHeight - 5; }
+                    handle.style.left = hx + 'px';
+                    handle.style.top = hy + 'px';
+                });
+                
+                renderConnections();
+                return;
+            }
+
+            // Check child drag candidate - if moved enough, start drag without removing parentId
+            if (state.childDragCandidate) {
+                const dist = Math.hypot(e.clientX - state.childDragCandidate.startClientX, e.clientY - state.childDragCandidate.startClientY);
+                if (dist > 5) {
+                    const child = state.childDragCandidate.node;
+                    const parentNode = state.nodes.find(n => n.id === child.parentId);
+                    if (parentNode) {
+                        // Get the actual DOM position of the task-item for accurate visual placement
+                        const taskItem = state.childDragCandidate.element || document.querySelector(`.task-item[data-child-id="${child.id}"]`);
+                        if (taskItem) {
+                            const rect = taskItem.getBoundingClientRect();
+                            child.absX = (rect.left - state.panX) / state.scale;
+                            child.absY = (rect.top - state.panY) / state.scale;
+                        } else {
+                            // Fallback to model coordinates
+                            child.absX = parentNode.x + child.x;
+                            child.absY = parentNode.y + child.y;
+                        }
+                    }
+                    // Keep parentId during drag - ghost representation
+                    state.dragNode = child;
+                    state.dragStartX = child.absX || child.x;
+                    state.dragStartY = child.absY || child.y;
+                    state.dragOffsetX = (e.clientX - state.panX) / state.scale - (child.absX || child.x);
+                    state.dragOffsetY = (e.clientY - state.panY) / state.scale - (child.absY || child.y);
+                    state.childDragCandidate = null;
+                    renderNodes();
+                }
+                return;
+            }
+
+            if (state.dragNode) {
+                const newX = (e.clientX - state.panX) / state.scale - state.dragOffsetX;
+                const newY = (e.clientY - state.panY) / state.scale - state.dragOffsetY;
+                
+                // Calculate old absolute position
+                let oldAbsX = state.dragNode.x;
+                let oldAbsY = state.dragNode.y;
+                if (state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        oldAbsX = parent.x + state.dragNode.x;
+                        oldAbsY = parent.y + state.dragNode.y;
+                    }
+                }
+                
+                const dx = newX - oldAbsX;
+                const dy = newY - oldAbsY;
+                
+                // Update position - for child nodes, update relative to parent but use absolute for display
+                if (state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        state.dragNode.x = newX - parent.x;
+                        state.dragNode.y = newY - parent.y;
+                        state.dragNode.absX = newX;
+                        state.dragNode.absY = newY;
+                    }
+                } else {
+                    state.dragNode.x = newX;
+                    state.dragNode.y = newY;
+                }
+
+                // Move all selected nodes together
+                if (state.selectedNodeIds.length > 1) {
+                    state.selectedNodeIds.forEach(id => {
+                        if (id !== state.dragNode.id) {
+                            const n = state.nodes.find(node => node.id === id);
+                            if (n) {
+                                n.x += dx;
+                                n.y += dy;
+                            }
+                        }
+                    });
+                }
+
+                // Update collapsed connection destinations' positions when dragging source
+                if (state.dragNode) {
+                    const movedNodes = new Set();
+                    const moveCascade = (fromId, dx, dy) => {
+                        state.connections.forEach(conn => {
+                            if (conn.from === fromId && conn.collapsed) {
+                                const toNode = state.nodes.find(n => n.id === conn.to);
+                                if (toNode && !movedNodes.has(toNode.id)) {
+                                    movedNodes.add(toNode.id);
+                                    toNode.x += dx;
+                                    toNode.y += dy;
+                                    if (conn.originalToPos) {
+                                        conn.originalToPos.x += dx;
+                                        conn.originalToPos.y += dy;
+                                    }
+                                    // Recursively move descendants
+                                    moveCascade(toNode.id, dx, dy);
+                                }
+                            }
+                        });
+                    };
+                    moveCascade(state.dragNode.id, dx, dy);
+                }
+
+                // Detect drop target for nesting - unified hit detection:
+                // 1. Mouse must be inside the displayed target's bounding box
+                // 2. If multiple overlap, prioritize the one whose center is closest to mouse
+                if (state.dragNode && !state.selectedNodeIds.includes(state.dragNode.id)) {
+                    const mx = (e.clientX - state.panX) / state.scale;
+                    const my = (e.clientY - state.panY) / state.scale;
+                    let candidates = [];
+                    
+                    // Check all ROOT nodes using absolute coordinates - mouse inside node rect
+                    for (const node of state.nodes) {
+                        if (node.id === state.dragNode.id) continue;
+                        if (state.selectedNodeIds.includes(node.id)) continue;
+                        if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
+                        if (node.parentId !== null) continue;
+                        
+                        const nx = node.x;
+                        const ny = node.y;
+                        const nw = node.width || 200;
+                        let nh = node.height || 50;
+                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                        if (domEl) {
+                            nh = domEl.offsetHeight;
+                        }
+                        
+                        // Bounding box hit test
+                        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                            const centerX = nx + nw / 2;
+                            const centerY = ny + nh / 2;
+                            const dist = Math.hypot(mx - centerX, my - centerY);
+                            candidates.push({ node, dist });
+                        }
+                    }
+                    
+                    // Also check child task items (.task-item) using DOM bounding box
+                    const taskItems = document.querySelectorAll('.task-item');
+                    for (const item of taskItems) {
+                        const rect = item.getBoundingClientRect();
+                        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                        const itemX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                        const itemY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                        const itemW = rect.width / state.scale;
+                        const itemH = rect.height / state.scale;
+                        
+                        if (mx >= itemX && mx <= itemX + itemW && my >= itemY && my <= itemY + itemH) {
+                            const childId = parseInt(item.dataset.childId);
+                            if (childId && childId !== state.dragNode.id && !state.selectedNodeIds.includes(childId)) {
+                                const node = state.nodes.find(n => n.id === childId);
+                                if (node && state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
+                                if (node) {
+                                    const centerX = itemX + itemW / 2;
+                                    const centerY = itemY + itemH / 2;
+                                    const dist = Math.hypot(mx - centerX, my - centerY);
+                                    candidates.push({ node, dist });
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Pick candidate with closest center to mouse
+                    let targetNode = null;
+                    let minDist = Infinity;
+                    for (const c of candidates) {
+                        if (c.dist < minDist) {
+                            minDist = c.dist;
+                            targetNode = c.node;
+                        }
+                    }
+                    
+                    state.dropTarget = targetNode;
+                }
+
+                renderNodes();
+                renderConnections();
+                renderGroups();
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            // Update pending connection line for touch
+            if ((state.connectingFrom || state.draggingConn) && e.touches.length === 1) {
+                const touch = e.touches[0];
+                updatePendingConnection(touch.clientX, touch.clientY);
+            }
+
+            if (state.isPanning && e.touches.length === 1) {
+                const touch = e.touches[0];
+                state.panX += touch.clientX - state.lastMouseX;
+                state.panY += touch.clientY - state.lastMouseY;
+                state.lastMouseX = touch.clientX;
+                state.lastMouseY = touch.clientY;
+                updateTransform();
+            }
+
+            if (state.groupDrag && e.touches.length === 1) {
+                const touch = e.touches[0];
+                const newX = (touch.clientX - state.panX) / state.scale - state.groupDragOffsetX;
+                const newY = (touch.clientY - state.panY) / state.scale - state.groupDragOffsetY;
+                const dx = newX - state.groupDrag.x;
+                const dy = newY - state.groupDrag.y;
+                state.groupDrag.x = newX;
+                state.groupDrag.y = newY;
+
+                state.groupDrag.nodeIds.forEach(id => {
+                    const node = state.nodes.find(n => n.id === id);
+                    const orig = state.groupDragNodePositions.get(id);
+                    if (node && orig) {
+                        node.x = orig.x + dx;
+                        node.y = orig.y + dy;
+                    }
+                });
+
+                renderNodes();
+                renderConnections();
+                renderGroups();
+            }
+
+            if (e.touches.length === 2) {
+                const dist = getPinchDistance(e.touches);
+                const scale = state.lastPinchScale * (dist / state.lastPinchDist);
+                setZoom(scale);
+            }
+
+            // Check child drag candidate for touch - if moved enough, start drag without removing parentId
+            if (state.childDragCandidate && e.touches.length === 1) {
+                const touch = e.touches[0];
+                const dist = Math.hypot(touch.clientX - state.childDragCandidate.startClientX, touch.clientY - state.childDragCandidate.startClientY);
+                if (dist > 5) {
+                    const child = state.childDragCandidate.node;
+                    const parentNode = state.nodes.find(n => n.id === child.parentId);
+                    if (parentNode) {
+                        // Get the actual DOM position of the task-item for accurate visual placement
+                        const taskItem = state.childDragCandidate.element || document.querySelector(`.task-item[data-child-id="${child.id}"]`);
+                        if (taskItem) {
+                            const rect = taskItem.getBoundingClientRect();
+                            child.absX = (rect.left - state.panX) / state.scale;
+                            child.absY = (rect.top - state.panY) / state.scale;
+                        } else {
+                            // Fallback to model coordinates
+                            child.absX = parentNode.x + child.x;
+                            child.absY = parentNode.y + child.y;
+                        }
+                    }
+                    // Keep parentId during drag - ghost representation
+                    state.dragNode = child;
+                    state.dragStartX = child.absX || child.x;
+                    state.dragStartY = child.absY || child.y;
+                    state.dragOffsetX = (touch.clientX - state.panX) / state.scale - (child.absX || child.x);
+                    state.dragOffsetY = (touch.clientY - state.panY) / state.scale - (child.absY || child.y);
+                    state.childDragCandidate = null;
+                    renderNodes();
+                }
+                return;
+            }
+
+            if (state.dragNode && e.touches.length === 1) {
+                const touch = e.touches[0];
+
+                // Cancel long press if moved
+                if (longPressTimer) {
+                    const moveDist = Math.hypot(touch.clientX - state.lastMouseX, touch.clientY - state.lastMouseY);
+                    if (moveDist > 10) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                        isLongPress = false;
+                    }
+                }
+
+                const newX = (touch.clientX - state.panX) / state.scale - state.dragOffsetX;
+                const newY = (touch.clientY - state.panY) / state.scale - state.dragOffsetY;
+                
+                // Calculate old absolute position
+                let oldAbsX = state.dragNode.x;
+                let oldAbsY = state.dragNode.y;
+                if (state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        oldAbsX = parent.x + state.dragNode.x;
+                        oldAbsY = parent.y + state.dragNode.y;
+                    }
+                }
+                
+                const dx = newX - oldAbsX;
+                const dy = newY - oldAbsY;
+                
+                // Update position (relative if child, absolute if parent)
+                if (state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        state.dragNode.x = newX - parent.x;
+                        state.dragNode.y = newY - parent.y;
+                        state.dragNode.absX = newX;
+                        state.dragNode.absY = newY;
+                    }
+                } else {
+                    state.dragNode.x = newX;
+                    state.dragNode.y = newY;
+                }
+
+                if (state.selectedNodeIds.length > 1) {
+                    state.selectedNodeIds.forEach(id => {
+                        if (id !== state.dragNode.id) {
+                            const n = state.nodes.find(node => node.id === id);
+                            if (n) {
+                                n.x += dx;
+                                n.y += dy;
+                            }
+                        }
+                    });
+                }
+
+                renderNodes();
+                renderConnections();
+                renderGroups();
+            }
+
+            // Connection drag on mobile
+            if (state.draggingConn && e.touches.length === 1) {
+                const touch = e.touches[0];
+                const mx = (touch.clientX - state.panX) / state.scale;
+                const my = (touch.clientY - state.panY) / state.scale;
+
+                let targetNode = null;
+                for (const node of state.nodes) {
+                    if (node.id === state.draggingConn.from) continue;
+                    // Skip hidden nodes
+                    if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
+                    
+                    // Calculate absolute position for proper hit testing
+                    let nx = node.x;
+                    let ny = node.y;
+                    if (node.parentId !== null) {
+                        const parent = state.nodes.find(n => n.id === node.parentId);
+                        if (parent) {
+                            nx = parent.x + node.x;
+                            ny = parent.y + node.y;
+                        }
+                    }
+                    
+                    const nw = node.width || 200;
+                    const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                    const nh = domEl ? domEl.offsetHeight : (node.height || 50);
+                    if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                        targetNode = node;
+                        break;
+                    }
+                }
+
+                state.connDragTarget = targetNode;
+                document.querySelectorAll('.node').forEach(el => {
+                    const nid = parseInt(el.dataset.id);
+                    if (targetNode && nid === targetNode.id) {
+                        el.style.outline = '3px solid #4a90d9';
+                        el.style.outlineOffset = '2px';
+                    } else {
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    }
+                });
+            }
+        }, { passive: false });
+
+        window.addEventListener('mouseup', () => {
+            state.isPanning = false;
+            container.classList.remove('panning');
+            if (state.isSelecting) {
+                state.isSelecting = false;
+                document.getElementById('selection-box').style.display = 'none';
+            }
+
+            // Finalize connection drag
+            if (state.draggingConn) {
+                if (state.connDragTarget) {
+                    const isSource = state.draggingConn.isSource;
+                    const otherId = isSource ? state.draggingConn.to : state.draggingConn.from;
+                    const targetId = state.connDragTarget.id;
+
+                    if (targetId !== otherId) {
+                        const exists = state.connections.some(c =>
+                            c.from === (isSource ? targetId : otherId) && c.to === (isSource ? otherId : targetId)
+                        );
+                        if (!exists) {
+                            if (isSource) {
+                                state.draggingConn.from = targetId;
+                            } else {
+                                state.draggingConn.to = targetId;
+                            }
+                            renderConnections();
+                            showToast('接続を変更しました');
+                        } else {
+                            showToast('同じ接続が既に存在します');
+                        }
+                    }
+                }
+                delete state.draggingConn.isSource;
+                state.draggingConn = null;
+                state.connDragTarget = null;
+                document.querySelectorAll('.node').forEach(el => {
+                    el.style.outline = '';
+                    el.style.outlineOffset = '';
+                });
+            }
+
+            // Clear pending connection line
+            const tempLine = document.getElementById('pending-connection');
+            if (tempLine) tempLine.remove();
+
+            // Calculate whether node was actually dragged (vs just clicked)
+            const CLICK_THRESHOLD = 5;
+            let wasDragged = false;
+            if (state.dragNode) {
+                let currentAbsX = state.dragNode.x;
+                let currentAbsY = state.dragNode.y;
+                if (state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        currentAbsX = parent.x + state.dragNode.x;
+                        currentAbsY = parent.y + state.dragNode.y;
+                    }
+                }
+                wasDragged = Math.hypot(currentAbsX - state.dragStartX, currentAbsY - state.dragStartY) > CLICK_THRESHOLD;
+            }
+
+            // Node nesting: if dropped on another node, make it a child
+            const didNest = !!(wasDragged && state.dropTarget && state.dragNode);
+            if (wasDragged && state.dropTarget && state.dragNode) {
+                const child = state.dragNode;
+                const parent = state.dropTarget;
+
+                // Prevent circular nesting
+                let current = parent;
+                let isCircular = false;
+                while (current) {
+                    if (current.id === child.id) {
+                        isCircular = true;
+                        break;
+                    }
+                    current = state.nodes.find(n => n.id === current.parentId);
+                }
+
+                if (!isCircular && child.id !== parent.id) {
+                    // Convert child's absolute position to relative position
+                    if (child.parentId !== null) {
+                        // Child was already nested, convert to absolute first
+                        const oldParent = state.nodes.find(n => n.id === child.parentId);
+                        if (oldParent) {
+                            child.x = oldParent.x + child.x;
+                            child.y = oldParent.y + child.y;
+                        }
+                    }
+                    child.parentId = parent.id;
+                    // Get actual parent height from DOM if available
+                    const parentDomEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                    const parentHeight = parentDomEl ? parentDomEl.offsetHeight : (parent.height || 50);
+                    // Position child within parent's task list area (relative coordinates)
+                    child.x = 20;
+                    child.y = parentHeight + 10;
+                    // Adjust child width to fit parent
+                    child.width = Math.max(160, (parent.width || 200) - 40);
+                    parent.expanded = true;
+                    showToast('ノードをタスクとして追加しました');
+                }
+            }
+            state.dropTarget = null;
+
+            // Save final positions of dragged indicator nodes
+            if (state.dragIndicator) {
+                const conn = state.dragIndicator.conn;
+                const toNode = state.nodes.find(n => n.id === conn.to);
+                if (toNode) {
+                    conn.originalToPos = { x: toNode.x, y: toNode.y };
+                }
+            }
+
+            state.dragIndicator = null;
+
+
+            // Node extraction: if child node is dragged outside parent, remove parent relationship
+            // Unified hit detection: use parent's actual displayed bounding box
+            let didExtract = false;
+            if (!didNest && wasDragged && state.dragNode && state.dragNode.parentId !== null) {
+                const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                if (parent) {
+                    // Convert relative coordinates to absolute coordinates
+                    const absX = parent.x + state.dragNode.x;
+                    const absY = parent.y + state.dragNode.y;
+                    
+                    // Get parent's actual displayed bounding box
+                    const px = parent.x;
+                    const py = parent.y;
+                    const pw = parent.width || 200;
+                    const domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                    const ph = domEl ? domEl.offsetHeight : (parent.height || 50);
+                    
+                    // Check if dropped outside parent's displayed bounding box (with small margin)
+                    const MARGIN = 30;
+                    if (absX < px - MARGIN || absX > px + pw + MARGIN || absY < py - MARGIN || absY > py + ph + MARGIN) {
+                        state.dragNode.x = absX;
+                        state.dragNode.y = absY;
+                        state.dragNode.parentId = null;
+                        didExtract = true;
+                        showToast('ノードを取り出しました');
+                    }
+                }
+            }
+
+            // Handle drop for dragged child nodes - snap to nearby ROOT nodes only
+            // Unified hit detection: bounding box overlap + closest center wins
+            if (!didExtract && wasDragged && state.dragNode && state.dragNode.parentId === null) {
+                const dropX = state.dragNode.x;
+                const dropY = state.dragNode.y;
+                let candidates = [];
+                
+                for (const n of state.nodes) {
+                    if (n.id === state.dragNode.id) continue;
+                    if (n.parentId !== null) continue;
+                    if (state.hiddenNodeIds && state.hiddenNodeIds.has(n.id)) continue;
+                    
+                    const nx = n.x;
+                    const ny = n.y;
+                    const nw = n.width || 200;
+                    const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
+                    const nh = domEl ? domEl.offsetHeight : (n.height || 50);
+                    
+                    // Bounding box hit test
+                    if (dropX >= nx && dropX <= nx + nw && dropY >= ny && dropY <= ny + nh) {
+                        const centerX = nx + nw / 2;
+                        const centerY = ny + nh / 2;
+                        const dist = Math.hypot(dropX - centerX, dropY - centerY);
+                        candidates.push({ node: n, dist });
+                    }
+                }
+                
+                // Pick candidate with closest center to drop position
+                let nearestNode = null;
+                let minDist = Infinity;
+                for (const c of candidates) {
+                    if (c.dist < minDist) {
+                        minDist = c.dist;
+                        nearestNode = c.node;
+                    }
+                }
+                
+                if (nearestNode) {
+                    state.dragNode.x = dropX - nearestNode.x;
+                    state.dragNode.y = dropY - nearestNode.y;
+                    state.dragNode.parentId = nearestNode.id;
+                    state.dragNode.expanded = false;
+                    showToast('ノードを移動しました');
+                }
+            }
+
+            state.dragNode = null;
+            renderNodes();
+            renderConnections();
+
+            // Cancel child drag candidate if it was just a click (not a drag)
+            if (state.childDragCandidate) {
+                state.childDragCandidate = null;
+            }
+
+            // End resize
+            if (state.resizingNode) {
+                // Update relative coordinates for child nodes
+                if (state.resizingNode.parentId !== null) {
+                    const parentNode = state.nodes.find(n => n.id === state.resizingNode.parentId);
+                    if (parentNode) {
+                        state.resizingNode.x = state.resizingNode.absX - parentNode.x;
+                        state.resizingNode.y = state.resizingNode.absY - parentNode.y;
+                    }
+                }
+                document.querySelectorAll('.node.resizing').forEach(el => {
+                    el.classList.remove('resizing');
+                });
+                document.querySelectorAll('.resize-handle.resizing').forEach(el => {
+                    el.classList.remove('resizing');
+                });
+                state.resizingNode = null;
+            }
+        });
+
+        window.addEventListener('touchend', (e) => {
+            state.isPanning = false;
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            if (state.isSelecting) {
+                state.isSelecting = false;
+                document.getElementById('selection-box').style.display = 'none';
+            }
+
+            // Finalize connection drag
+            if (state.draggingConn) {
+                const touch = e.changedTouches[0];
+                if (touch) {
+                    const mx = (touch.clientX - state.panX) / state.scale;
+                    const my = (touch.clientY - state.panY) / state.scale;
+                    // Unified hit detection: closest center wins
+                    let candidates = [];
+                    for (const node of state.nodes) {
+                        if (node.id === state.draggingConn.from || node.id === state.draggingConn.to) continue;
+                        const nx = node.x;
+                        const ny = node.y;
+                        const nw = node.width || 200;
+                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                        const nh = domEl ? domEl.offsetHeight : (node.height || 50);
+                        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                            const centerX = nx + nw / 2;
+                            const centerY = ny + nh / 2;
+                            const dist = Math.hypot(mx - centerX, my - centerY);
+                            candidates.push({ node, dist });
+                        }
+                    }
+                    let targetNode = null;
+                    let minDist = Infinity;
+                    for (const c of candidates) {
+                        if (c.dist < minDist) {
+                            minDist = c.dist;
+                            targetNode = c.node;
+                        }
+                    }
+                    if (targetNode) {
+                        const isSource = state.draggingConn.isSource;
+                        const otherId = isSource ? state.draggingConn.to : state.draggingConn.from;
+                        const targetId = targetNode.id;
+
+                        if (targetId !== otherId) {
+                            const exists = state.connections.some(c =>
+                                c.from === (isSource ? targetId : otherId) && c.to === (isSource ? otherId : targetId)
+                            );
+                            if (!exists) {
+                                if (isSource) {
+                                    state.draggingConn.from = targetId;
+                                } else {
+                                    state.draggingConn.to = targetId;
+                                }
+                                renderConnections();
+                                showToast('接続を変更しました');
+                            } else {
+                                showToast('同じ接続が既に存在します');
+                            }
+                        }
+                    }
+                }
+                delete state.draggingConn.isSource;
+                state.draggingConn = null;
+                state.connDragTarget = null;
+                document.querySelectorAll('.node').forEach(el => {
+                    el.style.outline = '';
+                    el.style.outlineOffset = '';
+                });
+            }
+
+            // Clear pending connection line
+            const tempLine = document.getElementById('pending-connection');
+            if (tempLine) tempLine.remove();
+
+            state.dragNode = null;
+
+            // Cancel child drag candidate if it was just a tap (not a drag)
+            if (state.childDragCandidate) {
+                state.childDragCandidate = null;
+            }
+        });
+
+        function getPinchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function showConnectionContextMenu(x, y, conn) {
+            const existing = document.querySelector('.context-menu');
+            if (existing) existing.remove();
+
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.display = 'block';
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+
+            const fromNode = state.nodes.find(n => n.id === conn.from);
+            const toNode = state.nodes.find(n => n.id === conn.to);
+
+            const items = [
+                { text: conn.collapsed ? '接続を展開' : '接続を折りたたむ', icon: '📂', action: () => {
+                    conn.collapsed = !conn.collapsed;
+                    if (conn.collapsed && !conn.originalToPos && toNode) {
+                        conn.originalToPos = { x: toNode.x, y: toNode.y };
+                    }
+                    renderNodes();
+                    renderConnections();
+                }},
+                { text: 'ラベル編集', icon: '🏷️', action: () => {
+                    enableConnectionLabelEdit(conn);
+                }},
+                { text: '削除', icon: '🗑️', class: 'delete', action: () => {
+                    if (confirm('この接続を削除しますか?')) {
+                        deleteConnection(conn.from, conn.to);
+                    }
+                }}
+            ];
+
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'context-item' + (item.class ? ' ' + item.class : '');
+                el.innerHTML = `${item.icon} ${item.text}`;
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    item.action();
+                    menu.remove();
+                });
+                menu.appendChild(el);
+            });
+
+            document.body.appendChild(menu);
+
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+            if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+
+            const close = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        // ==================== Context Menu ====================
+        container.addEventListener('contextmenu', (e) => {
+            if (e.target !== container && e.target !== canvas && !e.target.closest('#nodes') && !e.target.closest('.conn-group') && !e.target.closest('#connections')) return;
+            e.preventDefault();
+            showCanvasContextMenu(e.clientX, e.clientY, e);
+        });
+
+        function showCanvasContextMenu(x, y, clickEvent) {
+            const existing = document.querySelector('.context-menu');
+            if (existing) existing.remove();
+
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.display = 'block';
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+
+            const items = [];
+
+            // Node-specific items
+            const targetNode = clickEvent?.target?.closest('.node');
+            const targetTaskItem = clickEvent?.target?.closest('.task-item');
+            
+            if (targetTaskItem) {
+                // Child node (task item) context menu
+                const childId = parseInt(targetTaskItem.dataset.childId);
+                const childNode = state.nodes.find(n => n.id === childId);
+                const childTitleEl = targetTaskItem.querySelector('.task-text');
+                
+                    if (childNode && childTitleEl) {
+                    items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
+                        console.log('Child title edit clicked', childTitleEl, childNode);
+                        menu.remove();
+                        try {
+                            enableTitleEdit(childTitleEl, childNode);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    }});
+                    items.push({ text: '子ノードを削除', icon: '🗑️', class: 'delete', action: () => {
+                        if (confirm('この子ノードを削除しますか?')) {
+                            const parent = state.nodes.find(n => n.id === childNode.parentId);
+                            if (parent) {
+                                parent.children = parent.children.filter(c => c !== childId);
+                            }
+                            state.nodes = state.nodes.filter(n => n.id !== childId);
+                            state.connections = state.connections.filter(c => c.from !== childId && c.to !== childId);
+                            renderNodes();
+                            renderConnections();
+                        }
+                    }});
+                }
+            } else if (targetNode) {
+                const nodeId = parseInt(targetNode.dataset.id);
+                const node = state.nodes.find(n => n.id === nodeId);
+                const titleEl = targetNode.querySelector('.node-title') || targetNode.querySelector('.task-text');
+
+                items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
+                    console.log('Root title edit clicked', titleEl, node);
+                    menu.remove();
+                    if (titleEl) {
+                        try {
+                            enableTitleEdit(titleEl, node);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    }
+                }});
+                items.push({ text: '接続作成', icon: '🔗', action: () => {
+                    state.connectingFrom = nodeId;
+                    modeIndicator.textContent = '接続モード: 終了ノードを選択(右クリックでキャンセル)';
+                    modeIndicator.classList.add('active');
+                    setMode('connect');
+                }});
+                items.push({ text: node?.expanded ? '子ノードを折りたたむ' : '子ノードを展開', icon: '📂', action: () => {
+                    node.expanded = !node.expanded;
+                    renderNodes();
+                }});
+                items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
+                    if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
+                }});
+
+                // Ungroup option for child nodes
+                if (node?.parentId !== null) {
+                    items.push({ text: '親子関係を解除', icon: '⬆️', action: () => {
+                        node.parentId = null;
+                        renderNodes();
+                        showToast('親子関係を解除しました');
+                    }});
+                }
+            } else {
+                // Check for connection line click
+                const targetConnGroup = clickEvent?.target?.closest('.conn-group');
+                if (targetConnGroup) {
+                    const connFrom = parseInt(targetConnGroup.getAttribute('data-from'));
+                    const connTo = parseInt(targetConnGroup.getAttribute('data-to'));
+                    const conn = state.connections.find(c => c.from === connFrom && c.to === connTo);
+                    const fromNode = state.nodes.find(n => n.id === connFrom);
+                    const toNode = state.nodes.find(n => n.id === connTo);
+                    
+                    if (conn && fromNode && toNode) {
+                        items.push({ text: conn.collapsed ? '接続を展開' : '接続を折りたたむ', icon: '📂', action: () => {
+                            conn.collapsed = !conn.collapsed;
+                            if (conn.collapsed && !conn.originalToPos) {
+                                conn.originalToPos = { x: toNode.x, y: toNode.y };
+                            }
+                            renderNodes();
+                            renderConnections();
+                        }});
+                        items.push({ text: '接続を削除', icon: '🗑️', class: 'delete', action: () => {
+                            if (confirm('この接続を削除しますか?')) {
+                                deleteConnection(connFrom, connTo);
+                            }
+                        }});
+                    }
+                }
+                
+                // Canvas items
+                if (!targetConnGroup && state.connectingFrom) {
+                    items.push({ text: '接続モードをキャンセル', icon: '❌', action: () => {
+                        state.connectingFrom = null;
+                        const tempLine = document.getElementById('pending-connection');
+                        if (tempLine) tempLine.remove();
+                        modeIndicator.classList.remove('active');
+                        setMode('select');
+                    }});
+                } else {
+                    items.push({ text: 'ノード追加', icon: '📦', action: () => {
+                        const cx = (x - state.panX) / state.scale;
+                        const cy = (y - state.panY) / state.scale;
+                        createNode(cx, cy);
+                    }});
+                }
+
+                if (state.selectedNodeIds.length > 1) {
+                    items.push({ text: 'グループ化', icon: '📁', action: () => {
+                        const name = prompt('グループ名:', 'グループ');
+                        if (name) createGroup([...state.selectedNodeIds], name);
+                        clearSelection();
+                    }});
+                } else if (state.selectedNodeId) {
+                    items.push({ text: 'グループ化', icon: '📁', action: () => {
+                        const selected = [state.selectedNodeId];
+                        const name = prompt('グループ名:', 'グループ');
+                        if (name) createGroup(selected, name);
+                    }});
+                }
+            }
+
+            items.push({ text: '', class: 'context-separator' });
+            items.push({ text: '全体表示', icon: '⬛', action: fitToView });
+
+            console.log('Context menu items count:', items.length, 'targetTaskItem:', !!targetTaskItem, 'targetNode:', !!targetNode);
+
+            items.forEach(item => {
+                if (item.class === 'context-separator') {
+                    const sep = document.createElement('div');
+                    sep.className = 'context-separator';
+                    menu.appendChild(sep);
+                } else {
+                    const el = document.createElement('div');
+                    el.className = 'context-item' + (item.class ? ' ' + item.class : '');
+                    el.innerHTML = `${item.icon} ${item.text}`;
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        try {
+                            item.action();
+                        } catch (err) {
+                            console.error('Error in menu action:', err);
+                        }
+                        menu.remove();
+                    });
+                    menu.appendChild(el);
+                }
+            });
+
+            document.body.appendChild(menu);
+
+            // Adjust position to stay in viewport
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+            if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+
+            const close = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        // ==================== Keyboard Shortcuts ====================
+        document.addEventListener('keydown', (e) => {
+            if (e.target.isContentEditable) {
+                if (e.key === 'Escape') e.target.blur();
+                return;
+            }
+
+            if (e.key === ' ' && !state.isPanning) {
+                e.preventDefault();
+                setMode('pan');
+                return;
+            }
+
+            if (e.key === 'v' || e.key === 'V') setMode('select');
+            if (e.key === 'n' || e.key === 'N') setMode('node');
+            if (e.key === 'c' || e.key === 'C') setMode('connect');
+            if (e.key === 'g' || e.key === 'G') {
+                if (state.selectedNodeIds.length > 1) {
+                    const name = prompt('グループ名:', 'グループ');
+                    if (name) {
+                        createGroup([...state.selectedNodeIds], name);
+                        clearSelection();
+                    }
+                } else {
+                    setMode('group');
+                }
+            }
+
+            if (e.key === 'u' || e.key === 'U') {
+                if (state.selectedNodeId) {
+                    const node = state.nodes.find(n => n.id === state.selectedNodeId);
+                    if (node && node.parentId !== null) {
+                        node.parentId = null;
+                        renderNodes();
+                        showToast('親子関係を解除しました');
+                    }
+                }
+            }
+
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (state.selectedNodeIds.length > 0) {
+                    state.selectedNodeIds.forEach(id => deleteNode(id));
+                    clearSelection();
+                } else if (state.selectedNodeId) {
+                    deleteNode(state.selectedNodeId);
+                    state.selectedNodeId = null;
+                }
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveToFile();
+            }
+
+            if (e.key === 'Escape') {
+                // Clear pending connection
+                state.connectingFrom = null;
+                const tempLine = document.getElementById('pending-connection');
+                if (tempLine) tempLine.remove();
+                modeIndicator.classList.remove('active');
+
+                setMode('select');
+                state.selectedNodeId = null;
+                renderNodes();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === ' ' && state.mode === 'pan') {
+                setMode('select');
+            }
+        });
+
+        // ==================== Selection Box ====================
+        function updateSelectionBox(x1, y1, x2, y2) {
+            const box = document.getElementById('selection-box');
+            if (!x1) {
+                box.style.display = 'none';
+                return;
+            }
+            box.style.display = 'block';
+            box.style.left = Math.min(x1, x2) + 'px';
+            box.style.top = Math.min(y1, y2) + 'px';
+            box.style.width = Math.abs(x2 - x1) + 'px';
+            box.style.height = Math.abs(y2 - y1) + 'px';
+        }
+
+        // ==================== Group Drag ====================
+        function handleGroupMouseDown(e, group) {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+            e.preventDefault();
+
+            state.groupDrag = group;
+            const startX = (e.clientX - state.panX) / state.scale;
+            const startY = (e.clientY - state.panY) / state.scale;
+            state.groupDragOffsetX = startX - group.x;
+            state.groupDragOffsetY = startY - group.y;
+
+            // Also drag all member nodes
+            const nodePositions = new Map();
+            group.nodeIds.forEach(id => {
+                const node = state.nodes.find(n => n.id === id);
+                if (node) {
+                    nodePositions.set(id, { x: node.x, y: node.y });
+                }
+            });
+            state.groupDragNodePositions = nodePositions;
+        }
+
+        function handleGroupTouchStart(e, group) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            state.groupDrag = group;
+            const startX = (touch.clientX - state.panX) / state.scale;
+            const startY = (touch.clientY - state.panY) / state.scale;
+            state.groupDragOffsetX = startX - group.x;
+            state.groupDragOffsetY = startY - group.y;
+
+            const nodePositions = new Map();
+            group.nodeIds.forEach(id => {
+                const node = state.nodes.find(n => n.id === id);
+                if (node) {
+                    nodePositions.set(id, { x: node.x, y: node.y });
+                }
+            });
+            state.groupDragNodePositions = nodePositions;
+        }
+        function saveToFile() {
+            const data = {
+                version: 2,
+                nodes: state.nodes,
+                connections: state.connections,
+                nextId: state.nextId
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `taskmind-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('保存しました');
+        }
+
+        function loadFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    state.nodes = (data.nodes || []).map(n => {
+                        const node = {
+                            ...n,
+                            completed: n.completed ?? false
+                        };
+                        delete node.tasks;
+                        return node;
+                    });
+                    state.connections = data.connections || [];
+                    state.nextId = data.nextId || 1;
+
+                    // Migrate old groups data to parentId relationships
+                    if (data.groups && data.groups.length > 0) {
+                        data.groups.forEach(g => {
+                            if (g.nodeIds && g.nodeIds.length > 0) {
+                                const parentId = g.nodeIds[0];
+                                g.nodeIds.slice(1).forEach(childId => {
+                                    const child = state.nodes.find(n => n.id === childId);
+                                    if (child) child.parentId = parentId;
+                                });
+                            }
+                        });
+                    }
+                    renderNodes();
+                    renderConnections();
+                    renderGroups();
+                    fitToView();
+                    showToast('読込みました');
+                } catch (err) {
+                    showToast('読込エラー: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        document.getElementById('btn-save').addEventListener('click', saveToFile);
+        document.getElementById('btn-load').addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) loadFromFile(e.target.files[0]);
+        });
+
+        // ==================== Utils ====================
+        function showToast(msg) {
+            toastEl.textContent = msg;
+            toastEl.classList.add('show');
+            setTimeout(() => toastEl.classList.remove('show'), 2000);
+        }
+
+        // ==================== Init ====================
+        // Create sample data
+        const node1 = createNode(100, 100, 'ゲーム開発');
+        node1.completed = false;
+        const node2 = createNode(400, 80, 'アート');
+        node2.completed = false;
+        const node3 = createNode(400, 250, 'プログラミング');
+        node3.completed = false;
+
+        // No parent-child relationship for initial nodes - they are independent
+        // Users can nest them via drag & drop if needed
+
+        createConnection(1, 2, '依頼');
+        createConnection(1, 3, '実装');
+
+        fitToView();
+    </script>
+</body>
+</html>
