@@ -187,8 +187,12 @@
             background: transparent;
             box-shadow: none;
         }
-        .node .node-tasks .node:last-child {
-            border-bottom: 1px solid #eee;
+        /* Reorder indicators */
+        .reorder-before {
+            border-top: 3px solid #4a90d9 !important;
+        }
+        .reorder-after {
+            border-bottom: 3px solid #4a90d9 !important;
         }
         .node .node-tasks .node:hover {
             background: rgba(0,0,0,0.03);
@@ -1528,21 +1532,33 @@
                         e.stopPropagation();
                     });
 
+                    // Unified mouseenter handler for child nodes
                     childEl.addEventListener('mouseenter', (e) => {
                         if (!state.isDragging || !state.dragNode || state.dragNode.id === child.id) return;
-                        if (state.dragNode.parentId !== null && state.dragNode.parentId === child.parentId) {
-                            // Same parent - show reorder indicator
-                            const rect = childEl.getBoundingClientRect();
-                            const midY = rect.top + rect.height / 2;
+                        
+                        const rect = childEl.getBoundingClientRect();
+                        const relativeY = e.clientY - rect.top;
+                        const height = rect.height;
+                        const centerZone = height * 0.3; // ±30% of height is center zone
+                        
+                        // Determine operation based on mouse position
+                        if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
+                            // Center zone - nest as child
+                            state.dropTarget = child;
+                            state.reorderTarget = null;
+                            childEl.classList.add('drop-target');
+                            childEl.classList.remove('reorder-before', 'reorder-after');
+                        } else {
+                            // Upper or lower zone - reorder
+                            const insertBefore = relativeY < height / 2;
                             state.reorderTarget = {
                                 siblingId: child.id,
-                                insertBefore: e.clientY < midY
+                                insertBefore: insertBefore,
+                                parentId: child.parentId
                             };
-                            childEl.classList.add(e.clientY < midY ? 'reorder-before' : 'reorder-after');
-                        } else if (state.dragNode.id !== child.id) {
-                            // Different parent or root - show nest target
-                            state.dropTarget = child;
-                            childEl.classList.add('drop-target');
+                            state.dropTarget = null;
+                            childEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
+                            childEl.classList.remove('drop-target');
                         }
                     });
 
@@ -1726,6 +1742,41 @@
                 el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
 
                 nodesEl.appendChild(el);
+
+                // Unified mouseenter handler for root nodes (same logic as child nodes)
+                el.addEventListener('mouseenter', (e) => {
+                    if (!state.isDragging || !state.dragNode || state.dragNode.id === node.id) return;
+                    
+                    const rect = el.getBoundingClientRect();
+                    const relativeY = e.clientY - rect.top;
+                    const height = rect.height;
+                    const centerZone = height * 0.3; // ±30% of height is center zone
+                    
+                    if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
+                        // Center zone - nest as child
+                        state.dropTarget = node;
+                        state.reorderTarget = null;
+                        el.classList.add('drop-target');
+                        el.classList.remove('reorder-before', 'reorder-after');
+                    } else {
+                        // Upper or lower zone - reorder
+                        const insertBefore = relativeY < height / 2;
+                        state.reorderTarget = {
+                            siblingId: node.id,
+                            insertBefore: insertBefore,
+                            parentId: node.parentId
+                        };
+                        state.dropTarget = null;
+                        el.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
+                        el.classList.remove('drop-target');
+                    }
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    el.classList.remove('reorder-before', 'reorder-after', 'drop-target');
+                    if (state.dropTarget?.id === node.id) state.dropTarget = null;
+                    if (state.reorderTarget?.siblingId === node.id) state.reorderTarget = null;
+                });
 
                 // Show/hide resize handles on node hover
                 el.addEventListener('mouseenter', () => {
