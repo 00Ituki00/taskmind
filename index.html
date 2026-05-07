@@ -425,16 +425,22 @@
             z-index: 10000;
             background: #333;
             color: white;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 0;
+            border-radius: 50%;
+            font-size: 20px;
             font-weight: bold;
             white-space: nowrap;
             display: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+            width: 44px;
+            height: 44px;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1;
         }
         #drag-tooltip.show {
-            display: block;
+            display: flex;
         }
 
         .node-parent-indicator {
@@ -2719,76 +2725,99 @@
                 // Detect reorder or nest target when dragging child within same parent
                 if (state.dragNode && state.dragNode.parentId !== null) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                    if (parent && parent.children.length > 1) {
+                    if (parent) {
                         const mx = (e.clientX - state.panX) / state.scale;
                         const my = (e.clientY - state.panY) / state.scale;
-                        const siblings = parent.children.filter(id => id !== state.dragNode.id);
+                        const px = parent.x;
+                        const py = parent.y;
+                        const pw = parent.width || 200;
+                        const domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                        const ph = domEl ? domEl.offsetHeight : (parent.height || 50);
+                        const MARGIN = 30;
                         
-                        let closestEl = null;
-                        let closestDist = Infinity;
-                        let isCenterHit = false;
-                        let closestCenterY = 0;
+                        // Check if mouse is outside parent bounds - prioritize extraction
+                        const isOutsideParent = mx < px - MARGIN || mx > px + pw + MARGIN || my < py - MARGIN || my > py + ph + MARGIN;
                         
-                        for (const siblingId of siblings) {
-                            const el = document.querySelector(`.task-item[data-child-id="${siblingId}"]`);
-                            if (el) {
-                                const rect = el.getBoundingClientRect();
-                                const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
-                                const itemY = (rect.top - canvasRect.top - state.panY) / state.scale;
-                                const itemH = rect.height / state.scale;
-                                const itemCenterY = itemY + itemH / 2;
-                                const dist = Math.abs(my - itemCenterY);
-                                
-                                if (dist < closestDist) {
-                                    closestDist = dist;
-                                    closestEl = el;
-                                    closestCenterY = itemCenterY;
-                                    // Check if mouse is in center 30% of element
-                                    const centerMin = itemY + itemH * 0.35;
-                                    const centerMax = itemY + itemH * 0.65;
-                                    isCenterHit = (my >= centerMin && my <= centerMax);
+                        if (isOutsideParent) {
+                            // Mouse outside parent - show extract icon, skip reorder/nest
+                            document.querySelectorAll('.task-item').forEach(el => {
+                                el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
+                            });
+                            state.reorderTarget = null;
+                            state.dropTarget = null;
+                            if (tooltip) {
+                                tooltip.textContent = '⎋';
+                                tooltip.classList.add('show');
+                            }
+                        } else if (parent.children.length > 1) {
+                            // Inside parent - check for reorder or nest
+                            const siblings = parent.children.filter(id => id !== state.dragNode.id);
+                            
+                            let closestEl = null;
+                            let closestDist = Infinity;
+                            let isCenterHit = false;
+                            let closestCenterY = 0;
+                            
+                            for (const siblingId of siblings) {
+                                const el = document.querySelector(`.task-item[data-child-id="${siblingId}"]`);
+                                if (el) {
+                                    const rect = el.getBoundingClientRect();
+                                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                                    const itemY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                                    const itemH = rect.height / state.scale;
+                                    const itemCenterY = itemY + itemH / 2;
+                                    const dist = Math.abs(my - itemCenterY);
+                                    
+                                    if (dist < closestDist) {
+                                        closestDist = dist;
+                                        closestEl = el;
+                                        closestCenterY = itemCenterY;
+                                        // Check if mouse is in center 30% of element
+                                        const centerMin = itemY + itemH * 0.35;
+                                        const centerMax = itemY + itemH * 0.65;
+                                        isCenterHit = (my >= centerMin && my <= centerMax);
+                                    }
                                 }
                             }
-                        }
-                        
-                        // Clear all indicators
-                        document.querySelectorAll('.task-item').forEach(el => {
-                            el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
-                        });
-                        
-                        // Only handle same-parent interactions if no dropTarget from other parents
-                        const hasExternalDropTarget = state.dropTarget && state.dropTarget.parentId !== state.dragNode.parentId;
-                        
-                        if (!hasExternalDropTarget) {
-                            const tooltip = document.getElementById('drag-tooltip');
-                            if (closestEl && closestDist < 50) {
-                                const siblingId = parseInt(closestEl.dataset.childId);
-                                const siblingNode = state.nodes.find(n => n.id === siblingId);
-                                
-                                if (isCenterHit && siblingNode) {
-                                    // Nest: set dropTarget to the sibling node
-                                    state.dropTarget = siblingNode;
-                                    state.reorderTarget = null;
-                                    closestEl.classList.add('nest-target');
-                                    if (tooltip) {
-                                        tooltip.textContent = '入れ子にする';
-                                        tooltip.classList.add('show');
+                            
+                            // Clear all indicators
+                            document.querySelectorAll('.task-item').forEach(el => {
+                                el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
+                            });
+                            
+                            // Only handle same-parent interactions if no dropTarget from other parents
+                            const hasExternalDropTarget = state.dropTarget && state.dropTarget.parentId !== state.dragNode.parentId;
+                            
+                            if (!hasExternalDropTarget) {
+                                if (closestEl && closestDist < 50) {
+                                    const siblingId = parseInt(closestEl.dataset.childId);
+                                    const siblingNode = state.nodes.find(n => n.id === siblingId);
+                                    
+                                    if (isCenterHit && siblingNode) {
+                                        // Nest: set dropTarget to the sibling node
+                                        state.dropTarget = siblingNode;
+                                        state.reorderTarget = null;
+                                        closestEl.classList.add('nest-target');
+                                        if (tooltip) {
+                                            tooltip.textContent = '▶';
+                                            tooltip.classList.add('show');
+                                        }
+                                    } else {
+                                        // Reorder: set reorderTarget
+                                        const insertBefore = my < closestCenterY;
+                                        closestEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
+                                        state.reorderTarget = { siblingId, insertBefore };
+                                        state.dropTarget = null;
+                                        if (tooltip) {
+                                            tooltip.textContent = insertBefore ? '↑' : '↓';
+                                            tooltip.classList.add('show');
+                                        }
                                     }
                                 } else {
-                                    // Reorder: set reorderTarget
-                                    const insertBefore = my < closestCenterY;
-                                    closestEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
-                                    state.reorderTarget = { siblingId, insertBefore };
+                                    state.reorderTarget = null;
                                     state.dropTarget = null;
-                                    if (tooltip) {
-                                        tooltip.textContent = insertBefore ? '順序: 上に移動' : '順序: 下に移動';
-                                        tooltip.classList.add('show');
-                                    }
+                                    if (tooltip) tooltip.classList.remove('show');
                                 }
-                            } else {
-                                state.reorderTarget = null;
-                                state.dropTarget = null;
-                                if (tooltip) tooltip.classList.remove('show');
                             }
                         }
                     }
