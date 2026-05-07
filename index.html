@@ -736,6 +736,13 @@
     <input type="file" id="file-input" accept=".json" style="display:none">
 
     <script>
+        // Create drag tooltip element
+        (function() {
+            const tooltip = document.createElement('div');
+            tooltip.id = 'drag-tooltip';
+            document.body.appendChild(tooltip);
+        })();
+
         // ==================== State ====================
         const state = {
             mode: 'select',
