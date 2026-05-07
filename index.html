@@ -1384,6 +1384,21 @@
             });
         }
 
+        // Helper: get absolute position of any node (handles nested depths)
+        function getNodeAbsolutePosition(node) {
+            let absX = node.x;
+            let absY = node.y;
+            let current = node;
+            while (current.parentId !== null) {
+                const parent = state.nodes.find(n => n.id === current.parentId);
+                if (!parent) break;
+                absX += parent.x;
+                absY += parent.y;
+                current = parent;
+            }
+            return { x: absX, y: absY };
+        }
+
         function renderNodes() {
             nodesEl.innerHTML = '';
 
@@ -1529,21 +1544,6 @@
                         renderChildren(child, containerEl, depth + 1);
                     }
                 });
-            }
-
-            // Helper: get absolute position of any node (handles nested depths)
-            function getNodeAbsolutePosition(node) {
-                let absX = node.x;
-                let absY = node.y;
-                let current = node;
-                while (current.parentId !== null) {
-                    const parent = state.nodes.find(n => n.id === current.parentId);
-                    if (!parent) break;
-                    absX += parent.x;
-                    absY += parent.y;
-                    current = parent;
-                }
-                return { x: absX, y: absY };
             }
 
             // Render root nodes
