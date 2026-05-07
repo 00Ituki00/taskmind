@@ -2901,7 +2901,7 @@
                             // Mouse outside parent - show extract icon, skip reorder/nest
                             const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                             if (parentEl) {
-                                parentEl.querySelectorAll(':scope > .node-tasks > .node').forEach(el => {
+                                parentEl.querySelectorAll('.node-tasks > .node').forEach(el => {
                                     el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                                 });
                             }
@@ -2926,7 +2926,7 @@
                                 const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                                 let el = null;
                                 if (parentEl) {
-                                    el = parentEl.querySelector(`:scope > .node-tasks > .node[data-id="${siblingId}"]`);
+                                    el = parentEl.querySelector(`.node-tasks > .node[data-id="${siblingId}"]`);
                                 }
                                 // Fallback if not found (shouldn't happen normally)
                                 if (!el) {
@@ -2955,7 +2955,7 @@
                             // Clear all indicators within the same parent only
                             const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                             if (parentEl) {
-                                parentEl.querySelectorAll(':scope > .node-tasks > .node').forEach(el => {
+                                parentEl.querySelectorAll('.node-tasks > .node').forEach(el => {
                                     el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                                 });
                             }
