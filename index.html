@@ -2785,21 +2785,48 @@
                     const my = (e.clientY - canvasRect.top - state.panY) / state.scale;
                     let candidates = [];
                     
-                    // Check all ROOT nodes using absolute coordinates - mouse inside node rect
+                    // Check all nodes (both root and child) for drop target detection
                     for (const node of state.nodes) {
                         if (node.id === state.dragNode.id) continue;
                         if (state.selectedNodeIds.includes(node.id)) continue;
                         if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
-                        if (node.parentId !== null) continue;
                         if (node.id === state.dragNode.parentId) continue; // skip dragged node's parent (handled by reorder/nest logic)
+                        // Skip same-parent siblings (handled by reorder/nest logic below)
+                        if (state.dragNode.parentId !== null && node.parentId === state.dragNode.parentId) continue;
+                        // Skip descendants of dragNode to prevent circular nesting
+                        let isDescendant = false;
+                        let current = node;
+                        while (current && current.parentId !== null) {
+                            if (current.parentId === state.dragNode.id) {
+                                isDescendant = true;
+                                break;
+                            }
+                            current = state.nodes.find(n => n.id === current.parentId);
+                        }
+                        if (isDescendant) continue;
                         
-                        const nx = node.x;
-                        const ny = node.y;
-                        const nw = node.width || 200;
-                        let nh = node.height || 50;
-                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
-                        if (domEl) {
-                            nh = domEl.offsetHeight;
+                        let nx, ny, nw, nh;
+                        
+                        if (node.parentId === null) {
+                            // Root node - use absolute coordinates
+                            nx = node.x;
+                            ny = node.y;
+                            nw = node.width || 200;
+                            let nh = node.height || 50;
+                            const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                            if (domEl) {
+                                nh = domEl.offsetHeight;
+                            }
+                        } else {
+                            // Child node - use DOM bounding box
+                            const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                            if (!domEl) continue;
+                            const rect = domEl.getBoundingClientRect();
+                            const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                            nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+                            ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+                            nw = rect.width / state.scale;
+                            nh = rect.height / state.scale;
                         }
                         
                         // Bounding box hit test
@@ -2808,44 +2835,6 @@
                             const centerY = ny + nh / 2;
                             const dist = Math.hypot(mx - centerX, my - centerY);
                             candidates.push({ node, dist });
-                        }
-                    }
-                    
-                    // Also check child nodes (.node inside .node-tasks) using DOM bounding box
-                    const taskItems = document.querySelectorAll('.node .node-tasks .node');
-                    for (const item of taskItems) {
-                        const rect = item.getBoundingClientRect();
-                        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
-                        const itemX = (rect.left - canvasRect.left - state.panX) / state.scale;
-                        const itemY = (rect.top - canvasRect.top - state.panY) / state.scale;
-                        const itemW = rect.width / state.scale;
-                        const itemH = rect.height / state.scale;
-                        
-                        if (mx >= itemX && mx <= itemX + itemW && my >= itemY && my <= itemY + itemH) {
-                            const childId = parseInt(item.dataset.id);
-                            if (childId && childId !== state.dragNode.id && !state.selectedNodeIds.includes(childId)) {
-                                const node = state.nodes.find(n => n.id === childId);
-                                if (node && state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
-                                // Skip same-parent nodes (handled by reorder/nest logic below)
-                                if (node && state.dragNode.parentId !== null && node.parentId === state.dragNode.parentId) continue;
-                                // Skip descendants of dragNode to prevent circular nesting
-                                let isDescendant = false;
-                                let current = node;
-                                while (current && current.parentId !== null) {
-                                    if (current.parentId === state.dragNode.id) {
-                                        isDescendant = true;
-                                        break;
-                                    }
-                                    current = state.nodes.find(n => n.id === current.parentId);
-                                }
-                                if (isDescendant) continue;
-                                if (node) {
-                                    const centerX = itemX + itemW / 2;
-                                    const centerY = itemY + itemH / 2;
-                                    const dist = Math.hypot(mx - centerX, my - centerY);
-                                    candidates.push({ node, dist });
-                                }
-                            }
                         }
                     }
                     
@@ -3299,23 +3288,46 @@
                 }
             }
 
-            // Handle drop for dragged child nodes - snap to nearby ROOT nodes only
+            // Handle drop for dragged child nodes - snap to nearby nodes (both root and child)
             // Unified hit detection: bounding box overlap + closest center wins
-            if (!didExtract && wasDragged && state.dragNode && state.dragNode.parentId === null) {
+            if (!didExtract && !didNest && wasDragged && state.dragNode) {
+                const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
                 const dropX = state.dragNode.x;
                 const dropY = state.dragNode.y;
                 let candidates = [];
                 
                 for (const n of state.nodes) {
                     if (n.id === state.dragNode.id) continue;
-                    if (n.parentId !== null) continue;
+                    if (n.id === state.dragNode.parentId) continue; // skip current parent
                     if (state.hiddenNodeIds && state.hiddenNodeIds.has(n.id)) continue;
+                    // Skip descendants to prevent circular nesting
+                    let isDescendant = false;
+                    let current = n;
+                    while (current && current.parentId !== null) {
+                        if (current.parentId === state.dragNode.id) {
+                            isDescendant = true;
+                            break;
+                        }
+                        current = state.nodes.find(node => node.id === current.parentId);
+                    }
+                    if (isDescendant) continue;
                     
-                    const nx = n.x;
-                    const ny = n.y;
-                    const nw = n.width || 200;
-                    const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
-                    const nh = domEl ? domEl.offsetHeight : (n.height || 50);
+                    let nx, ny, nw, nh;
+                    if (n.parentId === null) {
+                        nx = n.x;
+                        ny = n.y;
+                        nw = n.width || 200;
+                        const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
+                        nh = domEl ? domEl.offsetHeight : (n.height || 50);
+                    } else {
+                        const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
+                        if (!domEl) continue;
+                        const rect = domEl.getBoundingClientRect();
+                        nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+                        ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+                        nw = rect.width / state.scale;
+                        nh = rect.height / state.scale;
+                    }
                     
                     // Bounding box hit test
                     if (dropX >= nx && dropX <= nx + nw && dropY >= ny && dropY <= ny + nh) {
@@ -3337,9 +3349,21 @@
                 }
                 
                 if (nearestNode) {
-                    state.dragNode.x = dropX - nearestNode.x;
-                    state.dragNode.y = dropY - nearestNode.y;
+                    // Remove from old parent's children
+                    if (state.dragNode.parentId !== null) {
+                        const oldParent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                        if (oldParent && oldParent.children) {
+                            oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
+                        }
+                    }
+                    // Add to new parent's children
+                    if (!nearestNode.children) nearestNode.children = [];
+                    if (!nearestNode.children.includes(state.dragNode.id)) {
+                        nearestNode.children.push(state.dragNode.id);
+                    }
                     state.dragNode.parentId = nearestNode.id;
+                    state.dragNode.x = 10;
+                    state.dragNode.y = 10;
                     state.dragNode.expanded = false;
                     showToast('ノードを移動しました');
                 }
