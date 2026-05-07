@@ -1505,7 +1505,6 @@
                         state.dragOffsetX = (e.clientX - state.panX) / state.scale - absX;
                         state.dragOffsetY = (e.clientY - state.panY) / state.scale - absY;
                         state.pendingExtract = false;
-                        state.isDragging = true;
                         
                         // Store original parent for potential extraction
                         state.dragOriginalParentId = child.parentId;
@@ -1550,6 +1549,7 @@
                     childEl.addEventListener('mouseleave', () => {
                         childEl.classList.remove('reorder-before', 'reorder-after', 'drop-target');
                         if (state.dropTarget?.id === child.id) state.dropTarget = null;
+                        if (state.reorderTarget?.siblingId === child.id) state.reorderTarget = null;
                     });
 
                     childEl.addEventListener('dblclick', (e) => {
