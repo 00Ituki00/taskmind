@@ -404,11 +404,33 @@
         }
 
         .task-item.reorder-before {
-            border-top: 3px solid #4a90d9;
+            position: relative;
+        }
+        .task-item.reorder-before::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #4a90d9;
+            z-index: 10;
+            pointer-events: none;
         }
 
         .task-item.reorder-after {
-            border-bottom: 3px solid #4a90d9;
+            position: relative;
+        }
+        .task-item.reorder-after::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #4a90d9;
+            z-index: 10;
+            pointer-events: none;
         }
 
         .task-item.nest-target {
@@ -1263,10 +1285,12 @@
             });
             state.hiddenNodeIds = hiddenNodeIds;
 
-            // Helper: recursively render children of a node
+            // Helper: recursively render children of a node using children array order
             function renderChildren(parentNode, containerEl, depth) {
-                const childNodes = state.nodes.filter(n => n.parentId === parentNode.id);
-                childNodes.forEach(child => {
+                const childIds = parentNode.children || [];
+                childIds.forEach(childId => {
+                    const child = state.nodes.find(n => n.id === childId);
+                    if (!child) return;
                     // Skip if this child is currently being dragged
                     if (state.dragNode?.id === child.id) return;
                     // Skip hidden nodes
