@@ -1060,6 +1060,14 @@
             const deletedNode = state.nodes.find(n => n.id === nodeId);
             const hadGroupId = deletedNode?.groupId;
 
+            // Remove from parent's children array if it's a child node
+            if (deletedNode && deletedNode.parentId !== null) {
+                const parent = state.nodes.find(n => n.id === deletedNode.parentId);
+                if (parent && parent.children) {
+                    parent.children = parent.children.filter(id => id !== nodeId);
+                }
+            }
+
             state.nodes = state.nodes.filter(n => n.id !== nodeId);
             state.connections = state.connections.filter(c => c.from !== nodeId && c.to !== nodeId);
 
@@ -1131,14 +1139,23 @@
             const parent = state.nodes.find(n => n.id === parentId);
             if (!parent) return;
 
-            // Position children inside parent area
+            // Initialize parent.children if needed
+            if (!parent.children) parent.children = [];
+
+            // Position children inside parent area (relative coordinates)
             childIds.forEach((childId, index) => {
                 const child = state.nodes.find(n => n.id === childId);
                 if (child) {
                     child.parentId = parentId;
-                    // Position child below parent with offset
-                    child.x = parent.x + 20;
-                    child.y = parent.y + parent.height + 10 + (index * 60);
+                    // Add to parent's children array
+                    if (!parent.children.includes(childId)) {
+                        parent.children.push(childId);
+                    }
+                    // Position child relative to parent
+                    child.x = 20;
+                    child.y = (parent.height || 50) + 10 + (index * 35);
+                    // Adjust width to fit parent
+                    child.width = Math.max(160, (parent.width || 200) - 40);
                 }
             });
 
@@ -1427,7 +1444,7 @@
                     });
 
                     const childTitle = document.createElement('span');
-                    childTitle.className = 'task-text';
+                    childTitle.className = 'node-title';
                     childTitle.textContent = child.title;
 
 
@@ -2245,7 +2262,7 @@
         function handleNodeMouseDown(e, node) {
             if (e.button !== 0) return;
             // Guard: skip drag if clicking on interactive elements
-            if (e.target.closest('.task-text') || e.target.closest('.task-delete-btn') ||
+            if (e.target.closest('.node-title') || e.target.closest('.task-delete-btn') ||
                 e.target.closest('.expand-btn') || e.target.closest('.color-picker') ||
                 e.target.closest('.node-color') || e.target.closest('.add-task') ||
                 e.target.closest('.resize-handle')) return;
@@ -2341,7 +2358,7 @@
         let isLongPress = false;
 
         function handleNodeTouchStart(e, node) {
-            if (e.target.closest('.task-text') || e.target.closest('.add-task') ||
+            if (e.target.closest('.node-title') || e.target.closest('.add-task') ||
                 e.target.closest('input[type="checkbox"]') || e.target.closest('.node-color')) return;
 
             e.stopPropagation();
@@ -2762,7 +2779,7 @@
                         const itemH = rect.height / state.scale;
                         
                         if (mx >= itemX && mx <= itemX + itemW && my >= itemY && my <= itemY + itemH) {
-                            const childId = parseInt(item.dataset.childId);
+                            const childId = parseInt(item.dataset.id);
                             if (childId && childId !== state.dragNode.id && !state.selectedNodeIds.includes(childId)) {
                                 const node = state.nodes.find(n => n.id === childId);
                                 if (node && state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
@@ -2862,7 +2879,7 @@
                             
                             if (!hasExternalDropTarget) {
                                 if (closestEl && closestDist < 50) {
-                                    const siblingId = parseInt(closestEl.dataset.childId);
+                                    const siblingId = parseInt(closestEl.dataset.id);
                                     const siblingNode = state.nodes.find(n => n.id === siblingId);
                                     
                                     if (isCenterHit && siblingNode) {
