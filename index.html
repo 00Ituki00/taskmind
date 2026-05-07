@@ -78,7 +78,7 @@
             cursor: default;
             transition: box-shadow 0.2s;
             user-select: none;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .node:hover {
@@ -156,7 +156,7 @@
 
         .node-tasks {
             padding: 8px 12px;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .node-tasks.collapsed {
@@ -3136,6 +3136,10 @@
                         state.dragNode.x = absX;
                         state.dragNode.y = absY;
                         state.dragNode.parentId = null;
+                        // Remove from parent's children array
+                        if (parent.children) {
+                            parent.children = parent.children.filter(id => id !== state.dragNode.id);
+                        }
                         didExtract = true;
                         showToast('ノードを取り出しました');
                     }
