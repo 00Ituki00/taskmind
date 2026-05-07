@@ -156,7 +156,8 @@
 
         .node-tasks {
             padding: 8px 12px;
-            overflow: visible;
+            overflow: hidden;
+            max-width: 100%;
         }
 
         .node-tasks.collapsed {
@@ -191,11 +192,9 @@
         }
         .node .node-tasks .node.selected {
             background: rgba(74, 144, 217, 0.15);
-            box-shadow: 0 0 0 2px #4a90d9;
         }
         .node .node-tasks .node.drop-target {
             background-color: #e3f2fd !important;
-            box-shadow: inset 0 0 0 2px #4a90d9 !important;
         }
         .node .node-tasks .node .node-title {
             flex: 1;
@@ -2815,6 +2814,17 @@
                                 if (node && state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
                                 // Skip same-parent nodes (handled by reorder/nest logic below)
                                 if (node && state.dragNode.parentId !== null && node.parentId === state.dragNode.parentId) continue;
+                                // Skip descendants of dragNode to prevent circular nesting
+                                let isDescendant = false;
+                                let current = node;
+                                while (current && current.parentId !== null) {
+                                    if (current.parentId === state.dragNode.id) {
+                                        isDescendant = true;
+                                        break;
+                                    }
+                                    current = state.nodes.find(n => n.id === current.parentId);
+                                }
+                                if (isDescendant) continue;
                                 if (node) {
                                     const centerX = itemX + itemW / 2;
                                     const centerY = itemY + itemH / 2;
@@ -2858,9 +2868,12 @@
                         
                         if (isOutsideParent) {
                             // Mouse outside parent - show extract icon, skip reorder/nest
-                            document.querySelectorAll('.node .node-tasks .node').forEach(el => {
-                                el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
-                            });
+                            const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                            if (parentEl) {
+                                parentEl.querySelectorAll('.node-tasks > .node').forEach(el => {
+                                    el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
+                                });
+                            }
                             state.reorderTarget = null;
                             state.dropTarget = null;
                             state.pendingExtract = true;
@@ -2878,7 +2891,16 @@
                             let closestCenterY = 0;
                             
                             for (const siblingId of siblings) {
-                                const el = document.querySelector(`.node[data-id="${siblingId}"]`);
+                                // Use more specific selector to find only direct children of current parent
+                                const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                                let el = null;
+                                if (parentEl) {
+                                    el = parentEl.querySelector(`.node-tasks > .node[data-id="${siblingId}"]`);
+                                }
+                                // Fallback if not found (shouldn't happen normally)
+                                if (!el) {
+                                    el = document.querySelector(`.node[data-id="${siblingId}"]:not(.node-tasks .node .node)`);
+                                }
                                 if (el) {
                                     const rect = el.getBoundingClientRect();
                                     const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
@@ -2899,10 +2921,13 @@
                                 }
                             }
                             
-                            // Clear all indicators
-                            document.querySelectorAll('.node .node-tasks .node').forEach(el => {
-                                el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
-                            });
+                            // Clear all indicators within the same parent only
+                            const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                            if (parentEl) {
+                                parentEl.querySelectorAll('.node-tasks > .node').forEach(el => {
+                                    el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
+                                });
+                            }
                             
                             // Only handle same-parent interactions if no dropTarget from other parents
                             const hasExternalDropTarget = state.dropTarget && state.dropTarget.parentId !== state.dragNode.parentId;
