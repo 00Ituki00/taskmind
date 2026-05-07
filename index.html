@@ -1757,8 +1757,9 @@
                         if (node.parentId !== null) {
                             const parent = state.nodes.find(n => n.id === node.parentId);
                             if (parent) {
-                                resizeStartLeft = parent.x + node.x;
-                                resizeStartTop = parent.y + node.y;
+                                const absPos = getNodeAbsolutePosition(node);
+                                resizeStartLeft = absPos.x;
+                                resizeStartTop = absPos.y;
                             } else {
                                 resizeStartLeft = node.x;
                                 resizeStartTop = node.y;
@@ -1797,8 +1798,9 @@
                     // Child node: calculate absolute position
                     const parent = state.nodes.find(n => n.id === node.parentId);
                     if (parent) {
-                        nx = parent.x + node.x;
-                        ny = parent.y + node.y;
+                        const absPos = getNodeAbsolutePosition(node);
+                        nx = absPos.x;
+                        ny = absPos.y;
                     } else {
                         nx = node.x;
                         ny = node.y;
@@ -2331,11 +2333,9 @@
             let nodeAbsX = node.x;
             let nodeAbsY = node.y;
             if (node.parentId !== null) {
-                const parent = state.nodes.find(n => n.id === node.parentId);
-                if (parent) {
-                    nodeAbsX = parent.x + node.x;
-                    nodeAbsY = parent.y + node.y;
-                }
+                const absPos = getNodeAbsolutePosition(node);
+                nodeAbsX = absPos.x;
+                nodeAbsY = absPos.y;
             }
 
             // Store drag start position to distinguish click from drag
@@ -2431,11 +2431,9 @@
             let nodeAbsX = node.x;
             let nodeAbsY = node.y;
             if (node.parentId !== null) {
-                const parent = state.nodes.find(n => n.id === node.parentId);
-                if (parent) {
-                    nodeAbsX = parent.x + node.x;
-                    nodeAbsY = parent.y + node.y;
-                }
+                const absPos = getNodeAbsolutePosition(node);
+                nodeAbsX = absPos.x;
+                nodeAbsY = absPos.y;
             }
             state.dragOffsetX = (touch.clientX - state.panX) / state.scale - nodeAbsX;
             state.dragOffsetY = (touch.clientY - state.panY) / state.scale - nodeAbsY;
@@ -3120,11 +3118,9 @@
                     let nx = node.x;
                     let ny = node.y;
                     if (node.parentId !== null) {
-                        const parent = state.nodes.find(n => n.id === node.parentId);
-                        if (parent) {
-                            nx = parent.x + node.x;
-                            ny = parent.y + node.y;
-                        }
+                        const absPos = getNodeAbsolutePosition(node);
+                        nx = absPos.x;
+                        ny = absPos.y;
                     }
                     
                     const nw = node.width || 200;
@@ -3202,11 +3198,9 @@
                 let currentAbsX = state.dragNode.x;
                 let currentAbsY = state.dragNode.y;
                 if (state.dragNode.parentId !== null) {
-                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                    if (parent) {
-                        currentAbsX = parent.x + state.dragNode.x;
-                        currentAbsY = parent.y + state.dragNode.y;
-                    }
+                    const absPos = getNodeAbsolutePosition(state.dragNode);
+                    currentAbsX = absPos.x;
+                    currentAbsY = absPos.y;
                 }
                 wasDragged = Math.hypot(currentAbsX - state.dragStartX, currentAbsY - state.dragStartY) > CLICK_THRESHOLD;
             }
