@@ -1505,6 +1505,7 @@
                         state.dragOffsetX = (e.clientX - state.panX) / state.scale - absX;
                         state.dragOffsetY = (e.clientY - state.panY) / state.scale - absY;
                         state.pendingExtract = false;
+                        state.isDragging = true;
                         
                         // Store original parent for potential extraction
                         state.dragOriginalParentId = child.parentId;
@@ -1526,6 +1527,29 @@
                     childEl.addEventListener('click', (e) => {
                         if (e.target.tagName === 'INPUT' || e.target.classList.contains('expand-btn')) return;
                         e.stopPropagation();
+                    });
+
+                    childEl.addEventListener('mouseenter', (e) => {
+                        if (!state.isDragging || !state.dragNode || state.dragNode.id === child.id) return;
+                        if (state.dragNode.parentId !== null && state.dragNode.parentId === child.parentId) {
+                            // Same parent - show reorder indicator
+                            const rect = childEl.getBoundingClientRect();
+                            const midY = rect.top + rect.height / 2;
+                            state.reorderTarget = {
+                                siblingId: child.id,
+                                insertBefore: e.clientY < midY
+                            };
+                            childEl.classList.add(e.clientY < midY ? 'reorder-before' : 'reorder-after');
+                        } else if (state.dragNode.id !== child.id) {
+                            // Different parent or root - show nest target
+                            state.dropTarget = child;
+                            childEl.classList.add('drop-target');
+                        }
+                    });
+
+                    childEl.addEventListener('mouseleave', () => {
+                        childEl.classList.remove('reorder-before', 'reorder-after', 'drop-target');
+                        if (state.dropTarget?.id === child.id) state.dropTarget = null;
                     });
 
                     childEl.addEventListener('dblclick', (e) => {
