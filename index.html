@@ -156,7 +156,6 @@
 
         .node-tasks {
             padding: 8px 12px;
-            overflow: hidden;
             max-width: 100%;
         }
 
@@ -2350,6 +2349,12 @@
                 state.dragNode = node;
                 state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
                 state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
+                
+                // Don't start drag immediately - wait for mousemove threshold
+                state.isDragging = false;
+                state.dragStartMouseX = e.clientX;
+                state.dragStartMouseY = e.clientY;
+                
                 return;
             }
 
@@ -2381,6 +2386,12 @@
             state.dragNode = node;
             state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
             state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
+            
+            // Don't start drag immediately - wait for mousemove threshold
+            state.isDragging = false;
+            state.dragStartMouseX = e.clientX;
+            state.dragStartMouseY = e.clientY;
+            
             renderNodes();
         }
 
