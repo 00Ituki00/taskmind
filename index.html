@@ -411,6 +411,11 @@
             border-bottom: 3px solid #4a90d9;
         }
 
+        .task-item.nest-target {
+            background-color: #e8f0fe;
+            outline: 2px dashed #4a90d9;
+        }
+
         .node-parent-indicator {
             position: absolute;
             background: rgba(74, 144, 217, 0.08);
@@ -2650,7 +2655,7 @@
                             if (childId && childId !== state.dragNode.id && !state.selectedNodeIds.includes(childId)) {
                                 const node = state.nodes.find(n => n.id === childId);
                                 if (node && state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
-                                // Skip same-parent nodes (handled by reorder logic)
+                                // Skip same-parent nodes (handled by reorder/nest logic below)
                                 if (node && state.dragNode.parentId !== null && node.parentId === state.dragNode.parentId) continue;
                                 if (node) {
                                     const centerX = itemX + itemW / 2;
@@ -2675,7 +2680,7 @@
                     state.dropTarget = targetNode;
                 }
 
-                // Detect reorder target when dragging child within same parent
+                // Detect reorder or nest target when dragging child within same parent
                 if (state.dragNode && state.dragNode.parentId !== null) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
                     if (parent && parent.children.length > 1) {
@@ -2685,7 +2690,8 @@
                         
                         let closestEl = null;
                         let closestDist = Infinity;
-                        let insertBefore = true;
+                        let isCenterHit = false;
+                        let closestCenterY = 0;
                         
                         for (const siblingId of siblings) {
                             const el = document.querySelector(`.task-item[data-child-id="${siblingId}"]`);
@@ -2700,21 +2706,44 @@
                                 if (dist < closestDist) {
                                     closestDist = dist;
                                     closestEl = el;
-                                    insertBefore = my < itemCenterY;
+                                    closestCenterY = itemCenterY;
+                                    // Check if mouse is in center 30% of element
+                                    const centerMin = itemY + itemH * 0.35;
+                                    const centerMax = itemY + itemH * 0.65;
+                                    isCenterHit = (my >= centerMin && my <= centerMax);
                                 }
                             }
                         }
                         
                         // Clear all indicators
                         document.querySelectorAll('.task-item').forEach(el => {
-                            el.classList.remove('reorder-before', 'reorder-after');
+                            el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                         });
                         
-                        if (closestEl && closestDist < 50) {
-                            closestEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
-                            state.reorderTarget = { siblingId: parseInt(closestEl.dataset.childId), insertBefore };
-                        } else {
-                            state.reorderTarget = null;
+                        // Only handle same-parent interactions if no dropTarget from other parents
+                        const hasExternalDropTarget = state.dropTarget && state.dropTarget.parentId !== state.dragNode.parentId;
+                        
+                        if (!hasExternalDropTarget) {
+                            if (closestEl && closestDist < 50) {
+                                const siblingId = parseInt(closestEl.dataset.childId);
+                                const siblingNode = state.nodes.find(n => n.id === siblingId);
+                                
+                                if (isCenterHit && siblingNode) {
+                                    // Nest: set dropTarget to the sibling node
+                                    state.dropTarget = siblingNode;
+                                    state.reorderTarget = null;
+                                    closestEl.classList.add('nest-target');
+                                } else {
+                                    // Reorder: set reorderTarget
+                                    const insertBefore = my < closestCenterY;
+                                    closestEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
+                                    state.reorderTarget = { siblingId, insertBefore };
+                                    state.dropTarget = null;
+                                }
+                            } else {
+                                state.reorderTarget = null;
+                                state.dropTarget = null;
+                            }
                         }
                     }
                 }
@@ -2988,16 +3017,19 @@
                 }
 
                 if (!isCircular && child.id !== parent.id) {
-                    // Convert child's absolute position to relative position
+                    // Remove from old parent's children array
                     if (child.parentId !== null) {
-                        // Child was already nested, convert to absolute first
                         const oldParent = state.nodes.find(n => n.id === child.parentId);
                         if (oldParent) {
+                            oldParent.children = oldParent.children.filter(id => id !== child.id);
                             child.x = oldParent.x + child.x;
                             child.y = oldParent.y + child.y;
                         }
                     }
                     child.parentId = parent.id;
+                    // Add to new parent's children array
+                    if (!parent.children) parent.children = [];
+                    parent.children.push(child.id);
                     // Get actual parent height from DOM if available
                     const parentDomEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                     const parentHeight = parentDomEl ? parentDomEl.offsetHeight : (parent.height || 50);
@@ -3025,7 +3057,7 @@
 
             // Handle reorder within same parent
             let didReorder = false;
-            if (state.reorderTarget && state.dragNode && state.dragNode.parentId !== null) {
+            if (state.reorderTarget && state.dragNode && state.dragNode.parentId !== null && !state.dropTarget) {
                 const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
                 if (parent) {
                     const fromIndex = parent.children.indexOf(state.dragNode.id);
@@ -3122,7 +3154,7 @@
 
             // Clear reorder indicators
             document.querySelectorAll('.task-item').forEach(el => {
-                el.classList.remove('reorder-before', 'reorder-after');
+                el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
             });
             state.reorderTarget = null;
 
