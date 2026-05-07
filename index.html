@@ -1418,6 +1418,21 @@
                 });
             }
 
+            // Helper: get absolute position of any node (handles nested depths)
+            function getNodeAbsolutePosition(node) {
+                let absX = node.x;
+                let absY = node.y;
+                let current = node;
+                while (current.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === current.parentId);
+                    if (!parent) break;
+                    absX += parent.x;
+                    absY += parent.y;
+                    current = parent;
+                }
+                return { x: absX, y: absY };
+            }
+
             // Render root nodes
             state.nodes.forEach(node => {
                 // Skip child nodes unless they are being dragged
@@ -1434,14 +1449,9 @@
                         absX = node.absX;
                         absY = node.absY;
                     } else {
-                        const parent = state.nodes.find(n => n.id === node.parentId);
-                        if (parent) {
-                            absX = parent.x + node.x;
-                            absY = parent.y + node.y;
-                        } else {
-                            absX = node.x;
-                            absY = node.y;
-                        }
+                        const absPos = getNodeAbsolutePosition(node);
+                        absX = absPos.x;
+                        absY = absPos.y;
                     }
                     el.style.left = absX + 'px';
                     el.style.top = absY + 'px';
@@ -2587,11 +2597,9 @@
                 let oldAbsX = state.dragNode.x;
                 let oldAbsY = state.dragNode.y;
                 if (state.dragNode.parentId !== null) {
-                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                    if (parent) {
-                        oldAbsX = parent.x + state.dragNode.x;
-                        oldAbsY = parent.y + state.dragNode.y;
-                    }
+                    const absPos = getNodeAbsolutePosition(state.dragNode);
+                    oldAbsX = absPos.x;
+                    oldAbsY = absPos.y;
                 }
                 
                 const dx = newX - oldAbsX;
@@ -2731,7 +2739,9 @@
                         const px = parent.x;
                         const py = parent.y;
                         const pw = parent.width || 200;
-                        const domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                        // Try .node first (root nodes), then .task-item (child nodes)
+                        let domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                        if (!domEl) domEl = document.querySelector(`.task-item[data-child-id="${parent.id}"]`);
                         const ph = domEl ? domEl.offsetHeight : (parent.height || 50);
                         const MARGIN = 30;
                         
@@ -2927,11 +2937,9 @@
                 let oldAbsX = state.dragNode.x;
                 let oldAbsY = state.dragNode.y;
                 if (state.dragNode.parentId !== null) {
-                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                    if (parent) {
-                        oldAbsX = parent.x + state.dragNode.x;
-                        oldAbsY = parent.y + state.dragNode.y;
-                    }
+                    const absPos = getNodeAbsolutePosition(state.dragNode);
+                    oldAbsX = absPos.x;
+                    oldAbsY = absPos.y;
                 }
                 
                 const dx = newX - oldAbsX;
@@ -3098,8 +3106,10 @@
                         const oldParent = state.nodes.find(n => n.id === child.parentId);
                         if (oldParent) {
                             oldParent.children = oldParent.children.filter(id => id !== child.id);
-                            child.x = oldParent.x + child.x;
-                            child.y = oldParent.y + child.y;
+                            // Calculate absolute position using recursive helper
+                            const absPos = getNodeAbsolutePosition(child);
+                            child.x = absPos.x;
+                            child.y = absPos.y;
                         }
                     }
                     child.parentId = parent.id;
@@ -3107,7 +3117,8 @@
                     if (!parent.children) parent.children = [];
                     parent.children.push(child.id);
                     // Get actual parent height from DOM if available
-                    const parentDomEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                    let parentDomEl = document.querySelector(`.node[data-id="${parent.id}"]`);
+                    if (!parentDomEl) parentDomEl = document.querySelector(`.task-item[data-child-id="${parent.id}"]`);
                     const parentHeight = parentDomEl ? parentDomEl.offsetHeight : (parent.height || 50);
                     // Position child within parent's task list area (relative coordinates)
                     child.x = 20;
@@ -3160,10 +3171,10 @@
                 if (state.pendingExtract) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
                     if (parent) {
-                        const absX = parent.x + state.dragNode.x;
-                        const absY = parent.y + state.dragNode.y;
-                        state.dragNode.x = absX;
-                        state.dragNode.y = absY;
+                        // Calculate absolute position for any nested depth
+                        const absPos = getNodeAbsolutePosition(state.dragNode);
+                        state.dragNode.x = absPos.x;
+                        state.dragNode.y = absPos.y;
                         state.dragNode.parentId = null;
                         if (parent.children) {
                             parent.children = parent.children.filter(id => id !== state.dragNode.id);
