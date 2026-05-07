@@ -1562,9 +1562,17 @@
 
                     containerEl.appendChild(childEl);
 
+                    // Create node-tasks container for this child to hold grandchildren
+                    const childTasksEl = document.createElement('div');
+                    childTasksEl.className = 'node-tasks';
+                    if (!child.expanded) {
+                        childTasksEl.classList.add('collapsed');
+                    }
+                    childEl.appendChild(childTasksEl);
+
                     // Recursively render grandchildren if expanded
                     if (child.expanded) {
-                        renderChildren(child, containerEl, depth + 1);
+                        renderChildren(child, childTasksEl, depth + 1);
                     }
                 });
             }
@@ -2893,7 +2901,7 @@
                             // Mouse outside parent - show extract icon, skip reorder/nest
                             const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                             if (parentEl) {
-                                parentEl.querySelectorAll('.node-tasks > .node').forEach(el => {
+                                parentEl.querySelectorAll(':scope > .node-tasks > .node').forEach(el => {
                                     el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                                 });
                             }
@@ -2918,7 +2926,7 @@
                                 const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                                 let el = null;
                                 if (parentEl) {
-                                    el = parentEl.querySelector(`.node-tasks > .node[data-id="${siblingId}"]`);
+                                    el = parentEl.querySelector(`:scope > .node-tasks > .node[data-id="${siblingId}"]`);
                                 }
                                 // Fallback if not found (shouldn't happen normally)
                                 if (!el) {
@@ -2947,7 +2955,7 @@
                             // Clear all indicators within the same parent only
                             const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                             if (parentEl) {
-                                parentEl.querySelectorAll('.node-tasks > .node').forEach(el => {
+                                parentEl.querySelectorAll(':scope > .node-tasks > .node').forEach(el => {
                                     el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                                 });
                             }
