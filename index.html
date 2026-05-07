@@ -1555,19 +1555,6 @@
                     childEl.appendChild(childTasksEl);
 
                     containerEl.appendChild(childEl);
-
-                    // Create node-tasks container for this child to hold grandchildren
-                    const childTasksEl = document.createElement('div');
-                    childTasksEl.className = 'node-tasks';
-                    if (!child.expanded) {
-                        childTasksEl.classList.add('collapsed');
-                    }
-                    childEl.appendChild(childTasksEl);
-
-                    // Recursively render grandchildren if expanded
-                    if (child.expanded) {
-                        renderChildren(child, childTasksEl, depth + 1);
-                    }
                 });
             }
 
