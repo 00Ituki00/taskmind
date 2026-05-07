@@ -1488,6 +1488,39 @@
                     childEl.addEventListener('mousedown', (e) => handleNodeMouseDown(e, child));
                     childEl.addEventListener('touchstart', (e) => handleNodeTouchStart(e, child), { passive: false });
 
+                    // Unified mouseenter/mouseleave for drag-and-drop (same as root nodes)
+                    childEl.addEventListener('mouseenter', (e) => {
+                        if (!state.isDragging || !state.dragNode || state.dragNode.id === child.id) return;
+                        
+                        const rect = childEl.getBoundingClientRect();
+                        const relativeY = e.clientY - rect.top;
+                        const height = rect.height;
+                        const centerZone = height * 0.3;
+                        
+                        if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
+                            state.dropTarget = child;
+                            state.reorderTarget = null;
+                            childEl.classList.add('drop-target');
+                            childEl.classList.remove('reorder-before', 'reorder-after');
+                        } else {
+                            const insertBefore = relativeY < height / 2;
+                            state.reorderTarget = {
+                                siblingId: child.id,
+                                insertBefore: insertBefore,
+                                parentId: child.parentId
+                            };
+                            state.dropTarget = null;
+                            childEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
+                            childEl.classList.remove('drop-target');
+                        }
+                    });
+
+                    childEl.addEventListener('mouseleave', () => {
+                        childEl.classList.remove('reorder-before', 'reorder-after', 'drop-target');
+                        if (state.dropTarget?.id === child.id) state.dropTarget = null;
+                        if (state.reorderTarget?.siblingId === child.id) state.reorderTarget = null;
+                    });
+
                     childEl.addEventListener('dblclick', (e) => {
                         e.stopPropagation();
                         child.expanded = !child.expanded;
