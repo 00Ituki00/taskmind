@@ -1538,10 +1538,10 @@
                         state.dragOriginalX = child.x;
                         state.dragOriginalY = child.y;
                         
-                        // Set dragging state
-                        state.isDragging = true;
-                        nodesEl.style.cursor = 'grabbing';
-                        renderNodes();
+                        // Don't start drag immediately - wait for mousemove threshold
+                        state.isDragging = false;
+                        state.dragStartMouseX = e.clientX;
+                        state.dragStartMouseY = e.clientY;
                     });
 
                     childEl.addEventListener('contextmenu', (e) => {
@@ -2691,9 +2691,19 @@
             }
 
             // Child drag is now started directly on mousedown - no candidate needed (unified drag)
+            
+            // Check drag threshold before starting actual drag
+            if (state.dragNode && !state.isDragging) {
+                const dx = Math.abs(e.clientX - state.dragStartMouseX);
+                const dy = Math.abs(e.clientY - state.dragStartMouseY);
+                if (dx > 3 || dy > 3) {
+                    state.isDragging = true;
+                    nodesEl.style.cursor = 'grabbing';
+                    renderNodes();
+                }
+            }
 
-            if (state.dragNode) {
-                const tooltip = document.getElementById('drag-tooltip');
+            if (state.dragNode && state.isDragging) {
                 if (tooltip) {
                     tooltip.style.left = (e.clientX + 15) + 'px';
                     tooltip.style.top = (e.clientY - 30) + 'px';
