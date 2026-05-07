@@ -2237,7 +2237,11 @@
         }
 
         container.addEventListener('mousedown', (e) => {
-            if (e.target !== container && e.target !== canvas && !e.target.classList.contains('selection-box')) return;
+            // Skip if clicking on interactive elements (nodes, connections, UI)
+            if (e.target.closest('.node') || e.target.closest('.conn-group') || e.target.closest('.conn-point') || 
+                e.target.closest('.toolbar') || e.target.closest('.zoom-controls') || 
+                e.target.closest('.context-menu') || e.target.closest('.color-picker') ||
+                e.target.classList.contains('selection-box')) return;
 
             if (state.mode === 'node') {
                 const x = (e.clientX - state.panX) / state.scale;
@@ -3453,6 +3457,11 @@
             }
 
             if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Skip if user is typing in an input, textarea, or contenteditable
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                    return;
+                }
                 if (state.selectedNodeIds.length > 0) {
                     state.selectedNodeIds.forEach(id => deleteNode(id));
                     clearSelection();
