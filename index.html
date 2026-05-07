@@ -179,7 +179,6 @@
             border-radius: 4px;
             cursor: grab;
             transition: background 0.15s;
-            border-left: 3px solid transparent;
             border-bottom: 1px solid #eee;
             margin: 0;
             min-height: 32px;
@@ -1444,10 +1443,12 @@
                         + (child.completed ? ' completed' : '');
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
+                    childEl.style.borderLeft = `3px solid ${parentNode.color || '#4a90d9'}`;
 
-                    // Indent indicator - L-shape for all depths with fixed width
+                    // Indent indicator - L-shape using parent node color
                     const indent = document.createElement('span');
-                    indent.style.cssText = `width:12px;height:12px;border-left:2px solid #4a90d9;border-bottom:2px solid #4a90d9;margin-right:4px;flex-shrink:0;border-bottom-left-radius:2px;`;
+                    const parentColor = parentNode.color || '#4a90d9';
+                    indent.style.cssText = `width:12px;height:12px;border-left:2px solid ${parentColor};border-bottom:2px solid ${parentColor};margin-right:4px;flex-shrink:0;border-bottom-left-radius:2px;`;
                     childEl.appendChild(indent);
 
                     const childCheckbox = document.createElement('span');
