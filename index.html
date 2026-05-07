@@ -2745,8 +2745,9 @@
                             });
                             state.reorderTarget = null;
                             state.dropTarget = null;
+                            state.pendingExtract = true;
                             if (tooltip) {
-                                tooltip.textContent = '⎋';
+                                tooltip.textContent = '\u23CE';
                                 tooltip.classList.add('show');
                             }
                         } else if (parent.children.length > 1) {
@@ -2799,7 +2800,7 @@
                                         state.reorderTarget = null;
                                         closestEl.classList.add('nest-target');
                                         if (tooltip) {
-                                            tooltip.textContent = '▶';
+                                            tooltip.textContent = '\u25B6';
                                             tooltip.classList.add('show');
                                         }
                                     } else {
@@ -2809,7 +2810,7 @@
                                         state.reorderTarget = { siblingId, insertBefore };
                                         state.dropTarget = null;
                                         if (tooltip) {
-                                            tooltip.textContent = insertBefore ? '↑' : '↓';
+                                            tooltip.textContent = insertBefore ? '\uD83D\uDD3A' : '\uD83D\uDD3B';
                                             tooltip.classList.add('show');
                                         }
                                     }
@@ -3153,29 +3154,17 @@
             }
 
             // Node extraction: if child node is dragged outside parent, remove parent relationship
-            // Unified hit detection: use parent's actual displayed bounding box
+            // Uses mousemove-time detection via state.pendingExtract for accurate user intent
             let didExtract = false;
             if (!didReorder && !didNest && wasDragged && state.dragNode && state.dragNode.parentId !== null) {
-                const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                if (parent) {
-                    // Convert relative coordinates to absolute coordinates
-                    const absX = parent.x + state.dragNode.x;
-                    const absY = parent.y + state.dragNode.y;
-                    
-                    // Get parent's actual displayed bounding box
-                    const px = parent.x;
-                    const py = parent.y;
-                    const pw = parent.width || 200;
-                    const domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
-                    const ph = domEl ? domEl.offsetHeight : (parent.height || 50);
-                    
-                    // Check if dropped outside parent's displayed bounding box (with small margin)
-                    const MARGIN = 30;
-                    if (absX < px - MARGIN || absX > px + pw + MARGIN || absY < py - MARGIN || absY > py + ph + MARGIN) {
+                if (state.pendingExtract) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        const absX = parent.x + state.dragNode.x;
+                        const absY = parent.y + state.dragNode.y;
                         state.dragNode.x = absX;
                         state.dragNode.y = absY;
                         state.dragNode.parentId = null;
-                        // Remove from parent's children array
                         if (parent.children) {
                             parent.children = parent.children.filter(id => id !== state.dragNode.id);
                         }
@@ -3238,6 +3227,7 @@
             state.reorderTarget = null;
 
             state.dragNode = null;
+            state.pendingExtract = false;
             const tooltip = document.getElementById('drag-tooltip');
             if (tooltip) tooltip.classList.remove('show');
             renderNodes();
