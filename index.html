@@ -1484,89 +1484,9 @@
                     childEl.appendChild(expandBtn);
                     childEl.appendChild(badge);
 
-                    // Drag handlers - unified: child nodes start drag directly
-                    childEl.addEventListener('mousedown', (e) => {
-                        if (e.button !== 0) return;
-                        if (e.target.classList.contains('expand-btn') || e.target.closest('.node-color')) return;
-                        e.stopPropagation();
-                        
-                        // Double-click detection: toggle expand and skip drag
-                        if (e.detail === 2) {
-                            child.expanded = !child.expanded;
-                            renderNodes();
-                            return;
-                        }
-                        
-                        // Start drag directly on child node - use DOM position for accurate coordinates
-                        const rect = childEl.getBoundingClientRect();
-                        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
-                        const absX = (rect.left - canvasRect.left - state.panX) / state.scale;
-                        const absY = (rect.top - canvasRect.top - state.panY) / state.scale;
-                        console.log('Child drag start:', child.id, 'absPos:', {x: absX, y: absY}, 'parentId:', child.parentId);
-                        state.dragNode = child;
-                        state.dragStartX = absX;
-                        state.dragStartY = absY;
-                        state.dragOffsetX = (e.clientX - state.panX) / state.scale - absX;
-                        state.dragOffsetY = (e.clientY - state.panY) / state.scale - absY;
-                        state.pendingExtract = false;
-                        
-                        // Store original parent for potential extraction
-                        state.dragOriginalParentId = child.parentId;
-                        state.dragOriginalX = child.x;
-                        state.dragOriginalY = child.y;
-                        
-                        // Don't start drag immediately - wait for mousemove threshold
-                        state.isDragging = false;
-                        state.dragStartMouseX = e.clientX;
-                        state.dragStartMouseY = e.clientY;
-                    });
-
-                    childEl.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        showCanvasContextMenu(e.clientX, e.clientY, child);
-                    });
-
-                    childEl.addEventListener('click', (e) => {
-                        if (e.target.tagName === 'INPUT' || e.target.classList.contains('expand-btn')) return;
-                        e.stopPropagation();
-                    });
-
-                    // Unified mouseenter handler for child nodes
-                    childEl.addEventListener('mouseenter', (e) => {
-                        if (!state.isDragging || !state.dragNode || state.dragNode.id === child.id) return;
-                        
-                        const rect = childEl.getBoundingClientRect();
-                        const relativeY = e.clientY - rect.top;
-                        const height = rect.height;
-                        const centerZone = height * 0.3; // ±30% of height is center zone
-                        
-                        // Determine operation based on mouse position
-                        if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
-                            // Center zone - nest as child
-                            state.dropTarget = child;
-                            state.reorderTarget = null;
-                            childEl.classList.add('drop-target');
-                            childEl.classList.remove('reorder-before', 'reorder-after');
-                        } else {
-                            // Upper or lower zone - reorder
-                            const insertBefore = relativeY < height / 2;
-                            state.reorderTarget = {
-                                siblingId: child.id,
-                                insertBefore: insertBefore,
-                                parentId: child.parentId
-                            };
-                            state.dropTarget = null;
-                            childEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
-                            childEl.classList.remove('drop-target');
-                        }
-                    });
-
-                    childEl.addEventListener('mouseleave', () => {
-                        childEl.classList.remove('reorder-before', 'reorder-after', 'drop-target');
-                        if (state.dropTarget?.id === child.id) state.dropTarget = null;
-                        if (state.reorderTarget?.siblingId === child.id) state.reorderTarget = null;
-                    });
+                    // Use unified drag handler (same as root nodes)
+                    childEl.addEventListener('mousedown', (e) => handleNodeMouseDown(e, child));
+                    childEl.addEventListener('touchstart', (e) => handleNodeTouchStart(e, child), { passive: false });
 
                     childEl.addEventListener('dblclick', (e) => {
                         e.stopPropagation();
