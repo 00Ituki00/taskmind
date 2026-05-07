@@ -409,13 +409,16 @@
         .task-item.reorder-before::before {
             content: '';
             position: absolute;
-            top: -2px;
+            top: -6px;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 6px;
             background: #4a90d9;
-            z-index: 10;
+            border-radius: 3px;
+            z-index: 100;
             pointer-events: none;
+            box-shadow: 0 0 6px rgba(74, 144, 217, 0.6);
+            animation: indicator-pulse 1s ease-in-out infinite;
         }
 
         .task-item.reorder-after {
@@ -424,13 +427,21 @@
         .task-item.reorder-after::after {
             content: '';
             position: absolute;
-            bottom: -2px;
+            bottom: -6px;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 6px;
             background: #4a90d9;
-            z-index: 10;
+            border-radius: 3px;
+            z-index: 100;
             pointer-events: none;
+            box-shadow: 0 0 6px rgba(74, 144, 217, 0.6);
+            animation: indicator-pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes indicator-pulse {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 1; }
         }
 
         .task-item.nest-target {
@@ -3719,6 +3730,15 @@
                         };
                         delete node.tasks;
                         return node;
+                    });
+                    
+                    // Build children arrays from parentId for old data compatibility
+                    state.nodes.forEach(node => {
+                        if (!node.children || node.children.length === 0) {
+                            node.children = state.nodes
+                                .filter(n => n.parentId === node.id)
+                                .map(n => n.id);
+                        }
                     });
                     state.connections = data.connections || [];
                     state.nextId = data.nextId || 1;
