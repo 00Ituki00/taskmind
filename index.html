@@ -1445,12 +1445,6 @@
                     childEl.dataset.depth = depth;
                     childEl.style.borderLeft = `3px solid ${parentNode.color || '#4a90d9'}`;
 
-                    // Indent indicator - L-shape using parent node color
-                    const indent = document.createElement('span');
-                    const parentColor = parentNode.color || '#4a90d9';
-                    indent.style.cssText = `width:12px;height:12px;border-left:2px solid ${parentColor};border-bottom:2px solid ${parentColor};margin-right:4px;flex-shrink:0;border-bottom-left-radius:2px;`;
-                    childEl.appendChild(indent);
-
                     const childCheckbox = document.createElement('span');
                     childCheckbox.className = 'node-color';
                     childCheckbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${child.color || '#4a90d9'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;margin-right:4px;`;
