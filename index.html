@@ -157,6 +157,8 @@
         .node-tasks {
             padding: 8px 12px;
             max-width: 100%;
+            display: flex;
+            flex-direction: column;
         }
 
         .node-tasks.collapsed {
@@ -1538,6 +1540,19 @@
                         child.expanded = !child.expanded;
                         renderNodes();
                     });
+
+                    // Child nodes area with recursive rendering (same structure as root nodes)
+                    const childTasksEl = document.createElement('div');
+                    childTasksEl.className = 'node-tasks';
+                    if (!child.expanded) {
+                        childTasksEl.classList.add('collapsed');
+                    }
+                    
+                    if (child.expanded) {
+                        renderChildren(child, childTasksEl, depth + 1);
+                    }
+                    
+                    childEl.appendChild(childTasksEl);
 
                     containerEl.appendChild(childEl);
 
