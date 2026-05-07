@@ -2621,6 +2621,7 @@
                         if (state.selectedNodeIds.includes(node.id)) continue;
                         if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
                         if (node.parentId !== null) continue;
+                        if (node.id === state.dragNode.parentId) continue; // skip dragged node's parent (handled by reorder/nest logic)
                         
                         const nx = node.x;
                         const ny = node.y;
