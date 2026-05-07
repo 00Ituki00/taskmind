@@ -163,6 +163,94 @@
             display: none;
         }
 
+
+        /* Child nodes inside parent - displayed as list items */
+        .node .node-tasks .node {
+            position: relative;
+            left: auto !important;
+            top: auto !important;
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: grab;
+            transition: background 0.15s;
+            border-left: 3px solid transparent;
+            margin: 1px 0;
+            min-height: 32px;
+            box-sizing: border-box;
+            width: 100% !important;
+            background: transparent;
+        }
+        .node .node-tasks .node:hover {
+            background: rgba(0,0,0,0.03);
+        }
+        .node .node-tasks .node.selected {
+            background: rgba(74, 144, 217, 0.15);
+            box-shadow: 0 0 0 2px #4a90d9;
+        }
+        .node .node-tasks .node.drop-target {
+            background-color: #e3f2fd !important;
+            box-shadow: inset 0 0 0 2px #4a90d9 !important;
+        }
+        .node .node-tasks .node .node-title {
+            flex: 1;
+            min-width: 0;
+            font-size: 13px;
+            color: #333;
+            cursor: text;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .node .node-tasks .node .node-title.completed {
+            text-decoration: line-through;
+            color: #aaa;
+        }
+        .node .node-tasks .node[data-depth="0"] {
+            border-left-color: #4a90d9;
+            margin-left: 4px;
+        }
+        .node .node-tasks .node[data-depth="0"]:hover {
+            background: rgba(74, 144, 217, 0.1);
+        }
+        .node .node-tasks .node[data-depth="1"] .node-title {
+            color: #444;
+            font-size: 13px;
+        }
+        .node .node-tasks .node[data-depth="2"] .node-title {
+            color: #555;
+            font-size: 12px;
+        }
+        .node .node-tasks .node[data-depth="3"] .node-title {
+            color: #666;
+            font-size: 12px;
+        }
+        .node .node-tasks .node[data-depth="4"] .node-title {
+            color: #777;
+            font-size: 11px;
+        }
+        .node .node-tasks .node[data-depth="5"] .node-title {
+            color: #888;
+            font-size: 11px;
+        }
+        .node .node-tasks .node[data-depth="6"] .node-title {
+            color: #999;
+            font-size: 11px;
+        }
+        .node .node-tasks .node.reorder-before {
+            border-top: 4px solid #2196F3 !important;
+            margin-top: -2px;
+        }
+        .node .node-tasks .node.reorder-after {
+            border-bottom: 4px solid #2196F3 !important;
+            margin-bottom: -2px;
+        }
+        .node .node-tasks .node.nest-target {
+            background-color: #e3f2fd !important;
+            outline: 3px solid #2196F3 !important;
+        }
+
         .task-item {
             display: flex;
             align-items: center;
@@ -1309,12 +1397,11 @@
                     if (hiddenNodeIds.has(child.id)) return;
 
                     const childEl = document.createElement('div');
-                    childEl.className = 'task-item'
+                    childEl.className = 'node'
                         + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
                         + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
                         + (child.completed ? ' completed' : '');
-                    childEl.dataset.childId = child.id;
-                    childEl.style.setProperty('--depth', depth);
+                    childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
 
                     // Indent indicator - L-shape for depth 0, spacer for deeper
@@ -1367,35 +1454,38 @@
                     childEl.appendChild(expandBtn);
                     childEl.appendChild(badge);
 
-                    // Drag handlers (unified for all depths)
+                    // Drag handlers - unified: child nodes start drag directly
                     childEl.addEventListener('mousedown', (e) => {
                         if (e.button !== 0) return;
                         if (e.target.classList.contains('expand-btn') || e.target.closest('.node-color')) return;
                         e.stopPropagation();
                         
-                        // Double-click detection: if e.detail === 2, toggle expand and skip drag
+                        // Double-click detection: toggle expand and skip drag
                         if (e.detail === 2) {
                             child.expanded = !child.expanded;
                             renderNodes();
                             return;
                         }
                         
-                        state.childDragCandidate = {
-                            node: child,
-                            element: childEl,
-                            startClientX: e.clientX,
-                            startClientY: e.clientY,
-                            startX: child.x,
-                            startY: child.y,
-                            parentId: child.parentId,
-                            originalParentId: child.parentId
-                        };
+                        // Start drag directly on child node
+                        const absPos = getNodeAbsolutePosition(child);
+                        state.dragNode = child;
+                        state.dragStartX = absPos.x;
+                        state.dragStartY = absPos.y;
+                        state.dragOffsetX = (e.clientX - state.panX) / state.scale - absPos.x;
+                        state.dragOffsetY = (e.clientY - state.panY) / state.scale - absPos.y;
+                        state.pendingExtract = false;
+                        
+                        // Store original parent for potential extraction
+                        state.dragOriginalParentId = child.parentId;
+                        state.dragOriginalX = child.x;
+                        state.dragOriginalY = child.y;
                     });
 
                     childEl.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        showCanvasContextMenu(e.clientX, e.clientY, e);
+                        showCanvasContextMenu(e.clientX, e.clientY, child);
                     });
 
                     childEl.addEventListener('click', (e) => {
@@ -2553,36 +2643,7 @@
                 return;
             }
 
-            // Check child drag candidate - if moved enough, start drag without removing parentId
-            if (state.childDragCandidate) {
-                const dist = Math.hypot(e.clientX - state.childDragCandidate.startClientX, e.clientY - state.childDragCandidate.startClientY);
-                if (dist > 5) {
-                    const child = state.childDragCandidate.node;
-                    const parentNode = state.nodes.find(n => n.id === child.parentId);
-                    if (parentNode) {
-                        // Get the actual DOM position of the task-item for accurate visual placement
-                        const taskItem = state.childDragCandidate.element || document.querySelector(`.task-item[data-child-id="${child.id}"]`);
-                        if (taskItem) {
-                            const rect = taskItem.getBoundingClientRect();
-                            child.absX = (rect.left - state.panX) / state.scale;
-                            child.absY = (rect.top - state.panY) / state.scale;
-                        } else {
-                            // Fallback to model coordinates
-                            child.absX = parentNode.x + child.x;
-                            child.absY = parentNode.y + child.y;
-                        }
-                    }
-                    // Keep parentId during drag - ghost representation
-                    state.dragNode = child;
-                    state.dragStartX = child.absX || child.x;
-                    state.dragStartY = child.absY || child.y;
-                    state.dragOffsetX = (e.clientX - state.panX) / state.scale - (child.absX || child.x);
-                    state.dragOffsetY = (e.clientY - state.panY) / state.scale - (child.absY || child.y);
-                    state.childDragCandidate = null;
-                    renderNodes();
-                }
-                return;
-            }
+            // Child drag is now started directly on mousedown - no candidate needed (unified drag)
 
             if (state.dragNode) {
                 const tooltip = document.getElementById('drag-tooltip');
@@ -2690,8 +2751,8 @@
                         }
                     }
                     
-                    // Also check child task items (.task-item) using DOM bounding box
-                    const taskItems = document.querySelectorAll('.task-item');
+                    // Also check child nodes (.node inside .node-tasks) using DOM bounding box
+                    const taskItems = document.querySelectorAll('.node .node-tasks .node');
                     for (const item of taskItems) {
                         const rect = item.getBoundingClientRect();
                         const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
@@ -2739,9 +2800,9 @@
                         const px = parent.x;
                         const py = parent.y;
                         const pw = parent.width || 200;
-                        // Try .node first (root nodes), then .task-item (child nodes)
+                        // Try .node first (root nodes), then child .node inside .node-tasks
                         let domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
-                        if (!domEl) domEl = document.querySelector(`.task-item[data-child-id="${parent.id}"]`);
+                        if (!domEl) domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                         const ph = domEl ? domEl.offsetHeight : (parent.height || 50);
                         const MARGIN = 30;
                         
@@ -2750,7 +2811,7 @@
                         
                         if (isOutsideParent) {
                             // Mouse outside parent - show extract icon, skip reorder/nest
-                            document.querySelectorAll('.task-item').forEach(el => {
+                            document.querySelectorAll('.node .node-tasks .node').forEach(el => {
                                 el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                             });
                             state.reorderTarget = null;
@@ -2770,7 +2831,7 @@
                             let closestCenterY = 0;
                             
                             for (const siblingId of siblings) {
-                                const el = document.querySelector(`.task-item[data-child-id="${siblingId}"]`);
+                                const el = document.querySelector(`.node[data-id="${siblingId}"]`);
                                 if (el) {
                                     const rect = el.getBoundingClientRect();
                                     const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
@@ -2792,7 +2853,7 @@
                             }
                             
                             // Clear all indicators
-                            document.querySelectorAll('.task-item').forEach(el => {
+                            document.querySelectorAll('.node .node-tasks .node').forEach(el => {
                                 el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                             });
                             
@@ -2885,37 +2946,7 @@
                 setZoom(scale);
             }
 
-            // Check child drag candidate for touch - if moved enough, start drag without removing parentId
-            if (state.childDragCandidate && e.touches.length === 1) {
-                const touch = e.touches[0];
-                const dist = Math.hypot(touch.clientX - state.childDragCandidate.startClientX, touch.clientY - state.childDragCandidate.startClientY);
-                if (dist > 5) {
-                    const child = state.childDragCandidate.node;
-                    const parentNode = state.nodes.find(n => n.id === child.parentId);
-                    if (parentNode) {
-                        // Get the actual DOM position of the task-item for accurate visual placement
-                        const taskItem = state.childDragCandidate.element || document.querySelector(`.task-item[data-child-id="${child.id}"]`);
-                        if (taskItem) {
-                            const rect = taskItem.getBoundingClientRect();
-                            child.absX = (rect.left - state.panX) / state.scale;
-                            child.absY = (rect.top - state.panY) / state.scale;
-                        } else {
-                            // Fallback to model coordinates
-                            child.absX = parentNode.x + child.x;
-                            child.absY = parentNode.y + child.y;
-                        }
-                    }
-                    // Keep parentId during drag - ghost representation
-                    state.dragNode = child;
-                    state.dragStartX = child.absX || child.x;
-                    state.dragStartY = child.absY || child.y;
-                    state.dragOffsetX = (touch.clientX - state.panX) / state.scale - (child.absX || child.x);
-                    state.dragOffsetY = (touch.clientY - state.panY) / state.scale - (child.absY || child.y);
-                    state.childDragCandidate = null;
-                    renderNodes();
-                }
-                return;
-            }
+            // Child drag for touch is now started directly on touchstart - no candidate needed (unified drag)
 
             if (state.dragNode && e.touches.length === 1) {
                 const touch = e.touches[0];
@@ -3118,7 +3149,7 @@
                     parent.children.push(child.id);
                     // Get actual parent height from DOM if available
                     let parentDomEl = document.querySelector(`.node[data-id="${parent.id}"]`);
-                    if (!parentDomEl) parentDomEl = document.querySelector(`.task-item[data-child-id="${parent.id}"]`);
+                    if (!parentDomEl) parentDomEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                     const parentHeight = parentDomEl ? parentDomEl.offsetHeight : (parent.height || 50);
                     // Position child within parent's task list area (relative coordinates)
                     child.x = 20;
@@ -3232,7 +3263,7 @@
             }
 
             // Clear reorder indicators
-            document.querySelectorAll('.task-item').forEach(el => {
+            document.querySelectorAll('.node .node-tasks .node').forEach(el => {
                 el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
             });
             state.reorderTarget = null;
@@ -3244,10 +3275,8 @@
             renderNodes();
             renderConnections();
 
-            // Cancel child drag candidate if it was just a click (not a drag)
-            if (state.childDragCandidate) {
-                state.childDragCandidate = null;
-            }
+            // Clear drag tooltip
+            state.pendingExtract = false;
 
             // End resize
             if (state.resizingNode) {
@@ -3348,10 +3377,7 @@
 
             state.dragNode = null;
 
-            // Cancel child drag candidate if it was just a tap (not a drag)
-            if (state.childDragCandidate) {
-                state.childDragCandidate = null;
-            }
+            // Clear drag tooltip for touch
         });
 
         function getPinchDistance(touches) {
@@ -3440,13 +3466,13 @@
 
             // Node-specific items
             const targetNode = clickEvent?.target?.closest('.node');
-            const targetTaskItem = clickEvent?.target?.closest('.task-item');
+            const targetChildNode = clickEvent?.target?.closest('.node .node-tasks .node');
             
-            if (targetTaskItem) {
-                // Child node (task item) context menu
-                const childId = parseInt(targetTaskItem.dataset.childId);
+            if (targetChildNode) {
+                // Child node context menu
+                const childId = parseInt(targetChildNode.dataset.id);
                 const childNode = state.nodes.find(n => n.id === childId);
-                const childTitleEl = targetTaskItem.querySelector('.task-text');
+                const childTitleEl = targetChildNode.querySelector('.node-title');
                 
                     if (childNode && childTitleEl) {
                     items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
@@ -3571,7 +3597,7 @@
             items.push({ text: '', class: 'context-separator' });
             items.push({ text: '全体表示', icon: '⬛', action: fitToView });
 
-            console.log('Context menu items count:', items.length, 'targetTaskItem:', !!targetTaskItem, 'targetNode:', !!targetNode);
+            console.log('Context menu items count:', items.length, 'targetChildNode:', !!targetChildNode, 'targetNode:', !!targetNode);
 
             items.forEach(item => {
                 if (item.class === 'context-separator') {
