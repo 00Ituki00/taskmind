@@ -403,50 +403,38 @@
             font-size: 11px;
         }
 
+        /* Reorder indicator - horizontal line between items */
         .task-item.reorder-before {
-            position: relative;
+            border-top: 4px solid #2196F3 !important;
+            margin-top: -2px;
         }
-        .task-item.reorder-before::before {
-            content: '';
-            position: absolute;
-            top: -6px;
-            left: 0;
-            right: 0;
-            height: 6px;
-            background: #4a90d9;
-            border-radius: 3px;
-            z-index: 100;
-            pointer-events: none;
-            box-shadow: 0 0 6px rgba(74, 144, 217, 0.6);
-            animation: indicator-pulse 1s ease-in-out infinite;
-        }
-
         .task-item.reorder-after {
-            position: relative;
+            border-bottom: 4px solid #2196F3 !important;
+            margin-bottom: -2px;
         }
-        .task-item.reorder-after::after {
-            content: '';
-            position: absolute;
-            bottom: -6px;
-            left: 0;
-            right: 0;
-            height: 6px;
-            background: #4a90d9;
-            border-radius: 3px;
-            z-index: 100;
-            pointer-events: none;
-            box-shadow: 0 0 6px rgba(74, 144, 217, 0.6);
-            animation: indicator-pulse 1s ease-in-out infinite;
-        }
-
-        @keyframes indicator-pulse {
-            0%, 100% { opacity: 0.85; }
-            50% { opacity: 1; }
-        }
-
         .task-item.nest-target {
-            background-color: #e8f0fe;
-            outline: 2px dashed #4a90d9;
+            background-color: #e3f2fd !important;
+            outline: 3px solid #2196F3 !important;
+            outline-offset: 2px;
+        }
+
+        /* Drag mode tooltip */
+        #drag-tooltip {
+            position: fixed;
+            pointer-events: none;
+            z-index: 10000;
+            background: #333;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+            display: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        #drag-tooltip.show {
+            display: block;
         }
 
         .node-parent-indicator {
@@ -2574,6 +2562,11 @@
             }
 
             if (state.dragNode) {
+                const tooltip = document.getElementById('drag-tooltip');
+                if (tooltip) {
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY - 30) + 'px';
+                }
                 const newX = (e.clientX - state.panX) / state.scale - state.dragOffsetX;
                 const newY = (e.clientY - state.panY) / state.scale - state.dragOffsetY;
                 
@@ -2760,6 +2753,7 @@
                         const hasExternalDropTarget = state.dropTarget && state.dropTarget.parentId !== state.dragNode.parentId;
                         
                         if (!hasExternalDropTarget) {
+                            const tooltip = document.getElementById('drag-tooltip');
                             if (closestEl && closestDist < 50) {
                                 const siblingId = parseInt(closestEl.dataset.childId);
                                 const siblingNode = state.nodes.find(n => n.id === siblingId);
@@ -2769,16 +2763,25 @@
                                     state.dropTarget = siblingNode;
                                     state.reorderTarget = null;
                                     closestEl.classList.add('nest-target');
+                                    if (tooltip) {
+                                        tooltip.textContent = '入れ子にする';
+                                        tooltip.classList.add('show');
+                                    }
                                 } else {
                                     // Reorder: set reorderTarget
                                     const insertBefore = my < closestCenterY;
                                     closestEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
                                     state.reorderTarget = { siblingId, insertBefore };
                                     state.dropTarget = null;
+                                    if (tooltip) {
+                                        tooltip.textContent = insertBefore ? '順序: 上に移動' : '順序: 下に移動';
+                                        tooltip.classList.add('show');
+                                    }
                                 }
                             } else {
                                 state.reorderTarget = null;
                                 state.dropTarget = null;
+                                if (tooltip) tooltip.classList.remove('show');
                             }
                         }
                     }
@@ -3199,6 +3202,8 @@
             state.reorderTarget = null;
 
             state.dragNode = null;
+            const tooltip = document.getElementById('drag-tooltip');
+            if (tooltip) tooltip.classList.remove('show');
             renderNodes();
             renderConnections();
 
