@@ -259,6 +259,12 @@
             outline: 3px solid #2196F3 !important;
         }
 
+        .node.dragging {
+            pointer-events: none;
+            opacity: 0.8;
+            z-index: 1000;
+        }
+
         .task-item {
             display: flex;
             align-items: center;
@@ -320,6 +326,8 @@
             border-radius: 4px;
             min-height: auto !important;
             box-shadow: none;
+            pointer-events: none;
+            z-index: 1000;
         }
 
         .node.dragging-child .node-title {
@@ -1440,7 +1448,8 @@
                     childEl.className = 'node'
                         + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
                         + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
-                        + (child.completed ? ' completed' : '');
+                        + (child.completed ? ' completed' : '')
+                        + (state.dragNode?.id === child.id ? ' dragging' : '');
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
                     childEl.style.borderLeft = `3px solid ${parentNode.color || '#4a90d9'}`;
@@ -1522,7 +1531,8 @@
 
                 const el = document.createElement('div');
                 el.className = 'node' + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
-                    + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '');
+                    + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
+                    + (state.dragNode?.id === node.id ? ' dragging' : '');
                 
                 // Use absolute position for dragged child nodes
                 if (node.parentId !== null && state.dragNode?.id === node.id) {
@@ -1558,7 +1568,7 @@
 
                 // If dragging a child node, render as simplified element
                 if (node.parentId !== null && state.dragNode?.id === node.id) {
-                    el.classList.add('dragging-child');
+                    el.classList.add('dragging-child', 'dragging');
                     if (state.dropTarget && state.dropTarget.id === node.id) {
                         el.classList.add('drop-target');
                     }
