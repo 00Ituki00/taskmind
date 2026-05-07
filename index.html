@@ -403,7 +403,13 @@
             font-size: 11px;
         }
 
-        /* 7+ depth uses same text style as 6, but padding continues via CSS var */
+        .task-item.reorder-before {
+            border-top: 3px solid #4a90d9;
+        }
+
+        .task-item.reorder-after {
+            border-bottom: 3px solid #4a90d9;
+        }
 
         .node-parent-indicator {
             position: absolute;
@@ -739,7 +745,8 @@
             resizeStartY: 0,
             resizeStartWidth: 0,
             resizeStartHeight: 0,
-            colors: ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4dd0e1', '#4db6ac', '#81c784', '#aed581', '#dce775', '#fff176', '#ffd54f', '#ffb74d', '#ff8a65', '#a1887f', '#e0e0e0']
+            colors: ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4dd0e1', '#4db6ac', '#81c784', '#aed581', '#dce775', '#fff176', '#ffd54f', '#ffb74d', '#ff8a65', '#a1887f', '#e0e0e0'],
+            reorderTarget: null
         };
 
         // ==================== DOM refs ====================
@@ -2643,6 +2650,8 @@
                             if (childId && childId !== state.dragNode.id && !state.selectedNodeIds.includes(childId)) {
                                 const node = state.nodes.find(n => n.id === childId);
                                 if (node && state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
+                                // Skip same-parent nodes (handled by reorder logic)
+                                if (node && state.dragNode.parentId !== null && node.parentId === state.dragNode.parentId) continue;
                                 if (node) {
                                     const centerX = itemX + itemW / 2;
                                     const centerY = itemY + itemH / 2;
@@ -2664,6 +2673,50 @@
                     }
                     
                     state.dropTarget = targetNode;
+                }
+
+                // Detect reorder target when dragging child within same parent
+                if (state.dragNode && state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent && parent.children.length > 1) {
+                        const mx = (e.clientX - state.panX) / state.scale;
+                        const my = (e.clientY - state.panY) / state.scale;
+                        const siblings = parent.children.filter(id => id !== state.dragNode.id);
+                        
+                        let closestEl = null;
+                        let closestDist = Infinity;
+                        let insertBefore = true;
+                        
+                        for (const siblingId of siblings) {
+                            const el = document.querySelector(`.task-item[data-child-id="${siblingId}"]`);
+                            if (el) {
+                                const rect = el.getBoundingClientRect();
+                                const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                                const itemY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                                const itemH = rect.height / state.scale;
+                                const itemCenterY = itemY + itemH / 2;
+                                const dist = Math.abs(my - itemCenterY);
+                                
+                                if (dist < closestDist) {
+                                    closestDist = dist;
+                                    closestEl = el;
+                                    insertBefore = my < itemCenterY;
+                                }
+                            }
+                        }
+                        
+                        // Clear all indicators
+                        document.querySelectorAll('.task-item').forEach(el => {
+                            el.classList.remove('reorder-before', 'reorder-after');
+                        });
+                        
+                        if (closestEl && closestDist < 50) {
+                            closestEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
+                            state.reorderTarget = { siblingId: parseInt(closestEl.dataset.childId), insertBefore };
+                        } else {
+                            state.reorderTarget = null;
+                        }
+                    }
                 }
 
                 renderNodes();
@@ -2970,11 +3023,32 @@
 
             state.dragIndicator = null;
 
+            // Handle reorder within same parent
+            let didReorder = false;
+            if (state.reorderTarget && state.dragNode && state.dragNode.parentId !== null) {
+                const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                if (parent) {
+                    const fromIndex = parent.children.indexOf(state.dragNode.id);
+                    const toIndex = parent.children.indexOf(state.reorderTarget.siblingId);
+                    if (fromIndex !== -1 && toIndex !== -1) {
+                        parent.children.splice(fromIndex, 1);
+                        let insertIndex = toIndex;
+                        if (fromIndex < toIndex) {
+                            insertIndex = state.reorderTarget.insertBefore ? toIndex - 1 : toIndex;
+                        } else {
+                            insertIndex = state.reorderTarget.insertBefore ? toIndex : toIndex + 1;
+                        }
+                        parent.children.splice(insertIndex, 0, state.dragNode.id);
+                        didReorder = true;
+                        showToast('順序を変更しました');
+                    }
+                }
+            }
 
             // Node extraction: if child node is dragged outside parent, remove parent relationship
             // Unified hit detection: use parent's actual displayed bounding box
             let didExtract = false;
-            if (!didNest && wasDragged && state.dragNode && state.dragNode.parentId !== null) {
+            if (!didReorder && !didNest && wasDragged && state.dragNode && state.dragNode.parentId !== null) {
                 const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
                 if (parent) {
                     // Convert relative coordinates to absolute coordinates
@@ -3045,6 +3119,12 @@
                     showToast('ノードを移動しました');
                 }
             }
+
+            // Clear reorder indicators
+            document.querySelectorAll('.task-item').forEach(el => {
+                el.classList.remove('reorder-before', 'reorder-after');
+            });
+            state.reorderTarget = null;
 
             state.dragNode = null;
             renderNodes();
