@@ -1486,6 +1486,7 @@
                         
                         // Start drag directly on child node
                         const absPos = getNodeAbsolutePosition(child);
+                        console.log('Child drag start:', child.id, 'absPos:', absPos, 'parentId:', child.parentId);
                         state.dragNode = child;
                         state.dragStartX = absPos.x;
                         state.dragStartY = absPos.y;
@@ -1497,6 +1498,11 @@
                         state.dragOriginalParentId = child.parentId;
                         state.dragOriginalX = child.x;
                         state.dragOriginalY = child.y;
+                        
+                        // Set dragging state
+                        state.isDragging = true;
+                        nodesEl.style.cursor = 'grabbing';
+                        renderNodes();
                     });
 
                     childEl.addEventListener('contextmenu', (e) => {
@@ -2670,6 +2676,8 @@
                 }
                 const newX = (e.clientX - state.panX) / state.scale - state.dragOffsetX;
                 const newY = (e.clientY - state.panY) / state.scale - state.dragOffsetY;
+                
+                console.log('Child drag move:', state.dragNode.id, 'newX:', newX, 'newY:', newY, 'parentId:', state.dragNode.parentId);
                 
                 // Calculate old absolute position
                 let oldAbsX = state.dragNode.x;
