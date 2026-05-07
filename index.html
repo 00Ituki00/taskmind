@@ -2261,8 +2261,8 @@
 
         function handleNodeMouseDown(e, node) {
             if (e.button !== 0) return;
-            // Guard: skip drag if clicking on interactive elements
-            if (e.target.closest('.node-title') || e.target.closest('.task-delete-btn') ||
+            // Guard: skip drag if clicking on interactive elements (allow dragging on node-title)
+            if (e.target.closest('.task-delete-btn') ||
                 e.target.closest('.expand-btn') || e.target.closest('.color-picker') ||
                 e.target.closest('.node-color') || e.target.closest('.add-task') ||
                 e.target.closest('.resize-handle')) return;
