@@ -212,29 +212,11 @@
             text-decoration: line-through;
             color: #aaa;
         }
-        .node .node-tasks .node[data-depth="0"] {
+        .node .node-tasks .node {
             border-left-color: #4a90d9;
-            margin-left: 4px;
+            margin-left: 12px;
         }
-        .node .node-tasks .node[data-depth="1"] {
-            margin-left: 16px;
-        }
-        .node .node-tasks .node[data-depth="2"] {
-            margin-left: 28px;
-        }
-        .node .node-tasks .node[data-depth="3"] {
-            margin-left: 40px;
-        }
-        .node .node-tasks .node[data-depth="4"] {
-            margin-left: 52px;
-        }
-        .node .node-tasks .node[data-depth="5"] {
-            margin-left: 64px;
-        }
-        .node .node-tasks .node[data-depth="6"] {
-            margin-left: 76px;
-        }
-        .node .node-tasks .node[data-depth="0"]:hover {
+        .node .node-tasks .node:hover {
             background: rgba(74, 144, 217, 0.1);
         }
         .node .node-tasks .node[data-depth="1"] .node-title {
@@ -1459,16 +1441,10 @@
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
 
-                    // Indent indicator - L-shape for depth 0, spacer for deeper
-                    if (depth === 0) {
-                        const indent = document.createElement('span');
-                        indent.style.cssText = 'width:12px;height:12px;border-left:2px solid #4a90d9;border-bottom:2px solid #4a90d9;margin-right:4px;flex-shrink:0;border-bottom-left-radius:2px;';
-                        childEl.appendChild(indent);
-                    } else {
-                        const spacer = document.createElement('span');
-                        spacer.style.cssText = `width:${16 + (depth * 12)}px;flex-shrink:0;`;
-                        childEl.appendChild(spacer);
-                    }
+                    // Indent indicator - L-shape for all depths with fixed width
+                    const indent = document.createElement('span');
+                    indent.style.cssText = `width:12px;height:12px;border-left:2px solid #4a90d9;border-bottom:2px solid #4a90d9;margin-right:4px;flex-shrink:0;border-bottom-left-radius:2px;`;
+                    childEl.appendChild(indent);
 
                     const childCheckbox = document.createElement('span');
                     childCheckbox.className = 'node-color';
@@ -1522,14 +1498,17 @@
                             return;
                         }
                         
-                        // Start drag directly on child node
-                        const absPos = getNodeAbsolutePosition(child);
-                        console.log('Child drag start:', child.id, 'absPos:', absPos, 'parentId:', child.parentId);
+                        // Start drag directly on child node - use DOM position for accurate coordinates
+                        const rect = childEl.getBoundingClientRect();
+                        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                        const absX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                        const absY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                        console.log('Child drag start:', child.id, 'absPos:', {x: absX, y: absY}, 'parentId:', child.parentId);
                         state.dragNode = child;
-                        state.dragStartX = absPos.x;
-                        state.dragStartY = absPos.y;
-                        state.dragOffsetX = (e.clientX - state.panX) / state.scale - absPos.x;
-                        state.dragOffsetY = (e.clientY - state.panY) / state.scale - absPos.y;
+                        state.dragStartX = absX;
+                        state.dragStartY = absY;
+                        state.dragOffsetX = (e.clientX - state.panX) / state.scale - absX;
+                        state.dragOffsetY = (e.clientY - state.panY) / state.scale - absY;
                         state.pendingExtract = false;
                         
                         // Store original parent for potential extraction
@@ -2747,8 +2726,9 @@
                 if (state.dragNode.parentId !== null) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
                     if (parent) {
-                        state.dragNode.x = newX - parent.x;
-                        state.dragNode.y = newY - parent.y;
+                        const parentAbsPos = getNodeAbsolutePosition(parent);
+                        state.dragNode.x = newX - parentAbsPos.x;
+                        state.dragNode.y = newY - parentAbsPos.y;
                         state.dragNode.absX = newX;
                         state.dragNode.absY = newY;
                     }
@@ -2798,8 +2778,9 @@
                 // 1. Mouse must be inside the displayed target's bounding box
                 // 2. If multiple overlap, prioritize the one whose center is closest to mouse
                 if (state.dragNode && !state.selectedNodeIds.includes(state.dragNode.id)) {
-                    const mx = (e.clientX - state.panX) / state.scale;
-                    const my = (e.clientY - state.panY) / state.scale;
+                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                    const mx = (e.clientX - canvasRect.left - state.panX) / state.scale;
+                    const my = (e.clientY - canvasRect.top - state.panY) / state.scale;
                     let candidates = [];
                     
                     // Check all ROOT nodes using absolute coordinates - mouse inside node rect
@@ -3083,8 +3064,9 @@
                 if (state.dragNode.parentId !== null) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
                     if (parent) {
-                        state.dragNode.x = newX - parent.x;
-                        state.dragNode.y = newY - parent.y;
+                        const parentAbsPos = getNodeAbsolutePosition(parent);
+                        state.dragNode.x = newX - parentAbsPos.x;
+                        state.dragNode.y = newY - parentAbsPos.y;
                         state.dragNode.absX = newX;
                         state.dragNode.absY = newY;
                     }
