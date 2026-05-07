@@ -1488,38 +1488,9 @@
                     childEl.addEventListener('mousedown', (e) => handleNodeMouseDown(e, child));
                     childEl.addEventListener('touchstart', (e) => handleNodeTouchStart(e, child), { passive: false });
 
-                    // Unified mouseenter/mouseleave for drag-and-drop (same as root nodes)
-                    childEl.addEventListener('mouseenter', (e) => {
-                        if (!state.isDragging || !state.dragNode || state.dragNode.id === child.id) return;
-                        
-                        const rect = childEl.getBoundingClientRect();
-                        const relativeY = e.clientY - rect.top;
-                        const height = rect.height;
-                        const centerZone = height * 0.3;
-                        
-                        if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
-                            state.dropTarget = child;
-                            state.reorderTarget = null;
-                            childEl.classList.add('drop-target');
-                            childEl.classList.remove('reorder-before', 'reorder-after');
-                        } else {
-                            const insertBefore = relativeY < height / 2;
-                            state.reorderTarget = {
-                                siblingId: child.id,
-                                insertBefore: insertBefore,
-                                parentId: child.parentId
-                            };
-                            state.dropTarget = null;
-                            childEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
-                            childEl.classList.remove('drop-target');
-                        }
-                    });
-
-                    childEl.addEventListener('mouseleave', () => {
-                        childEl.classList.remove('reorder-before', 'reorder-after', 'drop-target');
-                        if (state.dropTarget?.id === child.id) state.dropTarget = null;
-                        if (state.reorderTarget?.siblingId === child.id) state.reorderTarget = null;
-                    });
+                    // Use unified drag-and-drop handlers (same as root nodes)
+                    childEl.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, childEl, child));
+                    childEl.addEventListener('mouseleave', () => handleNodeMouseLeave(childEl, child));
 
                     childEl.addEventListener('dblclick', (e) => {
                         e.stopPropagation();
@@ -1696,40 +1667,9 @@
 
                 nodesEl.appendChild(el);
 
-                // Unified mouseenter handler for root nodes (same logic as child nodes)
-                el.addEventListener('mouseenter', (e) => {
-                    if (!state.isDragging || !state.dragNode || state.dragNode.id === node.id) return;
-                    
-                    const rect = el.getBoundingClientRect();
-                    const relativeY = e.clientY - rect.top;
-                    const height = rect.height;
-                    const centerZone = height * 0.3; // ±30% of height is center zone
-                    
-                    if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
-                        // Center zone - nest as child
-                        state.dropTarget = node;
-                        state.reorderTarget = null;
-                        el.classList.add('drop-target');
-                        el.classList.remove('reorder-before', 'reorder-after');
-                    } else {
-                        // Upper or lower zone - reorder
-                        const insertBefore = relativeY < height / 2;
-                        state.reorderTarget = {
-                            siblingId: node.id,
-                            insertBefore: insertBefore,
-                            parentId: node.parentId
-                        };
-                        state.dropTarget = null;
-                        el.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
-                        el.classList.remove('drop-target');
-                    }
-                });
-
-                el.addEventListener('mouseleave', () => {
-                    el.classList.remove('reorder-before', 'reorder-after', 'drop-target');
-                    if (state.dropTarget?.id === node.id) state.dropTarget = null;
-                    if (state.reorderTarget?.siblingId === node.id) state.reorderTarget = null;
-                });
+                // Unified drag-and-drop handlers for root nodes
+                el.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, el, node));
+                el.addEventListener('mouseleave', () => handleNodeMouseLeave(el, node));
 
                 // Show/hide resize handles on node hover
                 el.addEventListener('mouseenter', () => {
@@ -2299,6 +2239,42 @@
 
         // ==================== Mouse/Touch Handlers ====================
         const nodeDblClickState = new Map();
+
+        // Unified drag-and-drop mouseenter handler for all node types
+        function handleNodeMouseEnter(e, element, node) {
+            if (!state.isDragging || !state.dragNode || state.dragNode.id === node.id) return;
+            
+            const rect = element.getBoundingClientRect();
+            const relativeY = e.clientY - rect.top;
+            const height = rect.height;
+            const centerZone = height * 0.3;
+            
+            if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
+                // Center zone - nest as child
+                state.dropTarget = node;
+                state.reorderTarget = null;
+                element.classList.add('drop-target');
+                element.classList.remove('reorder-before', 'reorder-after');
+            } else {
+                // Upper or lower zone - reorder
+                const insertBefore = relativeY < height / 2;
+                state.reorderTarget = {
+                    siblingId: node.id,
+                    insertBefore: insertBefore,
+                    parentId: node.parentId
+                };
+                state.dropTarget = null;
+                element.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
+                element.classList.remove('drop-target');
+            }
+        }
+
+        // Unified drag-and-drop mouseleave handler for all node types
+        function handleNodeMouseLeave(element, node) {
+            element.classList.remove('reorder-before', 'reorder-after', 'drop-target');
+            if (state.dropTarget?.id === node.id) state.dropTarget = null;
+            if (state.reorderTarget?.siblingId === node.id) state.reorderTarget = null;
+        }
 
         function handleNodeMouseDown(e, node) {
             if (e.button !== 0) return;
