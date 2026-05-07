@@ -2254,6 +2254,16 @@
         function handleNodeMouseEnter(e, element, node) {
             if (!state.isDragging || !state.dragNode || state.dragNode.id === node.id) return;
             
+            // Clear all existing indicators from all nodes first (only one target at a time)
+            document.querySelectorAll('.reorder-before, .reorder-after, .drop-target').forEach(el => {
+                if (el !== element) {
+                    el.classList.remove('reorder-before', 'reorder-after', 'drop-target');
+                }
+            });
+            // Clear state targets that are not the current node
+            if (state.dropTarget && state.dropTarget.id !== node.id) state.dropTarget = null;
+            if (state.reorderTarget && state.reorderTarget.siblingId !== node.id) state.reorderTarget = null;
+            
             const rect = element.getBoundingClientRect();
             const relativeY = e.clientY - rect.top;
             const height = rect.height;
