@@ -2493,8 +2493,18 @@
             if (state.mode === 'node') {
                 const x = (e.clientX - state.panX) / state.scale;
                 const y = (e.clientY - state.panY) / state.scale;
-                createNode(x, y);
+                const newNode = createNode(x, y);
                 setMode('select');
+                // Auto-focus title for immediate editing
+                requestAnimationFrame(() => {
+                    const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                    const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                    try {
+                        enableTitleEdit(titleEl, newNode);
+                    } catch (err) {
+                        console.error('Error in enableTitleEdit:', err);
+                    }
+                });
                 return;
             }
 
@@ -2524,8 +2534,17 @@
                 if (state.mode === 'node') {
                     const x = (touch.clientX - state.panX) / state.scale;
                     const y = (touch.clientY - state.panY) / state.scale;
-                    createNode(x, y);
+                    const newNode = createNode(x, y);
                     setMode('select');
+                    requestAnimationFrame(() => {
+                        const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                        const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                        try {
+                            enableTitleEdit(titleEl, newNode);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    });
                     return;
                 }
 
@@ -3853,7 +3872,16 @@
                     items.push({ text: 'ノード追加', icon: '📦', action: () => {
                         const cx = (x - state.panX) / state.scale;
                         const cy = (y - state.panY) / state.scale;
-                        createNode(cx, cy);
+                        const newNode = createNode(cx, cy);
+                        requestAnimationFrame(() => {
+                            const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                            const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                            try {
+                                enableTitleEdit(titleEl, newNode);
+                            } catch (err) {
+                                console.error('Error in enableTitleEdit:', err);
+                            }
+                        });
                     }});
                 }
 
