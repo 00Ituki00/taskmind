@@ -1084,6 +1084,10 @@
                 const parent = state.nodes.find(n => n.id === deletedNode.parentId);
                 if (parent && parent.children) {
                     parent.children = parent.children.filter(id => id !== nodeId);
+                    // Auto-collapse parent when no children remain
+                    if (parent.children.length === 0) {
+                        parent.expanded = false;
+                    }
                 }
             }
 
@@ -1170,6 +1174,8 @@
                     if (!parent.children.includes(childId)) {
                         parent.children.push(childId);
                     }
+                    // Auto-expand parent when child is added
+                    parent.expanded = true;
                     // Position child relative to parent
                     child.x = 20;
                     child.y = (parent.height || 50) + 10 + (index * 35);
@@ -1464,12 +1470,19 @@
                     childCheckbox.addEventListener('mousedown', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        // Ignore right-click (button === 2), only toggle on left-click
+                        if (e.button === 2) return;
                         child.completed = !child.completed;
                         renderNodes();
                     });
+                    childCheckbox.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showColorPicker(e, child);
+                    });
 
                     const childTitle = document.createElement('span');
-                    childTitle.className = 'node-title';
+                    childTitle.className = 'node-title' + (child.completed ? ' completed' : '');
                     childTitle.textContent = child.title;
 
 
@@ -1562,7 +1575,7 @@
                 }
                 // Only apply explicit height when expanded - collapsed nodes should auto-shrink to header
                 if (node.height && node.expanded) {
-                    el.style.height = node.height + 'px';
+                    el.style.minHeight = node.height + 'px';
                 }
 
                 if (hiddenNodeIds.has(node.id)) {
@@ -1589,8 +1602,15 @@
                     checkbox.addEventListener('mousedown', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        // Ignore right-click (button === 2), only toggle on left-click
+                        if (e.button === 2) return;
                         node.completed = !node.completed;
                         renderNodes();
+                    });
+                    checkbox.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showColorPicker(e, node);
                     });
                     
                     const title = document.createElement('span');
@@ -1627,6 +1647,8 @@
                 color.addEventListener('mousedown', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    // Ignore right-click (button === 2), only toggle on left-click
+                    if (e.button === 2) return;
                     node.completed = !node.completed;
                     renderNodes();
                 });
@@ -3786,6 +3808,9 @@
                             const parent = state.nodes.find(n => n.id === childNode.parentId);
                             if (parent) {
                                 parent.children = parent.children.filter(c => c !== childId);
+                                if (parent.children.length === 0) {
+                                    parent.expanded = false;
+                                }
                             }
                             state.nodes = state.nodes.filter(n => n.id !== childId);
                             state.connections = state.connections.filter(c => c.from !== childId && c.to !== childId);
@@ -3827,6 +3852,13 @@
                 // Ungroup option for child nodes
                 if (node?.parentId !== null) {
                     items.push({ text: '親子関係を解除', icon: '⬆️', action: () => {
+                        const oldParent = state.nodes.find(n => n.id === node.parentId);
+                        if (oldParent && oldParent.children) {
+                            oldParent.children = oldParent.children.filter(id => id !== node.id);
+                            if (oldParent.children.length === 0) {
+                                oldParent.expanded = false;
+                            }
+                        }
                         node.parentId = null;
                         renderNodes();
                         showToast('親子関係を解除しました');
@@ -3975,6 +4007,13 @@
                 if (state.selectedNodeId) {
                     const node = state.nodes.find(n => n.id === state.selectedNodeId);
                     if (node && node.parentId !== null) {
+                        const oldParent = state.nodes.find(n => n.id === node.parentId);
+                        if (oldParent && oldParent.children) {
+                            oldParent.children = oldParent.children.filter(id => id !== node.id);
+                            if (oldParent.children.length === 0) {
+                                oldParent.expanded = false;
+                            }
+                        }
                         node.parentId = null;
                         renderNodes();
                         showToast('親子関係を解除しました');
