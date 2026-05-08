@@ -3969,11 +3969,6 @@
                 }
             }
 
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                saveToFile();
-            }
-
             if (e.key === 'Escape') {
                 // Clear pending connection
                 state.connectingFrom = null;
@@ -4222,8 +4217,6 @@
 
         // Ctrl+S: overwrite save, Ctrl+Shift+S: save as
         let saveInProgress = false;
-        let lastSaveTime = 0;
-        const SAVE_DEBOUNCE_MS = 500;
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                 if (e.repeat) return;
@@ -4232,11 +4225,6 @@
                     return;
                 }
                 e.preventDefault();
-                const now = Date.now();
-                if (now - lastSaveTime < SAVE_DEBOUNCE_MS) {
-                    return;
-                }
-                lastSaveTime = now;
                 if (saveInProgress) {
                     showToast('保存処理中です...');
                     return;
