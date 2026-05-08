@@ -4206,7 +4206,8 @@
 
         document.getElementById('btn-save').addEventListener('click', () => {
             if (saveInProgress) return;
-            saveToFile(true);
+            saveInProgress = true;
+            saveToFile(true).finally(() => { saveInProgress = false; });
         });
         document.getElementById('btn-load').addEventListener('click', () => {
             if ('showOpenFilePicker' in window) {
