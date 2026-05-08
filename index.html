@@ -2325,6 +2325,15 @@
                 node.expanded = !node.expanded;
                 renderNodes();
 
+                // Clear drag state to prevent extraction on mouseup after double-click
+                state.dragNode = null;
+                state.isDragging = false;
+                state.pendingExtract = false;
+                state.reorderTarget = null;
+                state.dropTarget = null;
+                const tooltip = document.getElementById('drag-tooltip');
+                if (tooltip) tooltip.classList.remove('show');
+
                 setTimeout(() => {
                     dblState.cooldown = false;
                     nodeDblClickState.set(node.id, dblState);
