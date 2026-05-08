@@ -1064,7 +1064,7 @@
                 title: title,
                 color: state.colors[Math.floor(Math.random() * state.colors.length)],
                 completed: false,
-                expanded: true,
+                expanded: false,
                 width: null,
                 height: null,
                 groupId: null,
@@ -1183,9 +1183,6 @@
                     child.width = Math.max(160, (parent.width || 200) - 40);
                 }
             });
-
-            // Expand parent to show children
-            parent.expanded = true;
 
             renderNodes();
             renderConnections();
@@ -2515,7 +2512,32 @@
             if (state.mode === 'node') {
                 const x = (e.clientX - state.panX) / state.scale;
                 const y = (e.clientY - state.panY) / state.scale;
+                
+                // Check if click is inside any existing node - if so, nest the new node inside it
+                let parentNode = null;
+                for (const n of state.nodes) {
+                    if (n.parentId !== null) continue; // Only root nodes can be parents for nesting
+                    const nx = n.x, ny = n.y;
+                    const nw = n.width || 200;
+                    const nh = n.height || 50;
+                    if (x >= nx && x <= nx + nw && y >= ny && y <= ny + nh) {
+                        parentNode = n;
+                        break;
+                    }
+                }
+                
                 const newNode = createNode(x, y);
+                
+                if (parentNode) {
+                    // Nest inside the parent node
+                    if (!parentNode.children) parentNode.children = [];
+                    parentNode.children.push(newNode.id);
+                    newNode.parentId = parentNode.id;
+                    newNode.x = 20;
+                    newNode.y = 10;
+                    parentNode.expanded = true;
+                }
+                
                 setMode('select');
                 // Auto-focus title for immediate editing
                 requestAnimationFrame(() => {
@@ -2556,7 +2578,32 @@
                 if (state.mode === 'node') {
                     const x = (touch.clientX - state.panX) / state.scale;
                     const y = (touch.clientY - state.panY) / state.scale;
+                    
+                    // Check if touch is inside any existing node - if so, nest the new node inside it
+                    let parentNode = null;
+                    for (const n of state.nodes) {
+                        if (n.parentId !== null) continue;
+                        const nx = n.x, ny = n.y;
+                        const nw = n.width || 200;
+                        const nh = n.height || 50;
+                        if (x >= nx && x <= nx + nw && y >= ny && y <= ny + nh) {
+                            parentNode = n;
+                            break;
+                        }
+                    }
+                    
                     const newNode = createNode(x, y);
+                    
+                    if (parentNode) {
+                        // Nest inside the parent node
+                        if (!parentNode.children) parentNode.children = [];
+                        parentNode.children.push(newNode.id);
+                        newNode.parentId = parentNode.id;
+                        newNode.x = 20;
+                        newNode.y = 10;
+                        parentNode.expanded = true;
+                    }
+                    
                     setMode('select');
                     requestAnimationFrame(() => {
                         const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
@@ -3493,6 +3540,9 @@
                         state.dragNode.parentId = null;
                         if (parent.children) {
                             parent.children = parent.children.filter(id => id !== state.dragNode.id);
+                            if (parent.children.length === 0) {
+                                parent.expanded = false;
+                            }
                         }
                         didExtract = true;
                         showToast('ノードを取り出しました');
@@ -3566,6 +3616,9 @@
                         const oldParent = state.nodes.find(n => n.id === state.dragNode.parentId);
                         if (oldParent && oldParent.children) {
                             oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
+                            if (oldParent.children.length === 0) {
+                                oldParent.expanded = false;
+                            }
                         }
                     }
                     // Add to new parent's children
@@ -3577,6 +3630,7 @@
                     state.dragNode.x = 10;
                     state.dragNode.y = 10;
                     state.dragNode.expanded = false;
+                    nearestNode.expanded = true;
                     showToast('ノードを移動しました');
                 }
             }
