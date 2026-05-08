@@ -3338,11 +3338,8 @@
                     if (newParent) {
                         if (state.dragNode.parentId !== null) {
                             const oldParent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                            if (oldParent && oldParent.children) {
-                                oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
-                            }
                             if (oldParent && oldParent.id === newParent.id) {
-                                // Same parent - remove first then insert
+                                // Same parent - reorder within array (don't remove first)
                                 const fromIndex = newParent.children.indexOf(state.dragNode.id);
                                 const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
                                 if (fromIndex !== -1 && toIndex !== -1) {
@@ -3359,6 +3356,9 @@
                                 }
                             } else {
                                 // Different parent - remove from old, add to new
+                                if (oldParent && oldParent.children) {
+                                    oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
+                                }
                                 const absPos = getNodeAbsolutePosition(state.dragNode);
                                 state.dragNode.x = absPos.x;
                                 state.dragNode.y = absPos.y;
