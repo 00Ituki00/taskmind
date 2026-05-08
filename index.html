@@ -3218,9 +3218,18 @@
                 let currentAbsX = state.dragNode.x;
                 let currentAbsY = state.dragNode.y;
                 if (state.dragNode.parentId !== null) {
-                    const absPos = getNodeAbsolutePosition(state.dragNode);
-                    currentAbsX = absPos.x;
-                    currentAbsY = absPos.y;
+                    // Use DOM position for child nodes (consistent with drag start)
+                    const domEl = document.querySelector(`.node[data-id="${state.dragNode.id}"]`);
+                    if (domEl) {
+                        const rect = domEl.getBoundingClientRect();
+                        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                        currentAbsX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                        currentAbsY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                    } else {
+                        const absPos = getNodeAbsolutePosition(state.dragNode);
+                        currentAbsX = absPos.x;
+                        currentAbsY = absPos.y;
+                    }
                 }
                 wasDragged = Math.hypot(currentAbsX - state.dragStartX, currentAbsY - state.dragStartY) > CLICK_THRESHOLD;
             }
