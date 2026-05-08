@@ -2921,22 +2921,32 @@
                         const isOutsideParent = mx < px - MARGIN || mx > px + pw + MARGIN || my < py - MARGIN || my > py + ph + MARGIN;
                         
                         if (isOutsideParent) {
-                            // Mouse outside parent - show extract icon, skip reorder/nest
-                            // Only set pendingExtract if drag has actually started (threshold crossed)
-                            if (state.isDragging) {
-                                state.pendingExtract = true;
+                            // Mouse outside parent - check if over another node first
+                            if (!state.dropTarget) {
+                                // Not over any other node - show extract
+                                if (state.isDragging) {
+                                    state.pendingExtract = true;
+                                }
+                                state.reorderTarget = null;
+                                if (tooltip) {
+                                    tooltip.textContent = '\u23CE';
+                                    tooltip.classList.add('show');
+                                }
+                            } else {
+                                // Over another node - show nest indicator, cancel extraction
+                                state.pendingExtract = false;
+                                state.reorderTarget = null;
+                                if (tooltip) {
+                                    tooltip.textContent = '\u25B6';
+                                    tooltip.classList.add('show');
+                                }
                             }
+                            // Clear same-parent indicators
                             const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                             if (parentEl) {
                                 parentEl.querySelectorAll(':scope > .node-tasks > .node').forEach(el => {
                                     el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                                 });
-                            }
-                            state.reorderTarget = null;
-                            state.dropTarget = null;
-                            if (tooltip) {
-                                tooltip.textContent = '\u23CE';
-                                tooltip.classList.add('show');
                             }
                         } else if (parent.children.length > 1) {
                             // Inside parent - check for reorder or nest
@@ -3018,6 +3028,14 @@
                                     state.reorderTarget = null;
                                     state.dropTarget = null;
                                     if (tooltip) tooltip.classList.remove('show');
+                                }
+                            } else {
+                                // Mouse is over a node from another parent - show nest indicator
+                                state.pendingExtract = false;
+                                state.reorderTarget = null;
+                                if (tooltip) {
+                                    tooltip.textContent = '\u25B6';
+                                    tooltip.classList.add('show');
                                 }
                             }
                         }
