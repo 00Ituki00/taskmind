@@ -2281,7 +2281,7 @@
                 state.reorderTarget = {
                     siblingId: node.id,
                     insertBefore: insertBefore,
-                    parentId: node.parentId
+                    siblingParentId: node.parentId
                 };
                 state.dropTarget = null;
                 element.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
@@ -3262,24 +3262,92 @@
 
             state.dragIndicator = null;
 
-            // Handle reorder within same parent
+            // Handle reorder (both same-parent and cross-parent)
             let didReorder = false;
-            if (state.reorderTarget && state.dragNode && state.dragNode.parentId !== null && !state.dropTarget) {
-                const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                if (parent) {
-                    const fromIndex = parent.children.indexOf(state.dragNode.id);
-                    const toIndex = parent.children.indexOf(state.reorderTarget.siblingId);
-                    if (fromIndex !== -1 && toIndex !== -1) {
-                        parent.children.splice(fromIndex, 1);
-                        let insertIndex = toIndex;
-                        if (fromIndex < toIndex) {
-                            insertIndex = state.reorderTarget.insertBefore ? toIndex - 1 : toIndex;
-                        } else {
-                            insertIndex = state.reorderTarget.insertBefore ? toIndex : toIndex + 1;
+            if (state.reorderTarget && state.dragNode && !state.dropTarget) {
+                const siblingParentId = state.reorderTarget.siblingParentId;
+                
+                if (siblingParentId === null) {
+                    // Target is a root node - make dragged node a root node
+                    if (state.dragNode.parentId !== null) {
+                        const oldParent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                        if (oldParent && oldParent.children) {
+                            oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
                         }
-                        parent.children.splice(insertIndex, 0, state.dragNode.id);
-                        didReorder = true;
-                        showToast('順序を変更しました');
+                        const absPos = getNodeAbsolutePosition(state.dragNode);
+                        state.dragNode.x = absPos.x;
+                        state.dragNode.y = absPos.y;
+                        state.dragNode.parentId = null;
+                    }
+                    const targetNode = state.nodes.find(n => n.id === state.reorderTarget.siblingId);
+                    if (targetNode) {
+                        state.dragNode.x = targetNode.x;
+                        state.dragNode.y = targetNode.y + (targetNode.height || 50) + 20;
+                    }
+                    didReorder = true;
+                    showToast('ノードを移動しました');
+                } else {
+                    // Target has a parent - move dragged node to that parent's children
+                    const newParent = state.nodes.find(n => n.id === siblingParentId);
+                    if (newParent) {
+                        if (state.dragNode.parentId !== null) {
+                            const oldParent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                            if (oldParent && oldParent.children) {
+                                oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
+                            }
+                            if (oldParent && oldParent.id === newParent.id) {
+                                // Same parent - remove first then insert
+                                const fromIndex = newParent.children.indexOf(state.dragNode.id);
+                                const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
+                                if (fromIndex !== -1 && toIndex !== -1) {
+                                    newParent.children.splice(fromIndex, 1);
+                                    let insertIndex = toIndex;
+                                    if (fromIndex < toIndex) {
+                                        insertIndex = state.reorderTarget.insertBefore ? toIndex - 1 : toIndex;
+                                    } else {
+                                        insertIndex = state.reorderTarget.insertBefore ? toIndex : toIndex + 1;
+                                    }
+                                    newParent.children.splice(insertIndex, 0, state.dragNode.id);
+                                    didReorder = true;
+                                    showToast('順序を変更しました');
+                                }
+                            } else {
+                                // Different parent - remove from old, add to new
+                                const absPos = getNodeAbsolutePosition(state.dragNode);
+                                state.dragNode.x = absPos.x;
+                                state.dragNode.y = absPos.y;
+                                state.dragNode.parentId = siblingParentId;
+                                if (!newParent.children) newParent.children = [];
+                                const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
+                                let insertIndex = toIndex !== -1 ? 
+                                    (state.reorderTarget.insertBefore ? toIndex : toIndex + 1) : 
+                                    newParent.children.length;
+                                newParent.children.splice(insertIndex, 0, state.dragNode.id);
+                                didReorder = true;
+                                showToast('順序を変更しました');
+                            }
+                        } else {
+                            // Dragged node is a root node - convert to child
+                            state.dragNode.parentId = siblingParentId;
+                            if (!newParent.children) newParent.children = [];
+                            const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
+                            let insertIndex = toIndex !== -1 ? 
+                                (state.reorderTarget.insertBefore ? toIndex : toIndex + 1) : 
+                                newParent.children.length;
+                            newParent.children.splice(insertIndex, 0, state.dragNode.id);
+                            didReorder = true;
+                            showToast('順序を変更しました');
+                        }
+                        
+                        if (!didReorder) {
+                            // Position relative to new parent
+                            const parentAbsPos = getNodeAbsolutePosition(newParent);
+                            state.dragNode.x = 20;
+                            state.dragNode.y = (newParent.height || 50) + 10;
+                            state.dragNode.width = Math.max(160, (newParent.width || 200) - 40);
+                            didReorder = true;
+                            showToast('順序を変更しました');
+                        }
                     }
                 }
             }
