@@ -1439,8 +1439,8 @@
                 childIds.forEach(childId => {
                     const child = state.nodes.find(n => n.id === childId);
                     if (!child) return;
-                    // Skip if this child is currently being dragged
-                    if (state.dragNode?.id === child.id) return;
+                    // Skip if this child is currently being dragged (and drag has actually started)
+                    if (state.dragNode?.id === child.id && state.isDragging) return;
                     // Skip hidden nodes
                     if (hiddenNodeIds.has(child.id)) return;
 
@@ -1449,7 +1449,7 @@
                         + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
                         + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
                         + (child.completed ? ' completed' : '')
-                        + (state.dragNode?.id === child.id ? ' dragging' : '');
+                        + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '');
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
                     childEl.style.borderLeft = `3px solid ${parentNode.color || '#4a90d9'}`;
@@ -1526,16 +1526,16 @@
 
             // Render root nodes
             state.nodes.forEach(node => {
-                // Skip child nodes unless they are being dragged
-                if (node.parentId !== null && state.dragNode?.id !== node.id) return;
+                // Skip child nodes unless they are being actively dragged
+                if (node.parentId !== null && !(state.dragNode?.id === node.id && state.isDragging)) return;
 
                 const el = document.createElement('div');
                 el.className = 'node' + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
                     + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
-                    + (state.dragNode?.id === node.id ? ' dragging' : '');
+                    + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '');
                 
-                // Use absolute position for dragged child nodes
-                if (node.parentId !== null && state.dragNode?.id === node.id) {
+                // Use absolute position for actively dragged child nodes only
+                if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
                     let absX, absY;
                     if (node.absX !== undefined && node.absY !== undefined) {
                         absX = node.absX;
@@ -1566,8 +1566,8 @@
                     el.style.display = 'none';
                 }
 
-                // If dragging a child node, render as simplified element
-                if (node.parentId !== null && state.dragNode?.id === node.id) {
+                // If dragging a child node and drag has actually started, render as simplified element
+                if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
                     el.classList.add('dragging-child', 'dragging');
                     if (state.dropTarget && state.dropTarget.id === node.id) {
                         el.classList.add('drop-target');
