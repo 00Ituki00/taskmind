@@ -2360,6 +2360,9 @@
                     nodeAbsX = absPos.x;
                     nodeAbsY = absPos.y;
                 }
+                // Store absolute position so renderNodes() can position the dragged node correctly
+                node.absX = nodeAbsX;
+                node.absY = nodeAbsY;
             }
 
             // Store drag start position to distinguish click from drag
@@ -2468,6 +2471,9 @@
                     nodeAbsX = absPos.x;
                     nodeAbsY = absPos.y;
                 }
+                // Store absolute position so renderNodes() can position the dragged node correctly
+                node.absX = nodeAbsX;
+                node.absY = nodeAbsY;
             }
             state.dragOffsetX = (touch.clientX - state.panX) / state.scale - nodeAbsX;
             state.dragOffsetY = (touch.clientY - state.panY) / state.scale - nodeAbsY;
