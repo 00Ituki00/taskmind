@@ -3980,6 +3980,27 @@
                 state.selectedNodeId = null;
                 renderNodes();
             }
+
+            // Enter to edit selected node title
+            if (e.key === 'Enter') {
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                    return;
+                }
+                if (state.selectedNodeId) {
+                    e.preventDefault();
+                    const node = state.nodes.find(n => n.id === state.selectedNodeId);
+                    const nodeEl = document.querySelector('.node[data-id="' + state.selectedNodeId + '"]');
+                    const titleEl = nodeEl ? (nodeEl.querySelector('.node-title') || nodeEl.querySelector('.task-text')) : null;
+                    if (node) {
+                        try {
+                            enableTitleEdit(titleEl, node);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    }
+                }
+            }
         });
 
         document.addEventListener('keyup', (e) => {
