@@ -2752,8 +2752,15 @@
                 const maxY = Math.max(state.selectionStartY, curY);
 
                 state.selectedNodeIds = state.nodes.filter(n => {
-                    const nx = n.x;
-                    const ny = n.y;
+                    // Skip hidden nodes (collapsed descendants)
+                    if (state.hiddenNodeIds && state.hiddenNodeIds.has(n.id)) return false;
+                    let nx = n.x;
+                    let ny = n.y;
+                    if (n.parentId !== null) {
+                        const absPos = getNodeAbsolutePosition(n);
+                        nx = absPos.x;
+                        ny = absPos.y;
+                    }
                     const nw = n.width || 200;
                     const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
                     const nh = domEl ? domEl.offsetHeight : (n.height || 50);
@@ -2881,12 +2888,12 @@
                     state.dragNode.y = newY;
                 }
 
-                // Move all selected nodes together
+                // Move all selected nodes together (only root nodes - child nodes follow their parent automatically)
                 if (state.selectedNodeIds.length > 1) {
                     state.selectedNodeIds.forEach(id => {
                         if (id !== state.dragNode.id) {
                             const n = state.nodes.find(node => node.id === id);
-                            if (n) {
+                            if (n && n.parentId === null) {
                                 n.x += dx;
                                 n.y += dy;
                             }
@@ -2999,8 +3006,9 @@
                     if (parent) {
                         const mx = (e.clientX - state.panX) / state.scale;
                         const my = (e.clientY - state.panY) / state.scale;
-                        const px = parent.x;
-                        const py = parent.y;
+                        const parentAbsPos = getNodeAbsolutePosition(parent);
+                        const px = parentAbsPos.x;
+                        const py = parentAbsPos.y;
                         const pw = parent.width || 200;
                         // Try .node first (root nodes), then child .node inside .node-tasks
                         let domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
@@ -3252,7 +3260,7 @@
                     state.selectedNodeIds.forEach(id => {
                         if (id !== state.dragNode.id) {
                             const n = state.nodes.find(node => node.id === id);
-                            if (n) {
+                            if (n && n.parentId === null) {
                                 n.x += dx;
                                 n.y += dy;
                             }
@@ -3455,8 +3463,15 @@
                     }
                     const targetNode = state.nodes.find(n => n.id === state.reorderTarget.siblingId);
                     if (targetNode) {
-                        state.dragNode.x = targetNode.x;
-                        state.dragNode.y = targetNode.y + (targetNode.height || 50) + 20;
+                        let tx = targetNode.x;
+                        let ty = targetNode.y;
+                        if (targetNode.parentId !== null) {
+                            const absPos = getNodeAbsolutePosition(targetNode);
+                            tx = absPos.x;
+                            ty = absPos.y;
+                        }
+                        state.dragNode.x = tx;
+                        state.dragNode.y = ty + (targetNode.height || 50) + 20;
                     }
                     didReorder = true;
                     showToast('ノードを移動しました');
@@ -3490,9 +3505,10 @@
                                         oldParent.expanded = false;
                                     }
                                 }
+                                const parentAbsPos = getNodeAbsolutePosition(newParent);
                                 const absPos = getNodeAbsolutePosition(state.dragNode);
-                                state.dragNode.x = absPos.x;
-                                state.dragNode.y = absPos.y;
+                                state.dragNode.x = absPos.x - parentAbsPos.x;
+                                state.dragNode.y = absPos.y - parentAbsPos.y;
                                 state.dragNode.parentId = siblingParentId;
                                 if (!newParent.children) newParent.children = [];
                                 const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
@@ -3505,7 +3521,10 @@
                             }
                         } else {
                             // Dragged node is a root node - convert to child
+                            const parentAbsPos = getNodeAbsolutePosition(newParent);
                             state.dragNode.parentId = siblingParentId;
+                            state.dragNode.x = state.dragNode.x - parentAbsPos.x;
+                            state.dragNode.y = state.dragNode.y - parentAbsPos.y;
                             if (!newParent.children) newParent.children = [];
                             const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
                             let insertIndex = toIndex !== -1 ? 
@@ -3557,8 +3576,13 @@
             // Unified hit detection: bounding box overlap + closest center wins
             if (!didExtract && !didNest && wasDragged && state.dragNode) {
                 const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
-                const dropX = state.dragNode.x;
-                const dropY = state.dragNode.y;
+                let dropX = state.dragNode.x;
+                let dropY = state.dragNode.y;
+                if (state.dragNode.parentId !== null) {
+                    const absPos = getNodeAbsolutePosition(state.dragNode);
+                    dropX = absPos.x;
+                    dropY = absPos.y;
+                }
                 let candidates = [];
                 
                 for (const n of state.nodes) {
@@ -3695,8 +3719,13 @@
                     let candidates = [];
                     for (const node of state.nodes) {
                         if (node.id === state.draggingConn.from || node.id === state.draggingConn.to) continue;
-                        const nx = node.x;
-                        const ny = node.y;
+                        let nx = node.x;
+                        let ny = node.y;
+                        if (node.parentId !== null) {
+                            const absPos = getNodeAbsolutePosition(node);
+                            nx = absPos.x;
+                            ny = absPos.y;
+                        }
                         const nw = node.width || 200;
                         const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
                         const nh = domEl ? domEl.offsetHeight : (node.height || 50);
