@@ -2339,9 +2339,18 @@
             let nodeAbsX = node.x;
             let nodeAbsY = node.y;
             if (node.parentId !== null) {
-                const absPos = getNodeAbsolutePosition(node);
-                nodeAbsX = absPos.x;
-                nodeAbsY = absPos.y;
+                // Use actual DOM position for child nodes to prevent jump at drag start
+                const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                if (domEl) {
+                    const rect = domEl.getBoundingClientRect();
+                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                    nodeAbsX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                    nodeAbsY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                } else {
+                    const absPos = getNodeAbsolutePosition(node);
+                    nodeAbsX = absPos.x;
+                    nodeAbsY = absPos.y;
+                }
             }
 
             // Store drag start position to distinguish click from drag
@@ -2395,6 +2404,7 @@
             
             // Don't start drag immediately - wait for mousemove threshold
             state.isDragging = false;
+            state.pendingExtract = false;  // Reset extraction flag at drag start
             state.dragStartMouseX = e.clientX;
             state.dragStartMouseY = e.clientY;
             
@@ -2437,9 +2447,18 @@
             let nodeAbsX = node.x;
             let nodeAbsY = node.y;
             if (node.parentId !== null) {
-                const absPos = getNodeAbsolutePosition(node);
-                nodeAbsX = absPos.x;
-                nodeAbsY = absPos.y;
+                // Use actual DOM position for child nodes to prevent jump at drag start
+                const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                if (domEl) {
+                    const rect = domEl.getBoundingClientRect();
+                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                    nodeAbsX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                    nodeAbsY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                } else {
+                    const absPos = getNodeAbsolutePosition(node);
+                    nodeAbsX = absPos.x;
+                    nodeAbsY = absPos.y;
+                }
             }
             state.dragOffsetX = (touch.clientX - state.panX) / state.scale - nodeAbsX;
             state.dragOffsetY = (touch.clientY - state.panY) / state.scale - nodeAbsY;
@@ -2888,6 +2907,10 @@
                         
                         if (isOutsideParent) {
                             // Mouse outside parent - show extract icon, skip reorder/nest
+                            // Only set pendingExtract if drag has actually started (threshold crossed)
+                            if (state.isDragging) {
+                                state.pendingExtract = true;
+                            }
                             const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
                             if (parentEl) {
                                 parentEl.querySelectorAll(':scope > .node-tasks > .node').forEach(el => {
@@ -2896,7 +2919,6 @@
                             }
                             state.reorderTarget = null;
                             state.dropTarget = null;
-                            state.pendingExtract = true;
                             if (tooltip) {
                                 tooltip.textContent = '\u23CE';
                                 tooltip.classList.add('show');
