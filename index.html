@@ -816,6 +816,7 @@
         <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
+        <span id="file-info" style="display:none; margin-left:8px; font-size:12px; color:#888; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
     </div>
 
     <!-- Mode Indicator -->
@@ -4060,17 +4061,17 @@
 
             // Try File System Access API for overwrite save
             if (overwrite && state.lastFileHandle) {
-                state.lastFileHandle.createWritable().then(writable => {
-                    writable.write(json).then(() => {
+                return state.lastFileHandle.createWritable().then(writable => {
+                    return writable.write(json).then(() => {
                         writable.close();
                         showToast('上書き保存しました');
+                        updateFileInfoDisplay();
                     });
                 }).catch(err => {
                     console.error('Overwrite save failed:', err);
                     // Fallback to download
                     downloadJSON(json);
                 });
-                return;
             }
 
             // Show save file picker for "Save As"
@@ -4079,11 +4080,12 @@
                     suggestedName: state.lastFileName || `taskmind-${new Date().toISOString().slice(0,10)}.json`,
                     types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
                 };
-                window.showSaveFilePicker(opts).then(handle => {
+                return window.showSaveFilePicker(opts).then(handle => {
                     state.lastFileHandle = handle;
                     state.lastFileName = handle.name;
-                    handle.createWritable().then(writable => {
-                        writable.write(json).then(() => {
+                    updateFileInfoDisplay();
+                    return handle.createWritable().then(writable => {
+                        return writable.write(json).then(() => {
                             writable.close();
                             showToast('保存しました');
                         });
@@ -4094,11 +4096,20 @@
                         downloadJSON(json);
                     }
                 });
-                return;
             }
 
             // Fallback: download
             downloadJSON(json);
+            return Promise.resolve();
+        }
+
+        function updateFileInfoDisplay() {
+            const el = document.getElementById('file-info');
+            if (el) {
+                el.textContent = state.lastFileName || '';
+                el.title = state.lastFileName || '';
+                el.style.display = state.lastFileName ? 'inline' : 'none';
+            }
         }
 
         function downloadJSON(json) {
@@ -4182,6 +4193,7 @@
                         renderGroups();
                         fitToView();
                         showToast('読込みました' + (state.lastFileName ? ` (${state.lastFileName})` : ''));
+                        updateFileInfoDisplay();
                         resolve();
                     } catch (err) {
                         showToast('読込エラー: ' + err.message);
@@ -4205,16 +4217,24 @@
         });
 
         // Ctrl+S: overwrite save, Ctrl+Shift+S: save as
+        let saveInProgress = false;
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-                // Skip if focused on input/textarea
+                if (e.repeat) return;
                 const active = document.activeElement;
                 if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
                     return;
                 }
                 e.preventDefault();
+                if (saveInProgress) {
+                    showToast('保存処理中です...');
+                    return;
+                }
+                saveInProgress = true;
                 const overwrite = !e.shiftKey;
-                saveToFile(overwrite);
+                saveToFile(overwrite).finally(() => {
+                    saveInProgress = false;
+                });
             }
         });
 
