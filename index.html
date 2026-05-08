@@ -3486,6 +3486,9 @@
                                 // Different parent - remove from old, add to new
                                 if (oldParent && oldParent.children) {
                                     oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
+                                    if (oldParent.children.length === 0) {
+                                        oldParent.expanded = false;
+                                    }
                                 }
                                 const absPos = getNodeAbsolutePosition(state.dragNode);
                                 state.dragNode.x = absPos.x;
