@@ -4207,6 +4207,11 @@
         // Ctrl+S: overwrite save, Ctrl+Shift+S: save as
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                // Skip if focused on input/textarea
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                    return;
+                }
                 e.preventDefault();
                 const overwrite = !e.shiftKey;
                 saveToFile(overwrite);
