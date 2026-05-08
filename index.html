@@ -2921,8 +2921,16 @@
                         const isOutsideParent = mx < px - MARGIN || mx > px + pw + MARGIN || my < py - MARGIN || my > py + ph + MARGIN;
                         
                         if (isOutsideParent) {
-                            // Mouse outside parent - check if over another node first
-                            if (!state.dropTarget) {
+                            // Mouse outside parent - check reorderTarget first, then dropTarget
+                            if (state.reorderTarget) {
+                                // Reorder mode - show up/down arrow to match node indicator
+                                state.pendingExtract = false;
+                                const insertBefore = state.reorderTarget.insertBefore;
+                                if (tooltip) {
+                                    tooltip.textContent = insertBefore ? '\u25B2' : '\u25BC';
+                                    tooltip.classList.add('show');
+                                }
+                            } else if (!state.dropTarget) {
                                 // Not over any other node - show extract
                                 if (state.isDragging) {
                                     state.pendingExtract = true;
@@ -2933,7 +2941,7 @@
                                     tooltip.classList.add('show');
                                 }
                             } else {
-                                // Over another node - show nest indicator, cancel extraction
+                                // Over another node - show nest indicator
                                 state.pendingExtract = false;
                                 state.reorderTarget = null;
                                 if (tooltip) {
@@ -3030,12 +3038,23 @@
                                     if (tooltip) tooltip.classList.remove('show');
                                 }
                             } else {
-                                // Mouse is over a node from another parent - show nest indicator
-                                state.pendingExtract = false;
-                                state.reorderTarget = null;
-                                if (tooltip) {
-                                    tooltip.textContent = '\u25B6';
-                                    tooltip.classList.add('show');
+                                // Mouse is over a node from another parent
+                                if (state.reorderTarget) {
+                                    // Reorder mode - show up/down arrow to match node indicator
+                                    state.pendingExtract = false;
+                                    const insertBefore = state.reorderTarget.insertBefore;
+                                    if (tooltip) {
+                                        tooltip.textContent = insertBefore ? '\u25B2' : '\u25BC';
+                                        tooltip.classList.add('show');
+                                    }
+                                } else {
+                                    // Nest mode - show nest indicator
+                                    state.pendingExtract = false;
+                                    state.reorderTarget = null;
+                                    if (tooltip) {
+                                        tooltip.textContent = '\u25B6';
+                                        tooltip.classList.add('show');
+                                    }
                                 }
                             }
                         }
