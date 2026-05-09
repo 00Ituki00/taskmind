@@ -114,6 +114,7 @@
             position: relative;
             font-size: 12px;
             line-height: 1;
+            touch-action: none;
         }
 
         .node-indicators .hamburger {
@@ -134,6 +135,7 @@
             visibility: visible;
             min-width: 20px;
             min-height: 20px;
+            touch-action: none;
         }
 
         .node-indicators .hamburger:hover {
@@ -880,6 +882,7 @@
             padding: 1px 4px;
             font-size: 12px;
             line-height: 1;
+            touch-action: none;
         }
 
         .node .node-tasks .node .node-indicators {
@@ -1833,30 +1836,6 @@
         }
 
         // ==================== Detail Indicators ====================
-        // Track currently open indicator group and its original container
-        let currentOpenGroup = null;
-        const groupContainerMap = new WeakMap(); // group -> { container, node }
-
-        // Close menu when clicking elsewhere
-        document.addEventListener('mousedown', (e) => {
-            if (currentOpenGroup && !e.target.closest('.node-indicators')) {
-                const data = groupContainerMap.get(currentOpenGroup);
-                if (data) {
-                    const { container, node } = data;
-                    container.classList.remove('expanded');
-                    if (node) node.indicatorsExpanded = false;
-                    container.appendChild(currentOpenGroup);
-                    groupContainerMap.delete(currentOpenGroup);
-                }
-                currentOpenGroup.style.display = 'none';
-                currentOpenGroup.style.position = '';
-                currentOpenGroup.style.left = '';
-                currentOpenGroup.style.top = '';
-                currentOpenGroup.style.zIndex = '';
-                currentOpenGroup = null;
-            }
-        });
-
         // Global click handler for closing expanded menus when clicking outside
         document.addEventListener('click', function(e) {
             if (e.target.closest('.node-indicators') || e.target.closest('.indicator-group')) return;
@@ -1867,6 +1846,13 @@
                     group.style.display = 'none';
                 }
                 container.classList.remove('expanded');
+                // 状態を同期
+                const hamburger = container.querySelector('.hamburger');
+                if (hamburger) {
+                    const nodeId = parseInt(hamburger.dataset.nodeId, 10);
+                    const node = state.nodes.find(n => n.id === nodeId);
+                    if (node) node.indicatorsExpanded = false;
+                }
             });
         });
 
@@ -1887,9 +1873,7 @@
             hamburger.style.cssText = 'cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; font-size: 14px; pointer-events: auto; position: relative; z-index: 100; visibility: visible; user-select: none;';
             
             const toggleMenu = function(e) {
-                if (e) {
-                    e.stopPropagation();
-                }
+                if (e) e.stopPropagation();
                 const container = hamburger.closest('.node-indicators');
                 if (!container) return;
                 const group = container.querySelector('.indicator-group');
@@ -1905,6 +1889,11 @@
                         const otherGroup = otherContainer.querySelector('.indicator-group');
                         if (otherGroup) otherGroup.style.display = 'none';
                         otherContainer.classList.remove('expanded');
+                        const otherNodeId = otherContainer.querySelector('.hamburger')?.dataset?.nodeId;
+                        if (otherNodeId) {
+                            const otherNode = state.nodes.find(n => n.id === parseInt(otherNodeId, 10));
+                            if (otherNode) otherNode.indicatorsExpanded = false;
+                        }
                     }
                 });
                 
@@ -1914,8 +1903,18 @@
                 group.style.display = targetNode.indicatorsExpanded ? 'flex' : 'none';
             };
             
-            // mousedownを使用（クリックイベント合成が確実でない場合の対策）
-            hamburger.addEventListener('mousedown', toggleMenu);
+            let isMouseDownHandled = false;
+            hamburger.addEventListener('mousedown', (e) => {
+                isMouseDownHandled = true;
+                toggleMenu(e);
+            });
+            hamburger.addEventListener('click', (e) => {
+                if (isMouseDownHandled) {
+                    isMouseDownHandled = false;
+                    return;
+                }
+                toggleMenu(e);
+            });
             hamburger.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -2219,37 +2218,6 @@
         }
 
         function renderNodes() {
-            // Close any open indicator menus before re-rendering to prevent orphaned menus
-            if (currentOpenGroup) {
-                const data = groupContainerMap.get(currentOpenGroup);
-                if (data) {
-                    const { container, node } = data;
-                    if (node) node.indicatorsExpanded = false;
-                    // Only append back if container is still in DOM
-                    if (container && document.contains(container)) {
-                        container.classList.remove('expanded');
-                        container.appendChild(currentOpenGroup);
-                    } else {
-                        // Container was destroyed, just remove the orphaned group
-                        currentOpenGroup.remove();
-                    }
-                    groupContainerMap.delete(currentOpenGroup);
-                } else {
-                    // No data found, clean up orphaned group
-                    currentOpenGroup.remove();
-                }
-                currentOpenGroup.style.display = 'none';
-                currentOpenGroup.style.position = '';
-                currentOpenGroup.style.left = '';
-                currentOpenGroup.style.top = '';
-                currentOpenGroup.style.zIndex = '';
-                currentOpenGroup = null;
-            }
-            
-            // Reset all nodes' indicatorsExpanded to prevent new containers from getting .expanded class
-            // ハンバーガーメニューの状態は保持する
-            // state.nodes.forEach(n => n.indicatorsExpanded = false);
-
             nodesEl.innerHTML = '';
 
             // Collect all nodes hidden by cascade collapse
