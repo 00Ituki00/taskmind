@@ -102,6 +102,95 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            position: relative;
+        }
+
+        .node-indicators {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 0;
+            border-bottom: none;
+            position: relative;
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        .node-indicators .hamburger {
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            font-size: 14px;
+            pointer-events: auto;
+            position: relative;
+            z-index: 100;
+            /* Ensure it's always visible and clickable */
+            visibility: visible;
+            min-width: 20px;
+            min-height: 20px;
+        }
+
+        .node-indicators .hamburger:hover {
+            opacity: 0.7;
+        }
+
+        .node-indicators .indicator-group {
+            display: none;
+            align-items: center;
+            gap: 2px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 10px;
+            padding: 2px 6px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 0;
+            white-space: nowrap;
+            z-index: 10000;
+        }
+
+        .node-indicators.expanded .indicator-group {
+            display: flex;
+        }
+
+        .node-indicator {
+            cursor: pointer;
+            opacity: 0.3;
+            transition: opacity 0.2s;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+        }
+
+        .node-indicator.active {
+            opacity: 1;
+        }
+
+        .node-indicator.priority {
+            opacity: 1;
+            color: #ddd;
+        }
+
+        .node-indicator.priority.active {
+            color: #f5a623;
+        }
+
+        .node-indicator:hover {
+            opacity: 0.7;
+        }
+
+        .node-indicator.active:hover {
+            opacity: 0.85;
         }
 
         .node-color {
@@ -122,6 +211,7 @@
             outline: none;
             min-width: 0;
             word-break: break-word;
+            margin-right: 24px;
         }
 
         .node-title.completed {
@@ -783,6 +873,320 @@
         }
 
         /* Mobile adjustments */
+        .node-indicators {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            padding: 1px 4px;
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        .node .node-tasks .node .node-indicators {
+            display: inline-flex;
+            padding: 0;
+            gap: 2px;
+            font-size: 11px;
+            margin-left: 4px;
+            position: static;
+            border-bottom: none;
+            background: transparent;
+        }
+
+        .node .node-tasks .node .node-indicators .hamburger {
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            font-size: 12px;
+            pointer-events: auto;
+            position: relative;
+            z-index: 100;
+            /* Ensure it's always visible and clickable */
+            visibility: visible;
+            min-width: 18px;
+            min-height: 18px;
+        }
+
+        .node .node-tasks .node .node-indicators .hamburger:hover {
+            opacity: 0.7;
+        }
+
+        .node .node-tasks .node .node-indicators .indicator-group {
+            display: none;
+            align-items: center;
+            gap: 2px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 8px;
+            padding: 2px 6px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 0;
+            white-space: nowrap;
+            z-index: 10;
+        }
+
+        .node .node-tasks .node .node-indicators.expanded .indicator-group {
+            display: flex;
+        }
+
+        .node .node-tasks .node .node-indicators .indicator-group .node-indicator {
+            width: 14px;
+            height: 14px;
+            font-size: 11px;
+        }
+
+        .node-indicator {
+            cursor: pointer;
+            user-select: none;
+            transition: opacity 0.15s, transform 0.1s;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .node-indicator:hover {
+            transform: scale(1.15);
+        }
+
+        .node-indicator.empty {
+            opacity: 0.35;
+            filter: grayscale(1);
+        }
+
+        .node-indicator.filled {
+            opacity: 1;
+            filter: none;
+        }
+
+        .priority-stars {
+            display: inline-flex;
+            gap: 1px;
+            letter-spacing: -1px;
+        }
+
+        .star-filled { color: #ffb74d; }
+        .star-empty { color: #ccc; }
+
+        .priority-selector {
+            position: fixed;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 4px 6px;
+            z-index: 2000;
+            display: flex;
+            gap: 2px;
+        }
+
+        .priority-option {
+            cursor: pointer;
+            font-size: 18px;
+            padding: 2px 3px;
+            border-radius: 3px;
+            transition: background 0.15s;
+            line-height: 1;
+        }
+
+        .priority-option:hover {
+            background: #f0f0f0;
+        }
+
+        .priority-option.selected {
+            background: #e3f2fd;
+        }
+
+        /* Inline editor */
+        .inline-editor {
+            position: fixed;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 10px;
+            z-index: 2000;
+            min-width: 220px;
+        }
+
+        .inline-editor-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .inline-editor input,
+        .inline-editor textarea {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+            margin-bottom: 8px;
+            box-sizing: border-box;
+        }
+
+        .inline-editor textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .inline-editor input:focus,
+        .inline-editor textarea:focus {
+            outline: none;
+            border-color: #4a90d9;
+        }
+
+        .inline-editor-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .inline-editor-row input {
+            margin-bottom: 8px;
+        }
+
+        .inline-editor-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .inline-editor-btn {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .inline-editor-btn.cancel {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .inline-editor-btn.save {
+            background: #4a90d9;
+            color: white;
+        }
+
+        /* Bulk edit modal */
+        .bulk-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bulk-modal {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            padding: 20px;
+            width: 380px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .bulk-modal-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        .bulk-modal-field {
+            margin-bottom: 12px;
+        }
+
+        .bulk-modal-field label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .bulk-modal-field input,
+        .bulk-modal-field textarea {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+
+        .bulk-modal-field textarea {
+            resize: vertical;
+            min-height: 50px;
+        }
+
+        .bulk-modal-field input:focus,
+        .bulk-modal-field textarea:focus {
+            outline: none;
+            border-color: #4a90d9;
+        }
+
+        .bulk-modal-subfields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .bulk-modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .bulk-modal-btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .bulk-modal-btn.cancel {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .bulk-modal-btn.save {
+            background: #4a90d9;
+            color: white;
+        }
+
+        .bulk-modal-priority {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .bulk-modal-priority .priority-option {
+            font-size: 20px;
+            padding: 2px 4px;
+        }
+
         @media (max-width: 768px) {
             .toolbar {
                 top: auto;
@@ -1068,7 +1472,14 @@
                 width: null,
                 height: null,
                 groupId: null,
-                parentId: null
+                parentId: null,
+                priority: 0,
+                details: {
+                    when: { cycle: '', startDate: '', deadline: '' },
+                    what: '',
+                    who: '',
+                    where: ''
+                }
             };
             state.nodes.push(node);
             renderNodes();
@@ -1421,7 +1832,424 @@
             return { x: absX, y: absY };
         }
 
+        // ==================== Detail Indicators ====================
+        // Track currently open indicator group and its original container
+        let currentOpenGroup = null;
+        const groupContainerMap = new WeakMap(); // group -> { container, node }
+
+        // Close menu when clicking elsewhere
+        document.addEventListener('mousedown', (e) => {
+            if (currentOpenGroup && !e.target.closest('.node-indicators')) {
+                const data = groupContainerMap.get(currentOpenGroup);
+                if (data) {
+                    const { container, node } = data;
+                    container.classList.remove('expanded');
+                    if (node) node.indicatorsExpanded = false;
+                    container.appendChild(currentOpenGroup);
+                    groupContainerMap.delete(currentOpenGroup);
+                }
+                currentOpenGroup.style.display = 'none';
+                currentOpenGroup.style.position = '';
+                currentOpenGroup.style.left = '';
+                currentOpenGroup.style.top = '';
+                currentOpenGroup.style.zIndex = '';
+                currentOpenGroup = null;
+            }
+        });
+
+        // Global click handler for closing expanded menus when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.node-indicators') || e.target.closest('.indicator-group')) return;
+            
+            document.querySelectorAll('.node-indicators.expanded').forEach(container => {
+                const group = container.querySelector('.indicator-group');
+                if (group) {
+                    group.style.display = 'none';
+                }
+                container.classList.remove('expanded');
+            });
+        });
+
+        function createIndicatorMenu(node) {
+            const container = document.createElement('div');
+            container.className = 'node-indicators';
+            if (node.indicatorsExpanded) {
+                container.classList.add('expanded');
+            }
+
+            const hamburger = document.createElement('span');
+            hamburger.className = 'hamburger';
+            hamburger.textContent = '☰';
+            hamburger.title = '詳細情報を表示';
+            hamburger.dataset.nodeId = node.id;
+            hamburger.setAttribute('role', 'button');
+            hamburger.setAttribute('tabindex', '0');
+            hamburger.style.cssText = 'cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; font-size: 14px; pointer-events: auto; position: relative; z-index: 100; visibility: visible; user-select: none;';
+            
+            const toggleMenu = function(e) {
+                if (e) {
+                    e.stopPropagation();
+                }
+                const container = hamburger.closest('.node-indicators');
+                if (!container) return;
+                const group = container.querySelector('.indicator-group');
+                if (!group) return;
+                
+                const nodeId = parseInt(hamburger.dataset.nodeId, 10);
+                const targetNode = state.nodes.find(n => n.id === nodeId);
+                if (!targetNode) return;
+                
+                // 他の開いているグループを閉じる
+                document.querySelectorAll('.node-indicators.expanded').forEach(otherContainer => {
+                    if (otherContainer !== container) {
+                        const otherGroup = otherContainer.querySelector('.indicator-group');
+                        if (otherGroup) otherGroup.style.display = 'none';
+                        otherContainer.classList.remove('expanded');
+                    }
+                });
+                
+                // トグル
+                targetNode.indicatorsExpanded = !targetNode.indicatorsExpanded;
+                container.classList.toggle('expanded', targetNode.indicatorsExpanded);
+                group.style.display = targetNode.indicatorsExpanded ? 'flex' : 'none';
+            };
+            
+            // mousedownを使用（クリックイベント合成が確実でない場合の対策）
+            hamburger.addEventListener('mousedown', toggleMenu);
+            hamburger.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleMenu(e);
+                }
+            });
+            container.appendChild(hamburger);
+
+            const group = document.createElement('div');
+            group.className = 'indicator-group';
+            group.appendChild(createIndicator(node, 'priority'));
+            group.appendChild(createIndicator(node, 'when'));
+            group.appendChild(createIndicator(node, 'what'));
+            group.appendChild(createIndicator(node, 'who'));
+            group.appendChild(createIndicator(node, 'where'));
+            container.appendChild(group);
+
+            return container;
+        }
+
+        function createIndicator(node, type) {
+            const el = document.createElement('span');
+            el.className = 'node-indicator';
+            el.dataset.type = type;
+            el.dataset.nodeId = node.id;
+
+            if (type === 'priority') {
+                el.classList.add('priority');
+                const p = node.priority || 0;
+                if (p === 0) {
+                    el.textContent = '☆';
+                } else {
+                    el.textContent = '★';
+                    el.classList.add('active');
+                }
+            } else if (type === 'when') {
+                const hasValue = node.details?.when?.cycle || node.details?.when?.startDate || node.details?.when?.deadline;
+                el.textContent = '🕐';
+                if (hasValue) el.classList.add('active');
+            } else if (type === 'what') {
+                const hasValue = node.details?.what;
+                el.textContent = '📝';
+                if (hasValue) el.classList.add('active');
+            } else if (type === 'who') {
+                const hasValue = node.details?.who;
+                el.textContent = '👤';
+                if (hasValue) el.classList.add('active');
+            } else if (type === 'where') {
+                const hasValue = node.details?.where;
+                el.textContent = '📍';
+                if (hasValue) el.classList.add('active');
+            }
+
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openDetailEditor(node, type);
+            });
+
+            return el;
+        }
+
+        function openDetailEditor(node, type) {
+            const existing = document.querySelector('.detail-editor-popup');
+            if (existing) existing.remove();
+
+            const popup = document.createElement('div');
+            popup.className = 'detail-editor-popup';
+            popup.style.cssText = `
+                position: fixed;
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 12px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+                z-index: 10000;
+                min-width: 220px;
+            `;
+
+            const title = document.createElement('div');
+            title.style.cssText = 'font-weight:600;margin-bottom:8px;font-size:14px;color:#333;';
+            title.textContent = type === 'priority' ? '重要度' :
+                type === 'when' ? 'When（日時）' :
+                type === 'what' ? 'What（詳細）' :
+                type === 'who' ? 'Who（担当）' :
+                type === 'where' ? 'Where（場所）' : type;
+            popup.appendChild(title);
+
+            const content = document.createElement('div');
+
+            if (type === 'priority') {
+                const select = document.createElement('select');
+                select.style.cssText = 'width:100%;padding:4px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;';
+                for (let i = 0; i <= 5; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = i === 0 ? '0（未設定）' : '★'.repeat(i) + ' (' + i + ')';
+                    if ((node.priority || 0) === i) opt.selected = true;
+                    select.appendChild(opt);
+                }
+                content.appendChild(select);
+                popup.dataset.input = 'priority-select';
+                popup.dataset.selectRef = select;
+            } else if (type === 'when') {
+                const fields = [
+                    { key: 'cycle', label: '周期', placeholder: '毎日/毎週月曜/毎月1日 等' },
+                    { key: 'startDate', label: '開始日', type: 'date' },
+                    { key: 'deadline', label: '締切日', type: 'date' }
+                ];
+                fields.forEach(f => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'margin-bottom:6px;';
+                    const lbl = document.createElement('label');
+                    lbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:2px;';
+                    lbl.textContent = f.label;
+                    row.appendChild(lbl);
+                    const input = document.createElement('input');
+                    input.type = f.type || 'text';
+                    input.style.cssText = 'width:100%;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
+                    input.placeholder = f.placeholder || '';
+                    input.value = node.details?.when?.[f.key] || '';
+                    input.dataset.key = f.key;
+                    row.appendChild(input);
+                    content.appendChild(row);
+                });
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.style.cssText = 'width:100%;min-height:60px;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
+                textarea.value = node.details?.[type] || '';
+                content.appendChild(textarea);
+                popup.dataset.textareaRef = textarea;
+            }
+
+            popup.appendChild(content);
+
+            const btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:10px;';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.style.cssText = 'padding:4px 12px;font-size:13px;border:1px solid #ddd;border-radius:4px;background:#f5f5f5;cursor:pointer;';
+            cancelBtn.addEventListener('click', () => popup.remove());
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = '保存';
+            saveBtn.style.cssText = 'padding:4px 12px;font-size:13px;border:none;border-radius:4px;background:#4a90d9;color:white;cursor:pointer;';
+            saveBtn.addEventListener('click', () => {
+                if (type === 'priority') {
+                    const sel = popup.querySelector('select');
+                    node.priority = parseInt(sel.value);
+                } else if (type === 'when') {
+                    if (!node.details) node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '' };
+                    if (!node.details.when) node.details.when = { cycle: '', startDate: '', deadline: '' };
+                    popup.querySelectorAll('input[data-key]').forEach(inp => {
+                        node.details.when[inp.dataset.key] = inp.value;
+                    });
+                } else {
+                    const ta = popup.querySelector('textarea');
+                    if (!node.details) node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '' };
+                    node.details[type] = ta.value;
+                }
+                popup.remove();
+                renderNodes();
+            });
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(saveBtn);
+            popup.appendChild(btnRow);
+
+            // Position near the clicked indicator
+            document.body.appendChild(popup);
+            const rect = popup.getBoundingClientRect();
+            const x = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2)));
+            const y = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2)));
+            popup.style.left = x + 'px';
+            popup.style.top = y + 'px';
+        }
+
+        function openBulkDetailEditor(node) {
+            const existing = document.querySelector('.bulk-detail-modal-overlay');
+            if (existing) existing.remove();
+
+            const overlay = document.createElement('div');
+            overlay.className = 'bulk-detail-modal-overlay';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.3); z-index: 10000;
+                display: flex; align-items: center; justify-content: center;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white; border-radius: 12px; padding: 20px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+                max-width: 420px; width: 90vw; max-height: 80vh; overflow-y: auto;
+            `;
+
+            const title = document.createElement('h3');
+            title.style.cssText = 'margin:0 0 16px 0;font-size:16px;color:#333;';
+            title.textContent = '詳細情報の編集';
+            modal.appendChild(title);
+
+            // Priority
+            const pRow = document.createElement('div');
+            pRow.style.cssText = 'margin-bottom:12px;';
+            const pLbl = document.createElement('label');
+            pLbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
+            pLbl.textContent = '重要度 ☆';
+            pRow.appendChild(pLbl);
+            const pSelect = document.createElement('select');
+            pSelect.style.cssText = 'width:100%;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;';
+            for (let i = 0; i <= 5; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = i === 0 ? '0（未設定）' : '★'.repeat(i) + ' (' + i + ')';
+                if ((node.priority || 0) === i) opt.selected = true;
+                pSelect.appendChild(opt);
+            }
+            pRow.appendChild(pSelect);
+            modal.appendChild(pRow);
+
+            // When
+            const wSection = document.createElement('div');
+            wSection.style.cssText = 'margin-bottom:12px;';
+            const wTitle = document.createElement('div');
+            wTitle.style.cssText = 'font-size:13px;font-weight:600;color:#333;margin-bottom:6px;';
+            wTitle.textContent = '🕐 When（日時）';
+            wSection.appendChild(wTitle);
+            const wFields = [
+                { key: 'cycle', label: '周期', placeholder: '毎日/毎週月曜/毎月1日 等' },
+                { key: 'startDate', label: '開始日', type: 'date' },
+                { key: 'deadline', label: '締切日', type: 'date' }
+            ];
+            wFields.forEach(f => {
+                const row = document.createElement('div');
+                row.style.cssText = 'margin-bottom:6px;';
+                const lbl = document.createElement('label');
+                lbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:2px;';
+                lbl.textContent = f.label;
+                row.appendChild(lbl);
+                const input = document.createElement('input');
+                input.type = f.type || 'text';
+                input.style.cssText = 'width:100%;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
+                input.placeholder = f.placeholder || '';
+                input.value = node.details?.when?.[f.key] || '';
+                input.dataset.whenKey = f.key;
+                row.appendChild(input);
+                wSection.appendChild(row);
+            });
+            modal.appendChild(wSection);
+
+            // What, Who, Where
+            const simpleFields = [
+                { key: 'what', label: '📝 What（詳細）', placeholder: '詳細情報を入力' },
+                { key: 'who', label: '👤 Who（担当）', placeholder: '担当者を入力' },
+                { key: 'where', label: '📍 Where（場所）', placeholder: '場所を入力' }
+            ];
+            simpleFields.forEach(f => {
+                const row = document.createElement('div');
+                row.style.cssText = 'margin-bottom:12px;';
+                const lbl = document.createElement('label');
+                lbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
+                lbl.textContent = f.label;
+                row.appendChild(lbl);
+                const input = document.createElement('textarea');
+                input.style.cssText = 'width:100%;min-height:50px;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
+                input.placeholder = f.placeholder;
+                input.value = node.details?.[f.key] || '';
+                input.dataset.fieldKey = f.key;
+                row.appendChild(input);
+                modal.appendChild(row);
+            });
+
+            const btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;margin-top:16px;';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:1px solid #ddd;border-radius:6px;background:#f5f5f5;cursor:pointer;';
+            cancelBtn.addEventListener('click', () => overlay.remove());
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = '保存';
+            saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
+            saveBtn.addEventListener('click', () => {
+                node.priority = parseInt(pSelect.value);
+                if (!node.details) node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '' };
+                if (!node.details.when) node.details.when = { cycle: '', startDate: '', deadline: '' };
+                modal.querySelectorAll('input[data-when-key]').forEach(inp => {
+                    node.details.when[inp.dataset.whenKey] = inp.value;
+                });
+                modal.querySelectorAll('textarea[data-field-key]').forEach(ta => {
+                    node.details[ta.dataset.fieldKey] = ta.value;
+                });
+                overlay.remove();
+                renderNodes();
+            });
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(saveBtn);
+            modal.appendChild(btnRow);
+
+            overlay.appendChild(modal);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+            document.body.appendChild(overlay);
+        }
+
         function renderNodes() {
+            // Close any open indicator menus before re-rendering to prevent orphaned menus
+            if (currentOpenGroup) {
+                const data = groupContainerMap.get(currentOpenGroup);
+                if (data) {
+                    const { container, node } = data;
+                    if (node) node.indicatorsExpanded = false;
+                    // Only append back if container is still in DOM
+                    if (container && document.contains(container)) {
+                        container.classList.remove('expanded');
+                        container.appendChild(currentOpenGroup);
+                    } else {
+                        // Container was destroyed, just remove the orphaned group
+                        currentOpenGroup.remove();
+                    }
+                    groupContainerMap.delete(currentOpenGroup);
+                } else {
+                    // No data found, clean up orphaned group
+                    currentOpenGroup.remove();
+                }
+                currentOpenGroup.style.display = 'none';
+                currentOpenGroup.style.position = '';
+                currentOpenGroup.style.left = '';
+                currentOpenGroup.style.top = '';
+                currentOpenGroup.style.zIndex = '';
+                currentOpenGroup = null;
+            }
+            
+            // Reset all nodes' indicatorsExpanded to prevent new containers from getting .expanded class
+            // ハンバーガーメニューの状態は保持する
+            // state.nodes.forEach(n => n.indicatorsExpanded = false);
+
             nodesEl.innerHTML = '';
 
             // Collect all nodes hidden by cascade collapse
@@ -1503,6 +2331,12 @@
 
                     childEl.appendChild(childCheckbox);
                     childEl.appendChild(childTitle);
+
+                    // Add detail indicators for child nodes
+                    const childIndicators = createIndicatorMenu(child);
+                    childIndicators.style.cssText = 'position:relative;display:inline-flex;padding:0;gap:2px;font-size:11px;margin-left:4px;';
+                    childEl.appendChild(childIndicators);
+
                     childEl.appendChild(expandBtn);
                     childEl.appendChild(badge);
 
@@ -1622,7 +2456,7 @@
                     el.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        showCanvasContextMenu(e.clientX, e.clientY, e);
+                        showContextMenu(e.clientX, e.clientY, node);
                     });
                     
                     el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
@@ -1672,13 +2506,19 @@
 
                 header.appendChild(color);
                 header.appendChild(title);
+
+                // Add detail indicators inside header
+                const indicatorsEl = createIndicatorMenu(node);
+                header.appendChild(indicatorsEl);
+
                 header.appendChild(expandBtn);
+
                 el.appendChild(header);
 
                 el.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    showCanvasContextMenu(e.clientX, e.clientY, e);
+                    showContextMenu(e.clientX, e.clientY, node);
                 });
 
                 // Child nodes area with recursive rendering
@@ -2321,10 +3161,12 @@
         function handleNodeMouseDown(e, node) {
             if (e.button !== 0) return;
             // Guard: skip drag if clicking on interactive elements (allow dragging on node-title)
+            // ハンバーガーメニューのmousedownも除外
             if (e.target.closest('.task-delete-btn') ||
                 e.target.closest('.expand-btn') || e.target.closest('.color-picker') ||
                 e.target.closest('.node-color') || e.target.closest('.add-task') ||
-                e.target.closest('.resize-handle')) return;
+                e.target.closest('.resize-handle') || e.target.closest('.hamburger') ||
+                e.target.closest('.node-indicators') || e.target.closest('.indicator-group')) return;
 
             e.stopPropagation();
 
@@ -3850,7 +4692,93 @@
             setTimeout(() => document.addEventListener('click', close), 10);
         }
 
-        // ==================== Context Menu ====================
+        // ==================== Context Menu (Phase 1 - Node Menu) ====================
+        // Node context menu
+        function showContextMenu(x, y, node) {
+            const existing = document.querySelector('.context-menu');
+            if (existing) existing.remove();
+
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.cssText = `
+                position: fixed;
+                left: ${x}px;
+                top: ${y}px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                min-width: 150px;
+                overflow: hidden;
+            `;
+
+            const items = [
+                { text: 'Rename', icon: '✏️', action: () => renameNode(node) },
+                { text: 'Delete', icon: '🗑️', action: () => deleteNode(node), danger: true }
+            ];
+
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'context-menu-item';
+                el.style.cssText = `
+                    padding: 10px 16px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 14px;
+                    color: ${item.danger ? '#e74c3c' : '#333'};
+                `;
+                el.innerHTML = `<span>${item.icon}</span><span>${item.text}</span>`;
+                el.addEventListener('click', () => {
+                    item.action();
+                    menu.remove();
+                });
+                el.addEventListener('mouseenter', () => {
+                    el.style.background = item.danger ? '#ffebee' : '#f5f5f5';
+                });
+                el.addEventListener('mouseleave', () => {
+                    el.style.background = 'transparent';
+                });
+                menu.appendChild(el);
+            });
+
+            document.body.appendChild(menu);
+
+            // Close on outside click
+            const close = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        function hideContextMenu() {
+            const menu = document.querySelector('.context-menu');
+            if (menu) menu.remove();
+        }
+
+        function renameNode(node) {
+            const newTitle = prompt('Enter new title:', node.title || '無題');
+            if (newTitle !== null && newTitle.trim() !== '') {
+                node.title = newTitle.trim();
+                renderNodes();
+            }
+        }
+
+        function deleteNode(node) {
+            if (confirm(`Delete "${node.title || '無題'}"?`)) {
+                const nodeId = node.id;
+                state.nodes = state.nodes.filter(n => n.id !== nodeId);
+                state.connections = state.connections.filter(c => c.from !== nodeId && c.to !== nodeId);
+                renderNodes();
+                renderConnections();
+            }
+        }
+
+        // ==================== Context Menu (Canvas) ====================
         container.addEventListener('contextmenu', (e) => {
             if (e.target !== container && e.target !== canvas && !e.target.closest('#nodes') && !e.target.closest('.conn-group') && !e.target.closest('#connections')) return;
             e.preventDefault();
@@ -3904,6 +4832,10 @@
                             renderConnections();
                         }
                     }});
+                    items.push({ text: '詳細情報を編集', icon: '📋', action: () => {
+                        menu.remove();
+                        openBulkDetailEditor(childNode);
+                    }});
                 }
             } else if (targetNode) {
                 const nodeId = parseInt(targetNode.dataset.id);
@@ -3930,6 +4862,10 @@
                 items.push({ text: node?.expanded ? '子ノードを折りたたむ' : '子ノードを展開', icon: '📂', action: () => {
                     node.expanded = !node.expanded;
                     renderNodes();
+                }});
+                items.push({ text: '詳細情報を編集', icon: '📋', action: () => {
+                    menu.remove();
+                    openBulkDetailEditor(node);
                 }});
                 items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
                     if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
@@ -4330,6 +5266,19 @@
                                 ...n,
                                 completed: n.completed ?? false
                             };
+                            // Inject missing 5W1H fields for backward compatibility
+                            if (typeof node.priority !== 'number') node.priority = 0;
+                            if (!node.details || typeof node.details !== 'object') {
+                                node.details = {
+                                    when: { cycle: '', startDate: '', deadline: '' },
+                                    what: '',
+                                    who: '',
+                                    where: ''
+                                };
+                            }
+                            if (!node.details.when || typeof node.details.when !== 'object') {
+                                node.details.when = { cycle: '', startDate: '', deadline: '' };
+                            }
                             delete node.tasks;
                             return node;
                         });
