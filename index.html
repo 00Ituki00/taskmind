@@ -1977,7 +1977,7 @@
 
                     const picker = document.createElement('div');
                     picker.className = 'priority-picker';
-                    picker.style.cssText = 'display:inline-flex;gap:3px;margin-left:4px;vertical-align:middle;align-items:center;';
+                    picker.style.cssText = 'position:fixed;z-index:99999;display:inline-flex;gap:6px;padding:6px 10px;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);align-items:center;';
 
                     for (let i = 1; i <= 5; i++) {
                         const star = document.createElement('span');
@@ -2030,12 +2030,13 @@
                     picker.style.left = px + 'px';
                     picker.style.top = py + 'px';
 
-                    // 外クリックで閉じる
+                    // ピッカー外クリックで閉じる（ピッカー内クリックは除外）
                     setTimeout(() => {
-                        document.addEventListener('click', function closePicker() {
+                        document.addEventListener('click', function closePicker(ev) {
+                            if (picker.contains(ev.target)) return;
                             picker.remove();
                             document.removeEventListener('click', closePicker);
-                        }, { once: true });
+                        });
                     }, 0);
                 });
             } else {
