@@ -72,8 +72,8 @@
         .node {
             position: absolute;
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.10);
             min-width: 160px;
             cursor: default;
             transition: box-shadow 0.2s;
@@ -97,12 +97,14 @@
         }
 
         .node-header {
-            padding: 10px 12px;
+            padding: 12px 16px;
             border-bottom: 1px solid #eee;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             position: relative;
+            min-height: 48px;
+            box-sizing: border-box;
         }
 
         .node-indicators {
@@ -1475,7 +1477,7 @@
                 color: state.colors[Math.floor(Math.random() * state.colors.length)],
                 completed: false,
                 expanded: false,
-                width: null,
+                width: 240,
                 height: null,
                 groupId: null,
                 parentId: null,
@@ -3186,48 +3188,16 @@
 
         // Unified drag-and-drop mouseenter handler for all node types
         function handleNodeMouseEnter(e, element, node) {
+            // State management is handled entirely by mousemove (left/right half logic).
+            // mouseenter only clears stale CSS classes from other nodes.
             if (!state.isDragging || !state.dragNode || state.dragNode.id === node.id) return;
-            
-            // Clear all existing indicators from all nodes first (only one target at a time)
-            document.querySelectorAll('.reorder-before, .reorder-after, .drop-target').forEach(el => {
-                if (el !== element) {
-                    el.classList.remove('reorder-before', 'reorder-after', 'drop-target');
-                }
-            });
-            // Clear state targets that are not the current node
-            if (state.dropTarget && state.dropTarget.id !== node.id) state.dropTarget = null;
-            if (state.reorderTarget && state.reorderTarget.siblingId !== node.id) state.reorderTarget = null;
-            
-            const rect = element.getBoundingClientRect();
-            const relativeY = e.clientY - rect.top;
-            const height = rect.height;
-            const centerZone = height * 0.08; // 中央8%をネストゾーンに縮小
-            
-            if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
-                // Center zone - nest as child
-                state.dropTarget = node;
-                state.reorderTarget = null;
-                element.classList.add('drop-target');
-                element.classList.remove('reorder-before', 'reorder-after');
-            } else {
-                // Upper or lower zone - reorder (92%がreorderゾーン)
-                const insertBefore = relativeY < height / 2;
-                state.reorderTarget = {
-                    siblingId: node.id,
-                    insertBefore: insertBefore,
-                    siblingParentId: node.parentId
-                };
-                state.dropTarget = null;
-                element.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
-                element.classList.remove('drop-target');
-            }
+            // No state updates here - mousemove owns state.dropTarget / state.reorderTarget
         }
 
         // Unified drag-and-drop mouseleave handler for all node types
         function handleNodeMouseLeave(element, node) {
-            element.classList.remove('reorder-before', 'reorder-after', 'drop-target');
-            if (state.dropTarget?.id === node.id) state.dropTarget = null;
-            if (state.reorderTarget?.siblingId === node.id) state.reorderTarget = null;
+            // State (dropTarget/reorderTarget) is managed by mousemove; do not clear here
+            // to avoid race conditions between mouseleave and mousemove events.
         }
 
         function handleNodeMouseDown(e, node) {
@@ -3889,10 +3859,10 @@
                                 nx = node.x;
                                 ny = node.y;
                                 nw = node.width || 200;
-                                let nh = node.height || 50;
-                                const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
-                                if (domEl) {
-                                    nh = domEl.offsetHeight;
+                                nh = node.height || 50;
+                                const domElRoot = document.querySelector(`.node[data-id="${node.id}"]`);
+                                if (domElRoot) {
+                                    nh = domElRoot.offsetHeight;
                                 }
                             } else {
                                 // Child node - use DOM bounding box
@@ -3976,16 +3946,26 @@
                 if (state.dragNode && state.dragNode.parentId !== null) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
                     if (parent) {
-                        const mx = (e.clientX - state.panX) / state.scale;
-                        const my = (e.clientY - state.panY) / state.scale;
-                        const parentAbsPos = getNodeAbsolutePosition(parent);
-                        const px = parentAbsPos.x;
-                        const py = parentAbsPos.y;
-                        const pw = parent.width || 200;
-                        // Try .node first (root nodes), then child .node inside .node-tasks
-                        let domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
-                        if (!domEl) domEl = document.querySelector(`.node[data-id="${parent.id}"]`);
-                        const ph = domEl ? domEl.offsetHeight : (parent.height || 50);
+                        const canvasRectC = document.getElementById('canvas-container').getBoundingClientRect();
+                        const mx = (e.clientX - canvasRectC.left - state.panX) / state.scale;
+                        const my = (e.clientY - canvasRectC.top - state.panY) / state.scale;
+                        // Get parent position from DOM if possible (more accurate for nested nodes)
+                        let px, py, pw, ph;
+                        const parentDomEl2 = document.querySelector(`.node[data-id="${parent.id}"]`);
+                        if (parentDomEl2) {
+                            const parentRect2 = parentDomEl2.getBoundingClientRect();
+                            px = (parentRect2.left - canvasRectC.left - state.panX) / state.scale;
+                            py = (parentRect2.top - canvasRectC.top - state.panY) / state.scale;
+                            pw = parentRect2.width / state.scale;
+                            ph = parentRect2.height / state.scale;
+                        } else {
+                            const parentAbsPos = getNodeAbsolutePosition(parent);
+                            px = parentAbsPos.x;
+                            py = parentAbsPos.y;
+                            pw = parent.width || 200;
+                            ph = parent.height || 50;
+                        }
+                        // pw/ph used below
                         const MARGIN = 30;
                         
                         // Check if mouse is outside parent bounds - prioritize extraction
@@ -4040,9 +4020,10 @@
                                 });
                             }
 
-                            // Find sibling the mouse is currently over (bounding box hit test)
+                            // Find sibling the mouse is currently over (closest center wins)
                             let hitSiblingEl = null;
                             let hitSiblingId = null;
+                            let hitSiblingMinDist = Infinity;
                             for (const siblingId of siblings) {
                                 let el = null;
                                 if (parentEl) {
@@ -4057,9 +4038,14 @@
                                 const elTop = (rect.top - canvasRect.top - state.panY) / state.scale;
                                 const elBottom = (rect.bottom - canvasRect.top - state.panY) / state.scale;
                                 if (mx >= elLeft && mx <= elRight && my >= elTop && my <= elBottom) {
-                                    hitSiblingEl = el;
-                                    hitSiblingId = siblingId;
-                                    break;
+                                    const centerX = (elLeft + elRight) / 2;
+                                    const centerY = (elTop + elBottom) / 2;
+                                    const dist = Math.hypot(mx - centerX, my - centerY);
+                                    if (dist < hitSiblingMinDist) {
+                                        hitSiblingMinDist = dist;
+                                        hitSiblingEl = el;
+                                        hitSiblingId = siblingId;
+                                    }
                                 }
                             }
 
@@ -5384,11 +5370,11 @@
 
         // ==================== Init ====================
         // Create sample data
-        const node1 = createNode(100, 100, 'ゲーム開発');
+        const node1 = createNode(100, 100, 'メイン');
         node1.completed = false;
-        const node2 = createNode(400, 80, 'アート');
+        const node2 = createNode(400, 80, 'タスクA');
         node2.completed = false;
-        const node3 = createNode(400, 250, 'プログラミング');
+        const node3 = createNode(400, 250, 'タスクB');
         node3.completed = false;
 
         // No parent-child relationship for initial nodes - they are independent
