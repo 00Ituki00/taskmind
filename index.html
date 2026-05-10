@@ -1968,10 +1968,58 @@
                 if (hasValue) el.classList.add('active');
             }
 
-            el.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openDetailEditor(node, type);
-            });
+            if (type === 'priority') {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // 既存ピッカーがあれば閉じる
+                    const existingPicker = document.querySelector('.priority-picker');
+                    if (existingPicker) { existingPicker.remove(); return; }
+
+                    const picker = document.createElement('div');
+                    picker.className = 'priority-picker';
+                    picker.style.cssText = 'display:inline-flex;gap:3px;margin-left:4px;vertical-align:middle;align-items:center;';
+
+                    for (let i = 1; i <= 5; i++) {
+                        const star = document.createElement('span');
+                        star.textContent = i <= (node.priority || 0) ? '★' : '☆';
+                        star.style.cssText = 'cursor:pointer;font-size:16px;color:#f0a500;line-height:1;user-select:none;pointer-events:auto;';
+                        star.dataset.value = i;
+                        star.addEventListener('mouseenter', () => {
+                            picker.querySelectorAll('span').forEach((s, idx) => {
+                                s.textContent = idx < i ? '★' : '☆';
+                            });
+                        });
+                        star.addEventListener('mouseleave', () => {
+                            picker.querySelectorAll('span').forEach((s, idx) => {
+                                s.textContent = idx < (node.priority || 0) ? '★' : '☆';
+                            });
+                        });
+                        star.addEventListener('click', (ev) => {
+                            ev.stopPropagation();
+                            // 同じ値をクリックしたら0にリセット
+                            node.priority = (node.priority === i) ? 0 : i;
+                            picker.remove();
+                            renderNodes();
+                        });
+                        picker.appendChild(star);
+                    }
+
+                    el.appendChild(picker);
+
+                    // 外クリックで閉じる
+                    setTimeout(() => {
+                        document.addEventListener('click', function closePicker() {
+                            picker.remove();
+                            document.removeEventListener('click', closePicker);
+                        }, { once: true });
+                    }, 0);
+                });
+            } else {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openDetailEditor(node, type);
+                });
+            }
 
             return el;
         }
