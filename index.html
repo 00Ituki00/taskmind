@@ -2019,10 +2019,16 @@
                     ].join(';');
                     document.body.appendChild(picker);
 
-                    // el の位置に合わせて配置
-                    const rect = el.getBoundingClientRect();
-                    picker.style.left = rect.left + 'px';
-                    picker.style.top = (rect.bottom + 4) + 'px';
+                    // クリック位置の直下に配置（getBoundingClientRect は再レンダリング後に無効になるため clientX/Y を使用）
+                    const pickerRect = picker.getBoundingClientRect();
+                    const vw = window.innerWidth;
+                    const vh = window.innerHeight;
+                    let px = e.clientX;
+                    let py = e.clientY + 20;
+                    if (px + pickerRect.width > vw) px = vw - pickerRect.width - 8;
+                    if (py + pickerRect.height > vh) py = e.clientY - pickerRect.height - 4;
+                    picker.style.left = px + 'px';
+                    picker.style.top = py + 'px';
 
                     // 外クリックで閉じる
                     setTimeout(() => {
