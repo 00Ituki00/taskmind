@@ -16,7 +16,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             overflow: hidden;
             background: #f5f5f5;
-            touch-action: none;
+            touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
         }
@@ -114,7 +114,7 @@
             position: relative;
             font-size: 12px;
             line-height: 1;
-            touch-action: none;
+            touch-action: manipulation !important;
         }
 
         .node-indicators .hamburger {
@@ -172,6 +172,7 @@
             justify-content: center;
             width: 16px;
             height: 16px;
+            pointer-events: auto !important;
         }
 
         .node-indicator.active {
@@ -281,10 +282,12 @@
         }
         /* Reorder indicators */
         .reorder-before {
-            border-top: 3px solid #4a90d9 !important;
+            border-top: 4px solid #4a90d9 !important;
+            box-shadow: 0 -4px 8px rgba(74, 144, 217, 0.3);
         }
         .reorder-after {
-            border-bottom: 3px solid #4a90d9 !important;
+            border-bottom: 4px solid #4a90d9 !important;
+            box-shadow: 0 4px 8px rgba(74, 144, 217, 0.3);
         }
         .node .node-tasks .node:hover {
             background: rgba(0,0,0,0.03);
@@ -340,11 +343,11 @@
         }
         .node .node-tasks .node.reorder-before {
             border-top: 4px solid #2196F3 !important;
-            margin-top: -2px;
+            margin-top: -4px;
         }
         .node .node-tasks .node.reorder-after {
             border-bottom: 4px solid #2196F3 !important;
-            margin-bottom: -2px;
+            margin-bottom: -4px;
         }
         .node .node-tasks .node.nest-target {
             background-color: #e3f2fd !important;
@@ -1838,7 +1841,8 @@
         // ==================== Detail Indicators ====================
         // Global click handler for closing expanded menus when clicking outside
         document.addEventListener('click', function(e) {
-            if (e.target.closest('.node-indicators') || e.target.closest('.indicator-group')) return;
+            console.log('[DEBUG] document click. target=', e.target.className, 'closest node-indicators=', !!e.target.closest('.node-indicators'), 'closest indicator-group=', !!e.target.closest('.indicator-group'));
+            if (e.target.closest('.node-indicators') || e.target.closest('.indicator-group') || e.target.closest('.node-indicator')) return;
             
             document.querySelectorAll('.node-indicators.expanded').forEach(container => {
                 const group = container.querySelector('.indicator-group');
@@ -1902,11 +1906,13 @@
             
             let isMouseDownHandled = false;
             hamburger.addEventListener('mousedown', (e) => {
+                console.log('[DEBUG] hamburger mousedown');
                 e.stopPropagation();
                 isMouseDownHandled = true;
                 toggleMenu(e);
             });
             hamburger.addEventListener('click', (e) => {
+                console.log('[DEBUG] hamburger click');
                 e.stopPropagation();
                 if (isMouseDownHandled) {
                     isMouseDownHandled = false;
@@ -1969,65 +1975,40 @@
 
             if (type === 'priority') {
                 let _lastMouseX = 0, _lastMouseY = 0;
-                el.addEventListener('mousedown', (e) => { _lastMouseX = e.clientX; _lastMouseY = e.clientY; });
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    // 既存ピッカーがあれば閉じる
-                    const existingPicker = document.querySelector('.priority-picker');
-                    if (existingPicker) { existingPicker.remove(); return; }
-
-                    const picker = document.createElement('div');
-                    picker.className = 'priority-picker';
-
-                    // bodyに fixed配置してノードの overflowに影響されないようにする
-                    picker.style.cssText = 'position:fixed;display:flex;gap:4px;align-items:center;background:white;border:1px solid #ddd;border-radius:8px;padding:6px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;';
-                    document.body.appendChild(picker);
-
-                    for (let i = 1; i <= 5; i++) {
-                        const star = document.createElement('span');
-                        star.textContent = i <= (node.priority || 0) ? '★' : '☆';
-                        star.style.cssText = 'cursor:pointer;font-size:16px;color:#f0a500;line-height:1;user-select:none;pointer-events:auto;';
-                        star.dataset.value = i;
-                        star.addEventListener('mouseenter', () => {
-                            picker.querySelectorAll('span').forEach((s, idx) => {
-                                s.textContent = idx < i ? '★' : '☆';
-                            });
-                        });
-                        star.addEventListener('mouseleave', () => {
-                            picker.querySelectorAll('span').forEach((s, idx) => {
-                                s.textContent = idx < (node.priority || 0) ? '★' : '☆';
-                            });
-                        });
-                        star.addEventListener('click', (ev) => {
-                            ev.stopPropagation();
-                            // 同じ値をクリックしたら0にリセット
-                            node.priority = (node.priority === i) ? 0 : i;
-                            picker.remove();
-                            renderNodes();
-                        });
-                        picker.appendChild(star);
+                el.addEventListener('mousedown', (e) => {
+                    console.log('[DEBUG] priority mousedown fired. target=', e.target.outerHTML.substring(0, 50));
+                    _lastMouseX = e.clientX; _lastMouseY = e.clientY;
+                    // ピッカー用クリック候補を記録（mouseupで判定）
+                    state.pendingPriorityClick = {
+                        nodeId: node.id,
+                        element: el,
+                        x: e.clientX,
+                        y: e.clientY,
+                        handled: false
+                    };
+                });
+                el.addEventListener('mouseup', (e) => {
+                    console.log('[DEBUG] priority mouseup fired. target=', e.target.outerHTML.substring(0, 50), 'same element?', e.target === el);
+                    // mousedownで記録した要素と同じ要素でmouseupしたか確認
+                    const pending = state.pendingPriorityClick;
+                    if (pending && pending.element === el && !pending.handled && !state.isDragging) {
+                        pending.handled = true;
+                        console.log('[DEBUG] priority click detected via mouseup!');
+                        // ピッカー作成処理を実行
+                        createPriorityPicker(node, el, _lastMouseX || e.clientX, _lastMouseY || e.clientY);
                     }
-
-                    // mousedown座標でピッカー配置（clickイベントのclientXが0になる場合への対策）
-                    const pickerRect = picker.getBoundingClientRect();
-                    const vw = window.innerWidth;
-                    const vh = window.innerHeight;
-                    let px = _lastMouseX || e.clientX;
-                    let py = (_lastMouseY || e.clientY) + 20;
-                    if (px + pickerRect.width > vw) px = vw - pickerRect.width - 8;
-                    if (py + pickerRect.height > vh) py = e.clientY - pickerRect.height - 4;
-                    picker.style.left = px + 'px';
-                    picker.style.top = py + 'px';
-
-                    // ピッカー外クリックで閉じる（ピッカー内クリックは除外）
-                    setTimeout(() => {
-                        document.addEventListener('click', function closePicker(ev) {
-                            if (picker.contains(ev.target)) return;
-                            picker.remove();
-                            document.removeEventListener('click', closePicker);
-                        });
-                    }, 0);
+                    state.pendingPriorityClick = null;
+                });
+                // clickイベントはフォールバックとして残す（ブラウザがclickを発火する場合）
+                el.addEventListener('click', (e) => {
+                    console.log('[DEBUG] priority click fired! target=', e.target.outerHTML.substring(0, 50));
+                    e.stopPropagation();
+                    // mouseupで既に処理済みなら無視
+                    if (state.pendingPriorityClick && state.pendingPriorityClick.handled) {
+                        state.pendingPriorityClick = null;
+                        return;
+                    }
+                    createPriorityPicker(node, el, _lastMouseX || e.clientX, _lastMouseY || e.clientY);
                 });
             } else {
                 el.addEventListener('click', (e) => {
@@ -2037,6 +2018,66 @@
             }
 
             return el;
+        }
+
+        function createPriorityPicker(node, el, clientX, clientY) {
+            // 既存ピッカーがあれば閉じる
+            const existingPicker = document.querySelector('.priority-picker');
+            if (existingPicker) { console.log('[DEBUG] removing existing picker'); existingPicker.remove(); return; }
+
+            console.log('[DEBUG] creating new priority picker');
+
+            const picker = document.createElement('div');
+            picker.className = 'priority-picker';
+
+            // bodyに fixed配置してノードの overflowに影響されないようにする
+            picker.style.cssText = 'position:fixed;display:flex;gap:4px;align-items:center;background:white;border:1px solid #ddd;border-radius:8px;padding:6px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;';
+            document.body.appendChild(picker);
+
+            for (let i = 1; i <= 5; i++) {
+                const star = document.createElement('span');
+                star.textContent = i <= (node.priority || 0) ? '★' : '☆';
+                star.style.cssText = 'cursor:pointer;font-size:16px;color:#f0a500;line-height:1;user-select:none;pointer-events:auto;';
+                star.dataset.value = i;
+                star.addEventListener('mouseenter', () => {
+                    picker.querySelectorAll('span').forEach((s, idx) => {
+                        s.textContent = idx < i ? '★' : '☆';
+                    });
+                });
+                star.addEventListener('mouseleave', () => {
+                    picker.querySelectorAll('span').forEach((s, idx) => {
+                        s.textContent = idx < (node.priority || 0) ? '★' : '☆';
+                    });
+                });
+                star.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    // 同じ値をクリックしたら0にリセット
+                    node.priority = (node.priority === i) ? 0 : i;
+                    picker.remove();
+                    renderNodes();
+                });
+                picker.appendChild(star);
+            }
+
+            // mousedown座標でピッカー配置（clickイベントのclientXが0になる場合への対策）
+            const pickerRect = picker.getBoundingClientRect();
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            let px = clientX;
+            let py = clientY + 20;
+            if (px + pickerRect.width > vw) px = vw - pickerRect.width - 8;
+            if (py + pickerRect.height > vh) py = clientY - pickerRect.height - 4;
+            picker.style.left = px + 'px';
+            picker.style.top = py + 'px';
+
+            // ピッカー外クリックで閉じる（ピッカー内クリックは除外）
+            setTimeout(() => {
+                document.addEventListener('click', function closePicker(ev) {
+                    if (picker.contains(ev.target)) return;
+                    picker.remove();
+                    document.removeEventListener('click', closePicker);
+                });
+            }, 0);
         }
 
         function openDetailEditor(node, type) {
@@ -3160,7 +3201,7 @@
             const rect = element.getBoundingClientRect();
             const relativeY = e.clientY - rect.top;
             const height = rect.height;
-            const centerZone = height * 0.3;
+            const centerZone = height * 0.08; // 中央8%をネストゾーンに縮小
             
             if (relativeY > (height/2 - centerZone) && relativeY < (height/2 + centerZone)) {
                 // Center zone - nest as child
@@ -3169,7 +3210,7 @@
                 element.classList.add('drop-target');
                 element.classList.remove('reorder-before', 'reorder-after');
             } else {
-                // Upper or lower zone - reorder
+                // Upper or lower zone - reorder (92%がreorderゾーン)
                 const insertBefore = relativeY < height / 2;
                 state.reorderTarget = {
                     siblingId: node.id,
@@ -3190,6 +3231,7 @@
         }
 
         function handleNodeMouseDown(e, node) {
+            console.log('[DEBUG] handleNodeMouseDown called. target=', e.target.className, 'nodeId=', node.id);
             if (e.button !== 0) return;
             // Guard: skip drag if clicking on interactive elements (allow dragging on node-title)
             // ハンバーガーメニューのmousedownも除外
@@ -3197,7 +3239,10 @@
                 e.target.closest('.expand-btn') || e.target.closest('.color-picker') ||
                 e.target.closest('.node-color') || e.target.closest('.add-task') ||
                 e.target.closest('.resize-handle') || e.target.closest('.hamburger') ||
-                e.target.closest('.node-indicators') || e.target.closest('.indicator-group')) return;
+                e.target.closest('.node-indicators') || e.target.closest('.indicator-group')) {
+                console.log('[DEBUG] handleNodeMouseDown: clicked on interactive element, returning');
+                return;
+            }
 
             e.stopPropagation();
 
@@ -4191,11 +4236,17 @@
         }, { passive: false });
 
         window.addEventListener('mouseup', () => {
+            console.log('[DEBUG] window mouseup. dragNode=', state.dragNode ? state.dragNode.id : null, 'isDragging=', state.isDragging);
             state.isPanning = false;
             container.classList.remove('panning');
             if (state.isSelecting) {
                 state.isSelecting = false;
                 document.getElementById('selection-box').style.display = 'none';
+            }
+
+            // ドラッグ中はpendingPriorityClickをクリア
+            if (state.isDragging) {
+                state.pendingPriorityClick = null;
             }
 
             // Finalize connection drag
