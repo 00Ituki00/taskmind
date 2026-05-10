@@ -1223,7 +1223,7 @@
         <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
-        <span id="file-info" style="display:none; margin-left:8px; font-size:12px; color:#888; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+        <span id="file-info" style="margin-left:8px; font-size:12px; color:#888;">🕐 2026/05/10 12:09</span>
     </div>
 
     <!-- Mode Indicator -->
@@ -1969,15 +1969,21 @@
             }
 
             if (type === 'priority') {
+                let _lastMouseX = 0, _lastMouseY = 0;
+                el.addEventListener('mousedown', (e) => { _lastMouseX = e.clientX; _lastMouseY = e.clientY; });
                 el.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     // 既存ピッカーがあれば閉じる
                     const existingPicker = document.querySelector('.priority-picker');
                     if (existingPicker) { existingPicker.remove(); return; }
 
                     const picker = document.createElement('div');
                     picker.className = 'priority-picker';
-                    picker.style.cssText = 'position:fixed;z-index:99999;display:inline-flex;gap:6px;padding:6px 10px;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);align-items:center;';
+
+                    // bodyに fixed配置してノードの overflowに影響されないようにする
+                    picker.style.cssText = 'position:fixed;display:flex;gap:4px;align-items:center;background:white;border:1px solid #ddd;border-radius:8px;padding:6px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;';
+                    document.body.appendChild(picker);
 
                     for (let i = 1; i <= 5; i++) {
                         const star = document.createElement('span');
@@ -2004,27 +2010,12 @@
                         picker.appendChild(star);
                     }
 
-                    // body に fixed 配置してノードの overflow に影響されないようにする
-                    picker.style.cssText = [
-                        'position:fixed',
-                        'display:flex',
-                        'gap:4px',
-                        'align-items:center',
-                        'background:white',
-                        'border:1px solid #ddd',
-                        'border-radius:8px',
-                        'padding:6px 10px',
-                        'box-shadow:0 4px 16px rgba(0,0,0,0.15)',
-                        'z-index:10001'
-                    ].join(';');
-                    document.body.appendChild(picker);
-
-                    // クリック位置の直下に配置（getBoundingClientRect は再レンダリング後に無効になるため clientX/Y を使用）
+                    // mousedown座標でピッカー配置（clickイベントのclientXが0になる場合への対策）
                     const pickerRect = picker.getBoundingClientRect();
                     const vw = window.innerWidth;
                     const vh = window.innerHeight;
-                    let px = e.clientX;
-                    let py = e.clientY + 20;
+                    let px = _lastMouseX || e.clientX;
+                    let py = (_lastMouseY || e.clientY) + 20;
                     if (px + pickerRect.width > vw) px = vw - pickerRect.width - 8;
                     if (py + pickerRect.height > vh) py = e.clientY - pickerRect.height - 4;
                     picker.style.left = px + 'px';
@@ -5164,19 +5155,7 @@
             return Promise.resolve();
         }
 
-        function updateFileInfoDisplay(saveTime) {
-            const el = document.getElementById('file-info');
-            if (el) {
-                if (saveTime) state.lastSaveTime = saveTime;
-                const now = state.lastSaveTime || new Date();
-                const timeStr = now.toLocaleString('ja-JP', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
-                const name = state.lastFileName ? `📄 ${state.lastFileName}` : '';
-                const saved = `🕐 ${timeStr}`;
-                el.textContent = name ? `${name}  ${saved}` : saved;
-                el.title = state.lastFileName ? `${state.lastFileName}\n最終保存: ${now.toLocaleString('ja-JP')}` : `最終保存: ${now.toLocaleString('ja-JP')}`;
-                el.style.display = 'inline';
-            }
-        }
+        function updateFileInfoDisplay() {}
 
         function downloadJSON(json) {
             const blob = new Blob([json], { type: 'application/json' });
