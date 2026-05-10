@@ -1,0 +1,123 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "x": 41.33333333333334,
+      "y": 141.99999999999997,
+      "title": "ゲーム開発",
+      "color": "#64b5f6",
+      "completed": false,
+      "expanded": true,
+      "width": 250.66666666666669,
+      "height": 138,
+      "groupId": null,
+      "parentId": null,
+      "priority": 0,
+      "details": {
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        },
+        "what": "",
+        "who": "",
+        "where": ""
+      },
+      "children": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 2,
+      "x": 20,
+      "y": 100,
+      "title": "アート",
+      "color": "#a1887f",
+      "completed": false,
+      "expanded": false,
+      "width": 160,
+      "height": null,
+      "groupId": null,
+      "parentId": 1,
+      "priority": 0,
+      "details": {
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        },
+        "what": "",
+        "who": "",
+        "where": ""
+      },
+      "children": []
+    },
+    {
+      "id": 3,
+      "x": 31.666666666666686,
+      "y": 67.66666666666669,
+      "title": "プログラミング",
+      "color": "#64b5f6",
+      "completed": false,
+      "expanded": false,
+      "width": null,
+      "height": null,
+      "groupId": null,
+      "parentId": 1,
+      "priority": 0,
+      "details": {
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        },
+        "what": "",
+        "who": "",
+        "where": ""
+      },
+      "absX": 325,
+      "absY": 216.33333333333334
+    },
+    {
+      "id": 4,
+      "x": 326.66666666666663,
+      "y": 184.33333333333334,
+      "title": "新規ノード",
+      "color": "#a1887f",
+      "completed": false,
+      "expanded": false,
+      "width": 218.66666666666666,
+      "height": 86.66666666666667,
+      "groupId": null,
+      "parentId": null,
+      "priority": 0,
+      "details": {
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        },
+        "what": "",
+        "who": "",
+        "where": ""
+      },
+      "absX": 240.66666666666666,
+      "absY": 326.3333333333333
+    }
+  ],
+  "connections": [
+    {
+      "from": 1,
+      "to": 2,
+      "label": "依頼"
+    },
+    {
+      "from": 1,
+      "to": 3,
+      "label": "実装"
+    }
+  ],
+  "nextId": 5
+}
