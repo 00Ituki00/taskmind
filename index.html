@@ -2004,7 +2004,25 @@
                         picker.appendChild(star);
                     }
 
-                    el.appendChild(picker);
+                    // body に fixed 配置してノードの overflow に影響されないようにする
+                    picker.style.cssText = [
+                        'position:fixed',
+                        'display:flex',
+                        'gap:4px',
+                        'align-items:center',
+                        'background:white',
+                        'border:1px solid #ddd',
+                        'border-radius:8px',
+                        'padding:6px 10px',
+                        'box-shadow:0 4px 16px rgba(0,0,0,0.15)',
+                        'z-index:10001'
+                    ].join(';');
+                    document.body.appendChild(picker);
+
+                    // el の位置に合わせて配置
+                    const rect = el.getBoundingClientRect();
+                    picker.style.left = rect.left + 'px';
+                    picker.style.top = (rect.bottom + 4) + 'px';
 
                     // 外クリックで閉じる
                     setTimeout(() => {
