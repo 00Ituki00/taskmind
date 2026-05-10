@@ -2424,7 +2424,7 @@
                     el.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        showContextMenu(e.clientX, e.clientY, node);
+                        showCanvasContextMenu(e.clientX, e.clientY, e);
                     });
                     
                     el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
@@ -2486,7 +2486,7 @@
                 el.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    showContextMenu(e.clientX, e.clientY, node);
+                    showCanvasContextMenu(e.clientX, e.clientY, e);
                 });
 
                 // Child nodes area with recursive rendering
@@ -4658,92 +4658,6 @@
                 }
             };
             setTimeout(() => document.addEventListener('click', close), 10);
-        }
-
-        // ==================== Context Menu (Phase 1 - Node Menu) ====================
-        // Node context menu
-        function showContextMenu(x, y, node) {
-            const existing = document.querySelector('.context-menu');
-            if (existing) existing.remove();
-
-            const menu = document.createElement('div');
-            menu.className = 'context-menu';
-            menu.style.cssText = `
-                position: fixed;
-                left: ${x}px;
-                top: ${y}px;
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                z-index: 10000;
-                min-width: 150px;
-                overflow: hidden;
-            `;
-
-            const items = [
-                { text: 'Rename', icon: '✏️', action: () => renameNode(node) },
-                { text: 'Delete', icon: '🗑️', action: () => deleteNode(node), danger: true }
-            ];
-
-            items.forEach(item => {
-                const el = document.createElement('div');
-                el.className = 'context-menu-item';
-                el.style.cssText = `
-                    padding: 10px 16px;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    font-size: 14px;
-                    color: ${item.danger ? '#e74c3c' : '#333'};
-                `;
-                el.innerHTML = `<span>${item.icon}</span><span>${item.text}</span>`;
-                el.addEventListener('click', () => {
-                    item.action();
-                    menu.remove();
-                });
-                el.addEventListener('mouseenter', () => {
-                    el.style.background = item.danger ? '#ffebee' : '#f5f5f5';
-                });
-                el.addEventListener('mouseleave', () => {
-                    el.style.background = 'transparent';
-                });
-                menu.appendChild(el);
-            });
-
-            document.body.appendChild(menu);
-
-            // Close on outside click
-            const close = (e) => {
-                if (!menu.contains(e.target)) {
-                    menu.remove();
-                    document.removeEventListener('click', close);
-                }
-            };
-            setTimeout(() => document.addEventListener('click', close), 10);
-        }
-
-        function hideContextMenu() {
-            const menu = document.querySelector('.context-menu');
-            if (menu) menu.remove();
-        }
-
-        function renameNode(node) {
-            const newTitle = prompt('Enter new title:', node.title || '無題');
-            if (newTitle !== null && newTitle.trim() !== '') {
-                node.title = newTitle.trim();
-                renderNodes();
-            }
-        }
-
-        function deleteNode(node) {
-            if (confirm(`Delete "${node.title || '無題'}"?`)) {
-                const nodeId = node.id;
-                state.nodes = state.nodes.filter(n => n.id !== nodeId);
-                state.connections = state.connections.filter(c => c.from !== nodeId && c.to !== nodeId);
-                renderNodes();
-                renderConnections();
-            }
         }
 
         // ==================== Context Menu (Canvas) ====================
