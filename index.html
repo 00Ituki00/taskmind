@@ -5118,7 +5118,7 @@
                     return writable.write(json).then(() => {
                         writable.close();
                         showToast('上書き保存しました');
-                        updateFileInfoDisplay();
+                        updateFileInfoDisplay(new Date());
                     });
                 }).catch(err => {
                     console.error('Overwrite save failed:', err);
@@ -5136,11 +5136,12 @@
                 return window.showSaveFilePicker(opts).then(handle => {
                     state.lastFileHandle = handle;
                     state.lastFileName = handle.name;
-                    updateFileInfoDisplay();
+                    updateFileInfoDisplay(); // ファイル名のみ先行表示
                     return handle.createWritable().then(writable => {
                         return writable.write(json).then(() => {
                             writable.close();
                             showToast('保存しました');
+                            updateFileInfoDisplay(new Date());
                         });
                     });
                 }).catch(err => {
@@ -5156,12 +5157,17 @@
             return Promise.resolve();
         }
 
-        function updateFileInfoDisplay() {
+        function updateFileInfoDisplay(saveTime) {
             const el = document.getElementById('file-info');
             if (el) {
-                el.textContent = state.lastFileName || '';
-                el.title = state.lastFileName || '';
-                el.style.display = state.lastFileName ? 'inline' : 'none';
+                if (saveTime) state.lastSaveTime = saveTime;
+                const now = state.lastSaveTime || new Date();
+                const timeStr = now.toLocaleString('ja-JP', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+                const name = state.lastFileName ? `📄 ${state.lastFileName}` : '';
+                const saved = `🕐 ${timeStr}`;
+                el.textContent = name ? `${name}  ${saved}` : saved;
+                el.title = state.lastFileName ? `${state.lastFileName}\n最終保存: ${now.toLocaleString('ja-JP')}` : `最終保存: ${now.toLocaleString('ja-JP')}`;
+                el.style.display = 'inline';
             }
         }
 
@@ -5259,7 +5265,7 @@
                         renderGroups();
                         fitToView();
                         showToast('読込みました' + (state.lastFileName ? ` (${state.lastFileName})` : ''));
-                        updateFileInfoDisplay();
+                        updateFileInfoDisplay(new Date());
                         resolve();
                     } catch (err) {
                         showToast('読込エラー: ' + err.message);
