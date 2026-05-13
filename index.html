@@ -2901,6 +2901,114 @@
             }, 0);
         }
 
+        // When progress bar generator
+        // Returns HTMLElement or null
+        function createWhenProgressBar(node) {
+            const w = node.details?.when;
+            if (!w || !w.repeatType || w.repeatType === 'none' || !w.nextDate) return null;
+
+            const now = new Date();
+            const nextDate = new Date(w.nextDate);
+
+            // Calculate deadline date
+            const [dlHours, dlMinutes] = (w.deadlineTime || '18:00').split(':');
+            const deadlineDate = new Date(nextDate);
+            deadlineDate.setDate(deadlineDate.getDate() + (w.deadlineDays || 0));
+            deadlineDate.setHours(parseInt(dlHours), parseInt(dlMinutes), 0, 0);
+
+            const container = document.createElement('div');
+            container.className = 'when-progress-container';
+            container.style.cssText = 'padding:2px 8px 4px;font-size:11px;';
+
+            // Info row
+            const infoRow = document.createElement('div');
+            infoRow.style.cssText = 'display:flex;justify-content:space-between;gap:4px;color:#666;margin-bottom:2px;white-space:nowrap;overflow:hidden;font-size:10px;';
+
+            const leftInfo = document.createElement('span');
+            leftInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex-shrink:0;';
+            const centerInfo = document.createElement('span');
+            centerInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;text-align:center;flex:1;';
+            const rightInfo = document.createElement('span');
+            rightInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex-shrink:0;text-align:right;';
+
+            // Time formatting helper
+            const fmtHM = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
+
+            if (now < nextDate) {
+                // Before start
+                const diffMs = nextDate - now;
+                const diffH = Math.floor(diffMs / 3600000);
+                const diffM = Math.floor((diffMs % 3600000) / 60000);
+                const until = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
+                leftInfo.textContent = `▶${until}`;
+                centerInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                if (w.deadlineDays > 0) {
+                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                } else {
+                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                }
+            } else if (now < deadlineDate) {
+                // Between start and deadline
+                const diffMs = deadlineDate - now;
+                const diffH = Math.floor(diffMs / 3600000);
+                const diffM = Math.floor((diffMs % 3600000) / 60000);
+                const remain = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
+                leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                centerInfo.textContent = `残り ${remain}`;
+                if (w.deadlineDays > 0) {
+                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                } else {
+                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                }
+            } else {
+                // After deadline
+                leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                centerInfo.textContent = '期限切れ';
+                rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+            }
+
+            infoRow.appendChild(leftInfo);
+            infoRow.appendChild(centerInfo);
+            infoRow.appendChild(rightInfo);
+            container.appendChild(infoRow);
+
+            // Progress bar
+            const barContainer = document.createElement('div');
+            barContainer.style.cssText = 'height:4px;background:#e0e0e0;border-radius:2px;overflow:hidden;position:relative;';
+
+            const barFill = document.createElement('div');
+            let fillPercent = 0;
+            let barColor = '#4caf50';
+
+            if (now < nextDate) {
+                fillPercent = 0;
+                barColor = '#90a4ae'; // grey before start
+            } else if (now < deadlineDate) {
+                const totalMs = deadlineDate - nextDate;
+                const elapsedMs = now - nextDate;
+                fillPercent = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
+
+                const remainingPercent = 100 - fillPercent;
+                if (remainingPercent > 50) {
+                    barColor = '#4caf50'; // green
+                } else if (remainingPercent > 20) {
+                    barColor = '#ff9800'; // orange
+                } else {
+                    barColor = '#f44336'; // red
+                }
+            } else {
+                fillPercent = 100;
+                barColor = '#9e9e9e';
+            }
+
+            barFill.style.cssText = `height:100%;width:${fillPercent}%;background:${barColor};border-radius:2px;transition:width 0.3s ease;`;
+            barContainer.appendChild(barFill);
+            container.appendChild(barContainer);
+
+            return container;
+        }
+
         // Calculate next activation date based on when settings
         function calculateNextDate(when) {
             if (!when || !when.repeatType || when.repeatType === 'none') return null;
@@ -3156,6 +3264,13 @@
                     childEl.appendChild(expandBtn);
                     childEl.appendChild(badge);
 
+                    // When progress bar for child nodes
+                    const childWhenProgress = createWhenProgressBar(child);
+                    if (childWhenProgress) {
+                        childWhenProgress.style.padding = '2px 0 2px 22px';
+                        childEl.appendChild(childWhenProgress);
+                    }
+
                     // Use unified drag handler (same as root nodes)
                     childEl.addEventListener('mousedown', (e) => handleNodeMouseDown(e, child));
                     childEl.addEventListener('touchstart', (e) => handleNodeTouchStart(e, child), { passive: false });
@@ -3330,6 +3445,10 @@
                 header.appendChild(expandBtn);
 
                 el.appendChild(header);
+
+                // When progress bar
+                const whenProgress = createWhenProgressBar(node);
+                if (whenProgress) el.appendChild(whenProgress);
 
                 el.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
