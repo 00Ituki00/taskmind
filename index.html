@@ -2488,6 +2488,7 @@
 
         // Unified When Editor UI Generator
         // Returns { el, getValue, updatePreview }
+        // UI types: none | daily | weekly | monthly-day | monthly-week | yearly-date | yearly-week
         function createWhenEditorUI(whenData, onChange) {
             const w = whenData || {};
             const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
@@ -2500,21 +2501,21 @@
                 { key: 'last', label: '最終' }
             ];
 
-            let currentType = w.repeatType || 'none';
-            // 互換性: 旧dayOfWeekをdaysOfWeekに変換
+            // データ→UIタイプ変換
+            let uiType = w.repeatType || 'none';
+            if (uiType === 'monthly') uiType = (w.monthlyMode === 'week') ? 'monthly-week' : 'monthly-day';
+            if (uiType === 'yearly') uiType = (w.yearlyMode === 'week') ? 'yearly-week' : 'yearly-date';
+
             let currentDaysOfWeek = w.daysOfWeek || (w.dayOfWeek !== undefined ? [w.dayOfWeek] : [0]);
             let currentWeekOfMonth = w.weekOfMonth || 'all';
             let currentYearMonth = w.yearMonth !== undefined ? w.yearMonth : 1;
             let currentYearDay = w.yearDay !== undefined ? w.yearDay : 1;
             let currentMonthDay = w.monthDay !== undefined ? w.monthDay : 1;
-            // 月・年の表示モード
-            let currentMonthlyMode = w.monthlyMode || 'day';  // 'day' | 'week'
-            let currentYearlyMode = w.yearlyMode || 'date';   // 'date' | 'week'
 
             const container = document.createElement('div');
             container.className = 'when-editor-content';
 
-            // --- 周期タイプ ---
+            // --- 周期タイプ（7種類、モード切替なし） ---
             const typeSection = document.createElement('div');
             typeSection.className = 'when-section';
             const typeLabel = document.createElement('div');
@@ -2528,17 +2529,19 @@
                 { key: 'none', label: '一度だけ' },
                 { key: 'daily', label: '毎日' },
                 { key: 'weekly', label: '毎週' },
-                { key: 'monthly', label: '毎月' },
-                { key: 'yearly', label: '毎年' }
+                { key: 'monthly-day', label: '毎月（日付）' },
+                { key: 'monthly-week', label: '毎月（曜日）' },
+                { key: 'yearly-date', label: '毎年（日付）' },
+                { key: 'yearly-week', label: '毎年（曜日）' }
             ];
 
             types.forEach(t => {
                 const btn = document.createElement('div');
-                btn.className = 'when-type-btn' + (currentType === t.key ? ' active' : '');
+                btn.className = 'when-type-btn' + (uiType === t.key ? ' active' : '');
                 btn.textContent = t.label;
                 btn.dataset.type = t.key;
                 btn.addEventListener('click', () => {
-                    currentType = t.key;
+                    uiType = t.key;
                     typeGrid.querySelectorAll('.when-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === t.key));
                     updateConditionalSections();
                     updatePreview();
@@ -2549,23 +2552,26 @@
             typeSection.appendChild(typeGrid);
             container.appendChild(typeSection);
 
-            // --- 週設定（毎週時）---
-            const weeklySection = document.createElement('div');
-            weeklySection.className = 'when-section';
-            weeklySection.style.display = (currentType === 'weekly') ? 'block' : 'none';
+            // --- 週設定（毎週 / 毎月（曜日）/ 毎年（曜日）） ---
+            const weekSection = document.createElement('div');
+            weekSection.className = 'when-section';
+            weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
 
             const weekRow1 = document.createElement('div');
             weekRow1.className = 'when-row';
             weekRow1.innerHTML = '<span>第</span>';
             const weekSelect = document.createElement('select');
             weekSelect.style.cssText = 'padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;';
-            weekOptions.forEach(opt => {
+            const weekOptsForType = (uiType === 'weekly') ? weekOptions : weekOptions.filter(o => o.key !== 'all');
+            weekOptsForType.forEach(opt => {
                 const o = document.createElement('option');
                 o.value = opt.key;
                 o.textContent = opt.label;
                 if (opt.key === currentWeekOfMonth) o.selected = true;
                 weekSelect.appendChild(o);
             });
+            // 初期選択値を変数と同期（オプションにない場合、ブラウザが自動選択した値に合わせる）
+            currentWeekOfMonth = weekSelect.value;
             weekSelect.addEventListener('change', () => {
                 currentWeekOfMonth = weekSelect.value;
                 updatePreview();
@@ -2573,7 +2579,7 @@
             });
             weekRow1.appendChild(weekSelect);
             weekRow1.appendChild(document.createTextNode(' 曜日'));
-            weeklySection.appendChild(weekRow1);
+            weekSection.appendChild(weekRow1);
 
             const weekRow2 = document.createElement('div');
             weekRow2.className = 'when-days-grid';
@@ -2597,51 +2603,15 @@
                 });
                 weekRow2.appendChild(btn);
             });
-            weeklySection.appendChild(weekRow2);
-            container.appendChild(weeklySection);
+            weekSection.appendChild(weekRow2);
+            container.appendChild(weekSection);
 
-            // --- 月設定（毎月時）---
-            const monthlySection = document.createElement('div');
-            monthlySection.className = 'when-section';
-            monthlySection.style.display = (currentType === 'monthly') ? 'block' : 'none';
-
-            // 月モード選択（日付 / 第◯週）
-            const monthlyModeRow = document.createElement('div');
-            monthlyModeRow.className = 'when-row';
-            const monthlyModeDay = document.createElement('button');
-            monthlyModeDay.className = 'when-type-btn' + (currentMonthlyMode === 'day' ? ' active' : '');
-            monthlyModeDay.textContent = '日付で指定';
-            monthlyModeDay.style.cssText = 'padding:4px 10px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer;font-size:12px;';
-            const monthlyModeWeek = document.createElement('button');
-            monthlyModeWeek.className = 'when-type-btn' + (currentMonthlyMode === 'week' ? ' active' : '');
-            monthlyModeWeek.textContent = '第◯週で指定';
-            monthlyModeWeek.style.cssText = 'padding:4px 10px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer;font-size:12px;';
-            monthlyModeDay.addEventListener('click', () => {
-                currentMonthlyMode = 'day';
-                monthlyModeDay.classList.add('active');
-                monthlyModeWeek.classList.remove('active');
-                monthlyDayRow.style.display = 'flex';
-                monthlyWeekRow.style.display = 'none';
-                updatePreview();
-                if (onChange) onChange(getValue());
-            });
-            monthlyModeWeek.addEventListener('click', () => {
-                currentMonthlyMode = 'week';
-                monthlyModeWeek.classList.add('active');
-                monthlyModeDay.classList.remove('active');
-                monthlyDayRow.style.display = 'none';
-                monthlyWeekRow.style.display = 'block';
-                updatePreview();
-                if (onChange) onChange(getValue());
-            });
-            monthlyModeRow.appendChild(monthlyModeDay);
-            monthlyModeRow.appendChild(monthlyModeWeek);
-            monthlySection.appendChild(monthlyModeRow);
-
-            // 月-日付指定
+            // --- 月-日付指定（毎月（日付）） ---
+            const monthlyDaySection = document.createElement('div');
+            monthlyDaySection.className = 'when-section';
+            monthlyDaySection.style.display = (uiType === 'monthly-day') ? 'block' : 'none';
             const monthlyDayRow = document.createElement('div');
             monthlyDayRow.className = 'when-row';
-            monthlyDayRow.style.display = (currentMonthlyMode === 'day') ? 'flex' : 'none';
             monthlyDayRow.innerHTML = '<span>毎月</span>';
             const monthDayInput = document.createElement('input');
             monthDayInput.type = 'number';
@@ -2656,100 +2626,15 @@
             });
             monthlyDayRow.appendChild(monthDayInput);
             monthlyDayRow.appendChild(document.createTextNode(' 日'));
-            monthlySection.appendChild(monthlyDayRow);
+            monthlyDaySection.appendChild(monthlyDayRow);
+            container.appendChild(monthlyDaySection);
 
-            // 月-週指定
-            const monthlyWeekRow = document.createElement('div');
-            monthlyWeekRow.style.display = (currentMonthlyMode === 'week') ? 'block' : 'none';
-            const monthWeekRow1 = document.createElement('div');
-            monthWeekRow1.className = 'when-row';
-            monthWeekRow1.innerHTML = '<span>第</span>';
-            const monthWeekSelect = document.createElement('select');
-            monthWeekSelect.style.cssText = 'padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;';
-            weekOptions.filter(o => o.key !== 'all').forEach(opt => {
-                const o = document.createElement('option');
-                o.value = opt.key;
-                o.textContent = opt.label;
-                if (opt.key === currentWeekOfMonth) o.selected = true;
-                monthWeekSelect.appendChild(o);
-            });
-            monthWeekSelect.addEventListener('change', () => {
-                currentWeekOfMonth = monthWeekSelect.value;
-                updatePreview();
-                if (onChange) onChange(getValue());
-            });
-            monthWeekRow1.appendChild(monthWeekSelect);
-            monthWeekRow1.appendChild(document.createTextNode(' 曜日'));
-            monthlyWeekRow.appendChild(monthWeekRow1);
-
-            const monthWeekRow2 = document.createElement('div');
-            monthWeekRow2.className = 'when-days-grid';
-            dayNames.forEach((name, idx) => {
-                const btn = document.createElement('div');
-                btn.className = 'when-day-btn' + (currentDaysOfWeek.includes(idx) ? ' active' : '');
-                btn.textContent = name;
-                btn.dataset.day = idx;
-                btn.addEventListener('click', () => {
-                    const dayIdx = parseInt(btn.dataset.day);
-                    if (currentDaysOfWeek.includes(dayIdx)) {
-                        currentDaysOfWeek = currentDaysOfWeek.filter(d => d !== dayIdx);
-                        btn.classList.remove('active');
-                    } else {
-                        currentDaysOfWeek.push(dayIdx);
-                        btn.classList.add('active');
-                    }
-                    currentDaysOfWeek.sort();
-                    updatePreview();
-                    if (onChange) onChange(getValue());
-                });
-                monthWeekRow2.appendChild(btn);
-            });
-            monthlyWeekRow.appendChild(monthWeekRow2);
-            monthlySection.appendChild(monthlyWeekRow);
-            container.appendChild(monthlySection);
-
-            // --- 年設定（毎年時）---
-            const yearlySection = document.createElement('div');
-            yearlySection.className = 'when-section';
-            yearlySection.style.display = (currentType === 'yearly') ? 'block' : 'none';
-
-            // 年モード選択（日付 / 第◯週）
-            const yearlyModeRow = document.createElement('div');
-            yearlyModeRow.className = 'when-row';
-            const yearlyModeDate = document.createElement('button');
-            yearlyModeDate.className = 'when-type-btn' + (currentYearlyMode === 'date' ? ' active' : '');
-            yearlyModeDate.textContent = '日付で指定';
-            yearlyModeDate.style.cssText = 'padding:4px 10px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer;font-size:12px;';
-            const yearlyModeWeek = document.createElement('button');
-            yearlyModeWeek.className = 'when-type-btn' + (currentYearlyMode === 'week' ? ' active' : '');
-            yearlyModeWeek.textContent = '第◯週で指定';
-            yearlyModeWeek.style.cssText = 'padding:4px 10px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer;font-size:12px;';
-            yearlyModeDate.addEventListener('click', () => {
-                currentYearlyMode = 'date';
-                yearlyModeDate.classList.add('active');
-                yearlyModeWeek.classList.remove('active');
-                yearlyDateRow.style.display = 'flex';
-                yearlyWeekRow.style.display = 'none';
-                updatePreview();
-                if (onChange) onChange(getValue());
-            });
-            yearlyModeWeek.addEventListener('click', () => {
-                currentYearlyMode = 'week';
-                yearlyModeWeek.classList.add('active');
-                yearlyModeDate.classList.remove('active');
-                yearlyDateRow.style.display = 'none';
-                yearlyWeekRow.style.display = 'block';
-                updatePreview();
-                if (onChange) onChange(getValue());
-            });
-            yearlyModeRow.appendChild(yearlyModeDate);
-            yearlyModeRow.appendChild(yearlyModeWeek);
-            yearlySection.appendChild(yearlyModeRow);
-
-            // 年-日付指定
+            // --- 年-日付指定（毎年（日付）） ---
+            const yearlyDateSection = document.createElement('div');
+            yearlyDateSection.className = 'when-section';
+            yearlyDateSection.style.display = (uiType === 'yearly-date') ? 'block' : 'none';
             const yearlyDateRow = document.createElement('div');
             yearlyDateRow.className = 'when-row';
-            yearlyDateRow.style.display = (currentYearlyMode === 'date') ? 'flex' : 'none';
             yearlyDateRow.innerHTML = '<span>毎年</span>';
             const yearMonthInput = document.createElement('input');
             yearMonthInput.type = 'number';
@@ -2777,57 +2662,31 @@
             yearlyDateRow.appendChild(document.createTextNode(' 月 '));
             yearlyDateRow.appendChild(yearDayInput);
             yearlyDateRow.appendChild(document.createTextNode(' 日'));
-            yearlySection.appendChild(yearlyDateRow);
+            yearlyDateSection.appendChild(yearlyDateRow);
+            container.appendChild(yearlyDateSection);
 
-            // 年-週指定
-            const yearlyWeekRow = document.createElement('div');
-            yearlyWeekRow.style.display = (currentYearlyMode === 'week') ? 'block' : 'none';
-            const yearWeekRow1 = document.createElement('div');
-            yearWeekRow1.className = 'when-row';
-            yearWeekRow1.innerHTML = '<span>毎年 第</span>';
-            const yearWeekSelect = document.createElement('select');
-            yearWeekSelect.style.cssText = 'padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;';
-            weekOptions.filter(o => o.key !== 'all').forEach(opt => {
-                const o = document.createElement('option');
-                o.value = opt.key;
-                o.textContent = opt.label;
-                if (opt.key === currentWeekOfMonth) o.selected = true;
-                yearWeekSelect.appendChild(o);
-            });
-            yearWeekSelect.addEventListener('change', () => {
-                currentWeekOfMonth = yearWeekSelect.value;
+            // --- 年-月指定（毎年（曜日）） ---
+            const yearlyMonthSection = document.createElement('div');
+            yearlyMonthSection.className = 'when-section';
+            yearlyMonthSection.style.display = (uiType === 'yearly-week') ? 'block' : 'none';
+            const yearlyMonthRow = document.createElement('div');
+            yearlyMonthRow.className = 'when-row';
+            yearlyMonthRow.innerHTML = '<span>毎年</span>';
+            const yearWeekMonthInput = document.createElement('input');
+            yearWeekMonthInput.type = 'number';
+            yearWeekMonthInput.min = '1';
+            yearWeekMonthInput.max = '12';
+            yearWeekMonthInput.value = currentYearMonth;
+            yearWeekMonthInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
+            yearWeekMonthInput.addEventListener('input', () => {
+                currentYearMonth = parseInt(yearWeekMonthInput.value) || 1;
                 updatePreview();
                 if (onChange) onChange(getValue());
             });
-            yearWeekRow1.appendChild(yearWeekSelect);
-            yearWeekRow1.appendChild(document.createTextNode(' 曜日'));
-            yearlyWeekRow.appendChild(yearWeekRow1);
-
-            const yearWeekRow2 = document.createElement('div');
-            yearWeekRow2.className = 'when-days-grid';
-            dayNames.forEach((name, idx) => {
-                const btn = document.createElement('div');
-                btn.className = 'when-day-btn' + (currentDaysOfWeek.includes(idx) ? ' active' : '');
-                btn.textContent = name;
-                btn.dataset.day = idx;
-                btn.addEventListener('click', () => {
-                    const dayIdx = parseInt(btn.dataset.day);
-                    if (currentDaysOfWeek.includes(idx)) {
-                        currentDaysOfWeek = currentDaysOfWeek.filter(d => d !== dayIdx);
-                        btn.classList.remove('active');
-                    } else {
-                        currentDaysOfWeek.push(dayIdx);
-                        btn.classList.add('active');
-                    }
-                    currentDaysOfWeek.sort();
-                    updatePreview();
-                    if (onChange) onChange(getValue());
-                });
-                yearWeekRow2.appendChild(btn);
-            });
-            yearlyWeekRow.appendChild(yearWeekRow2);
-            yearlySection.appendChild(yearlyWeekRow);
-            container.appendChild(yearlySection);
+            yearlyMonthRow.appendChild(yearWeekMonthInput);
+            yearlyMonthRow.appendChild(document.createTextNode(' 月'));
+            yearlyMonthSection.appendChild(yearlyMonthRow);
+            container.appendChild(yearlyMonthSection);
 
             // --- 開始時刻 ---
             const timeSection = document.createElement('div');
@@ -2877,14 +2736,41 @@
             container.appendChild(previewSection);
 
             function updateConditionalSections() {
-                weeklySection.style.display = (currentType === 'weekly') ? 'block' : 'none';
-                monthlySection.style.display = (currentType === 'monthly') ? 'block' : 'none';
-                yearlySection.style.display = (currentType === 'yearly') ? 'block' : 'none';
+                weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
+                // 毎週のみ「毎週」オプション表示、それ以外は第1〜最終
+                const needAllOption = (uiType === 'weekly');
+                const currentVal = weekSelect.value;
+                weekSelect.innerHTML = '';
+                (needAllOption ? weekOptions : weekOptions.filter(o => o.key !== 'all')).forEach(opt => {
+                    const o = document.createElement('option');
+                    o.value = opt.key;
+                    o.textContent = opt.label;
+                    weekSelect.appendChild(o);
+                });
+                // 選択値を復元（無効な場合は第1に）
+                if (Array.from(weekSelect.options).some(o => o.value === currentVal)) {
+                    weekSelect.value = currentVal;
+                } else {
+                    weekSelect.value = '1';
+                }
+                currentWeekOfMonth = weekSelect.value;
+                monthlyDaySection.style.display = (uiType === 'monthly-day') ? 'block' : 'none';
+                yearlyDateSection.style.display = (uiType === 'yearly-date') ? 'block' : 'none';
+                yearlyMonthSection.style.display = (uiType === 'yearly-week') ? 'block' : 'none';
             }
 
             function getValue() {
+                // UIタイプ→データ変換
+                let repeatType = uiType;
+                let monthlyMode = 'day';
+                let yearlyMode = 'date';
+                if (uiType === 'monthly-day') { repeatType = 'monthly'; monthlyMode = 'day'; }
+                if (uiType === 'monthly-week') { repeatType = 'monthly'; monthlyMode = 'week'; }
+                if (uiType === 'yearly-date') { repeatType = 'yearly'; yearlyMode = 'date'; }
+                if (uiType === 'yearly-week') { repeatType = 'yearly'; yearlyMode = 'week'; }
+
                 return {
-                    repeatType: currentType,
+                    repeatType: repeatType,
                     baseTime: timeInput.value || '09:00',
                     deadlineDays: parseInt(deadlineDays.value) || 0,
                     deadlineTime: deadlineTime.value || '18:00',
@@ -2893,8 +2779,8 @@
                     yearMonth: currentYearMonth,
                     yearDay: currentYearDay,
                     monthDay: currentMonthDay,
-                    monthlyMode: currentMonthlyMode,
-                    yearlyMode: currentYearlyMode,
+                    monthlyMode: monthlyMode,
+                    yearlyMode: yearlyMode,
                     nextDate: null,
                     lastCompleted: w.lastCompleted || null
                 };
@@ -2907,33 +2793,28 @@
             }
 
             function updatePreview() {
-                const type = currentType;
                 const base = timeInput.value;
                 const dd = parseInt(deadlineDays.value) || 0;
                 const dt = deadlineTime.value;
 
                 let text = '';
-                if (type === 'none') {
+                if (uiType === 'none') {
                     text = '一度だけ：開始 ' + base;
-                } else if (type === 'daily') {
+                } else if (uiType === 'daily') {
                     text = '毎日 ' + base + ' 開始';
-                } else if (type === 'weekly') {
+                } else if (uiType === 'weekly') {
                     const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
                     text = weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
-                } else if (type === 'monthly') {
-                    if (currentMonthlyMode === 'day') {
-                        text = '毎月 ' + currentMonthDay + '日 ' + base + ' 開始';
-                    } else {
-                        const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth && o.key !== 'all')?.label || '';
-                        text = '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
-                    }
-                } else if (type === 'yearly') {
-                    if (currentYearlyMode === 'date') {
-                        text = '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + base + ' 開始';
-                    } else {
-                        const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth && o.key !== 'all')?.label || '';
-                        text = '毎年 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
-                    }
+                } else if (uiType === 'monthly-day') {
+                    text = '毎月 ' + currentMonthDay + '日 ' + base + ' 開始';
+                } else if (uiType === 'monthly-week') {
+                    const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                    text = '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
+                } else if (uiType === 'yearly-date') {
+                    text = '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + base + ' 開始';
+                } else if (uiType === 'yearly-week') {
+                    const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                    text = '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
                 }
 
                 if (dd > 0 || dt !== base) {
@@ -3123,21 +3004,22 @@
             } else if (when.repeatType === 'yearly') {
                 const yearlyMode = when.yearlyMode || 'date';
                 if (yearlyMode === 'week') {
-                    // 毎年 第◯週 ◯曜日
+                    // 毎年 ◯月 第◯週 ◯曜日
                     const targetDays = when.daysOfWeek || (when.dayOfWeek !== undefined ? [when.dayOfWeek] : [0]);
                     const weekOfMonth = when.weekOfMonth || '1';
+                    const targetMonth = (when.yearMonth || 1) - 1;
                     if (targetDays.length === 0) return null;
 
                     let found = false;
                     for (let y = 0; y < 2; y++) {
                         const checkYear = new Date(next);
                         checkYear.setFullYear(checkYear.getFullYear() + y);
-                        const firstDayOfYear = new Date(checkYear.getFullYear(), 0, 1);
+                        const firstDayOfMonth = new Date(checkYear.getFullYear(), targetMonth, 1);
 
-                        for (let d = 0; d < 366; d++) {
-                            const check = new Date(firstDayOfYear);
+                        for (let d = 0; d < 31; d++) {
+                            const check = new Date(firstDayOfMonth);
                             check.setDate(check.getDate() + d);
-                            if (check.getFullYear() !== firstDayOfYear.getFullYear()) break;
+                            if (check.getMonth() !== firstDayOfMonth.getMonth()) break;
 
                             const dayOfWeek = (check.getDay() + 6) % 7;
                             if (!targetDays.includes(dayOfWeek)) continue;
