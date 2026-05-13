@@ -2169,9 +2169,50 @@
                     createPriorityPicker(node, el, _lastMouseX || e.clientX, _lastMouseY || e.clientY);
                 });
             } else {
-                el.addEventListener('click', (e) => {
+                // priorityと同じくmousedown+mouseupでクリック検出（clickイベントが発火しない問題対策）
+                let _lastMouseX = 0, _lastMouseY = 0;
+                el.addEventListener('mousedown', (e) => {
+                    console.log('[DEBUG] indicator mousedown fired. type=' + type);
                     e.stopPropagation();
-                    openDetailEditor(node, type);
+                    _lastMouseX = e.clientX;
+                    _lastMouseY = e.clientY;
+                    state.pendingIndicatorClick = {
+                        nodeId: node.id,
+                        type: type,
+                        element: el,
+                        x: e.clientX,
+                        y: e.clientY,
+                        handled: false
+                    };
+                });
+                el.addEventListener('mouseup', (e) => {
+                    console.log('[DEBUG] indicator mouseup fired. type=' + type);
+                    e.stopPropagation();
+                    const pending = state.pendingIndicatorClick;
+                    if (pending && pending.element === el && !pending.handled && !state.isDragging) {
+                        pending.handled = true;
+                        console.log('[DEBUG] indicator click detected via mouseup! type=' + type);
+                        if (type === 'when') {
+                            openWhenEditor(node);
+                        } else {
+                            openDetailEditor(node, type);
+                        }
+                    }
+                    state.pendingIndicatorClick = null;
+                });
+                // clickイベントはフォールバックとして残す
+                el.addEventListener('click', (e) => {
+                    console.log('[DEBUG] indicator click fired. type=' + type);
+                    e.stopPropagation();
+                    if (state.pendingIndicatorClick && state.pendingIndicatorClick.handled) {
+                        state.pendingIndicatorClick = null;
+                        return;
+                    }
+                    if (type === 'when') {
+                        openWhenEditor(node);
+                    } else {
+                        openDetailEditor(node, type);
+                    }
                 });
             }
 
