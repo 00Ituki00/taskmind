@@ -1366,6 +1366,7 @@
         <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-group" title="グループ化 (G)" data-mode="group">📁</button>
         <div class="tool-separator"></div>
+        <button class="tool-btn" id="btn-recalc" title="When再計算">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
         <span id="file-info" style="margin-left:8px; font-size:12px; color:#888;">🕐 2026/05/10 12:09</span>
@@ -5873,6 +5874,8 @@
                         renderConnections();
                         renderGroups();
                         fitToView();
+                        // ロード時にwhen再計算実行
+                        recalculateWhenDates();
                         showToast('読込みました' + (state.lastFileName ? ` (${state.lastFileName})` : ''));
                         updateFileInfoDisplay(new Date());
                         resolve();
@@ -5896,6 +5899,10 @@
             } else {
                 fileInput.click();
             }
+        });
+        document.getElementById('btn-recalc').addEventListener('click', () => {
+            recalculateWhenDates();
+            showToast('When再計算完了');
         });
         fileInput.addEventListener('change', (e) => {
             if (e.target.files[0]) loadFromFile(e.target.files[0]);
@@ -5958,6 +5965,53 @@
                 }
             })
             .catch(() => {});
+
+        // ==================== When Recalculation ====================
+        /**
+         * 全ノードのwhenを再計算
+         * - nextDateが現在時刻を過ぎていたらノードを再有効化（completed=false）
+         * - 次回日時を再計算してnextDateを更新
+         * @returns {number} 再有効化したノード数
+         */
+        function recalculateWhenDates() {
+            const now = new Date();
+            let activatedCount = 0;
+
+            state.nodes.forEach(node => {
+                const w = node.details?.when;
+                if (!w || w.repeatType === 'none') return;
+
+                const nextDate = w.nextDate ? new Date(w.nextDate) : null;
+
+                // nextDateが存在して現在時刻を過ぎていたら再有効化
+                if (nextDate && nextDate <= now && node.completed) {
+                    node.completed = false;
+                    activatedCount++;
+                    console.log(`[When] ノード「${node.title}」を再有効化（期限: ${nextDate.toLocaleString('ja-JP')}）`);
+                }
+
+                // 次回日時を再計算
+                const newNextDate = calculateNextDate(w);
+                if (newNextDate) {
+                    w.nextDate = newNextDate.toISOString();
+                }
+            });
+
+            if (activatedCount > 0) {
+                renderNodes();
+                showToast(`${activatedCount}個のタスクを再有効化しました`);
+            }
+
+            return activatedCount;
+        }
+
+        // 自動再計算: 1分ごとにチェック
+        setInterval(() => {
+            recalculateWhenDates();
+        }, 60000);
+
+        // 初期ロード時にも実行
+        recalculateWhenDates();
     </script>
 </body>
 </html>
