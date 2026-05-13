@@ -3367,6 +3367,12 @@
                 } else {
                     el.style.left = node.x + 'px';
                     el.style.top = node.y + 'px';
+                    // Priority border styling for root nodes
+                    if (node.priority === 'high') {
+                        el.style.border = '2.5px solid #e74c3c';
+                    } else if (node.priority === 'medium') {
+                        el.style.border = '1.5px solid #f39c12';
+                    }
                 }
                 el.dataset.id = node.id;
                 
@@ -3462,6 +3468,11 @@
                 const title = document.createElement('span');
                 title.className = 'node-title' + (node.completed ? ' completed' : '');
                 title.textContent = node.title;
+                if (node.priority === 'high') {
+                    title.style.fontWeight = '700';
+                } else if (node.priority === 'medium') {
+                    title.style.fontWeight = '500';
+                }
 
                 const expandBtn = document.createElement('button');
                 expandBtn.className = 'expand-btn';
