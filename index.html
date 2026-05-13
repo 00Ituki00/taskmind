@@ -6154,70 +6154,97 @@
          */
         function recalculateWhenDates() {
             const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const activatedNodes = [];
+            const startedNodes = [];
 
             state.nodes.forEach(node => {
                 const w = node.details?.when;
                 if (!w || !w.repeatType || w.repeatType === 'none') return;
 
                 const nextDate = w.nextDate ? new Date(w.nextDate) : null;
+                if (!nextDate) return;
 
-                // nextDateが存在して現在時刻を過ぎていたら再有効化
-                if (nextDate && nextDate <= now && node.completed) {
-                    node.completed = false;
-                    activatedNodes.push({ title: node.title, deadline: nextDate });
-                    console.log(`[When] ノード「${node.title}」を再有効化（期限: ${nextDate.toLocaleString('ja-JP')}）`);
+                const nextDateStart = new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
+
+                if (node.completed) {
+                    // 完了状態で開始日を過ぎていれば有効化（日付のみ比較）
+                    if (nextDateStart <= todayStart) {
+                        node.completed = false;
+                        activatedNodes.push({ title: node.title, date: nextDate });
+                        console.log(`[When] ノード「${node.title}」を有効化（開始日: ${nextDate.toLocaleDateString('ja-JP')}）`);
+                    }
+                } else {
+                    // 有効状態で開始日時を通過していれば通知
+                    if (nextDate <= now) {
+                        startedNodes.push({ title: node.title, date: nextDate });
+                        console.log(`[When] ノード「${node.title}」の開始時刻を通過（${nextDate.toLocaleString('ja-JP')}）`);
+                    }
                 }
 
-                // 次回日時を再計算
+                // 次回日時を再計算（有効化・通知の有無に関わらず）
                 const newNextDate = calculateNextDate(w);
                 if (newNextDate) {
                     w.nextDate = newNextDate.toISOString();
                 }
             });
 
+            // --- 有効化通知 ---
             const activatedCount = activatedNodes.length;
             if (activatedCount > 0) {
                 renderNodes();
 
-                // 画面内トースト通知（タイトル付き）
+                // 画面内トースト
                 if (activatedCount === 1) {
-                    showToast(`「${activatedNodes[0].title}」を再有効化しました`);
+                    showToast(`「${activatedNodes[0].title}」を有効化しました`);
                 } else {
                     const titles = activatedNodes.map(n => `・${n.title}`).join('\n');
-                    showToast(`${activatedCount}個のタスクを再有効化しました\n${titles}`);
+                    showToast(`${activatedCount}個のタスクを有効化しました\n${titles}`);
                 }
 
                 // デスクトップ通知
-                if ('Notification' in window) {
-                    const sendDesktopNotification = () => {
-                        if (activatedCount === 1) {
-                            new Notification('タスクを再有効化しました', {
-                                body: `「${activatedNodes[0].title}」の期限が来ました`,
-                                icon: '/favicon.ico'
-                            });
-                        } else {
-                            const body = activatedNodes.map(n => `・${n.title}`).join('\n');
-                            new Notification(`${activatedCount}個のタスクを再有効化しました`, {
-                                body: body,
-                                icon: '/favicon.ico'
-                            });
-                        }
-                    };
-
-                    if (Notification.permission === 'granted') {
-                        sendDesktopNotification();
-                    } else if (Notification.permission === 'default') {
-                        Notification.requestPermission().then(permission => {
-                            if (permission === 'granted') {
-                                sendDesktopNotification();
-                            }
-                        });
-                    }
-                }
+                sendWhenNotification(
+                    activatedCount === 1 ? 'タスクを有効化しました' : `${activatedCount}個のタスクを有効化しました`,
+                    activatedCount === 1
+                        ? `「${activatedNodes[0].title}」が本日の予定です`
+                        : activatedNodes.map(n => `・${n.title}`).join('\n')
+                );
             }
 
-            return activatedCount;
+            // --- 開始時刻通過通知 ---
+            const startedCount = startedNodes.length;
+            if (startedCount > 0) {
+                // 画面内トースト
+                if (startedCount === 1) {
+                    showToast(`「${startedNodes[0].title}」の開始時刻です`);
+                } else {
+                    const titles = startedNodes.map(n => `・${n.title}`).join('\n');
+                    showToast(`${startedCount}個のタスクが開始時刻を通過しました\n${titles}`);
+                }
+
+                // デスクトップ通知
+                sendWhenNotification(
+                    startedCount === 1 ? '開始時刻を通過しました' : `${startedCount}個のタスクが開始時刻を通過しました`,
+                    startedCount === 1
+                        ? `「${startedNodes[0].title}」の開始時刻を通過しました`
+                        : startedNodes.map(n => `・${n.title}`).join('\n')
+                );
+            }
+
+            return activatedCount + startedCount;
+        }
+
+        // デスクトップ通知送信ヘルパー
+        function sendWhenNotification(title, body) {
+            if (!('Notification' in window)) return;
+            const send = () => new Notification(title, { body: body, icon: '/favicon.ico' });
+            if (Notification.permission === 'granted') {
+                send();
+            } else if (Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') send();
+                });
+            }
         }
 
         // 自動再計算: 1分ごとにチェック
