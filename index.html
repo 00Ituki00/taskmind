@@ -3249,7 +3249,28 @@
                         + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '');
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
-                    childEl.style.borderLeft = `3px solid ${parentNode.color || '#4a90d9'}`;
+                    // Priority border styling for child nodes (0-5)
+                    const cp = child.priority || 0;
+                    const parentColor = parentNode.color || '#4a90d9';
+                    if (cp >= 5) {
+                        childEl.style.border = `3px solid #c0392b`;
+                        childEl.style.borderLeft = `4px solid ${parentColor}`;
+                    } else if (cp >= 4) {
+                        childEl.style.border = `2.5px solid #e74c3c`;
+                        childEl.style.borderLeft = `4px solid ${parentColor}`;
+                    } else if (cp >= 3) {
+                        childEl.style.border = `2px solid #e67e22`;
+                        childEl.style.borderLeft = `3px solid ${parentColor}`;
+                    } else if (cp >= 2) {
+                        childEl.style.border = `1.5px solid #f39c12`;
+                        childEl.style.borderLeft = `3px solid ${parentColor}`;
+                    } else if (cp >= 1) {
+                        childEl.style.border = `1px solid #f0c040`;
+                        childEl.style.borderLeft = `3px solid ${parentColor}`;
+                    } else {
+                        childEl.style.borderLeft = `3px solid ${parentColor}`;
+                    }
+                    childEl.style.borderRadius = '12px';
 
                     const childCheckbox = document.createElement('span');
                     childCheckbox.className = 'node-color';
@@ -3272,7 +3293,9 @@
                     const childTitle = document.createElement('span');
                     childTitle.className = 'node-title' + (child.completed ? ' completed' : '');
                     childTitle.textContent = child.title;
-
+                    if (cp >= 4) childTitle.style.fontWeight = '700';
+                    else if (cp >= 3) childTitle.style.fontWeight = '600';
+                    else if (cp >= 2) childTitle.style.fontWeight = '500';
 
                     // Expand/collapse button
                     const expandBtn = document.createElement('span');
@@ -3367,12 +3390,13 @@
                 } else {
                     el.style.left = node.x + 'px';
                     el.style.top = node.y + 'px';
-                    // Priority border styling for root nodes
-                    if (node.priority === 'high') {
-                        el.style.border = '2.5px solid #e74c3c';
-                    } else if (node.priority === 'medium') {
-                        el.style.border = '1.5px solid #f39c12';
-                    }
+                    // Priority border styling for root nodes (0-5)
+                    const rp = node.priority || 0;
+                    if (rp >= 5) el.style.border = '3px solid #c0392b';
+                    else if (rp >= 4) el.style.border = '2.5px solid #e74c3c';
+                    else if (rp >= 3) el.style.border = '2px solid #e67e22';
+                    else if (rp >= 2) el.style.border = '1.5px solid #f39c12';
+                    else if (rp >= 1) el.style.border = '1px solid #f0c040';
                 }
                 el.dataset.id = node.id;
                 
@@ -3468,11 +3492,10 @@
                 const title = document.createElement('span');
                 title.className = 'node-title' + (node.completed ? ' completed' : '');
                 title.textContent = node.title;
-                if (node.priority === 'high') {
-                    title.style.fontWeight = '700';
-                } else if (node.priority === 'medium') {
-                    title.style.fontWeight = '500';
-                }
+                const tp = node.priority || 0;
+                if (tp >= 4) title.style.fontWeight = '700';
+                else if (tp >= 3) title.style.fontWeight = '600';
+                else if (tp >= 2) title.style.fontWeight = '500';
 
                 const expandBtn = document.createElement('button');
                 expandBtn.className = 'expand-btn';
