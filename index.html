@@ -2974,46 +2974,85 @@
             infoRow.appendChild(rightInfo);
             container.appendChild(infoRow);
 
-            // Progress bar (track + moving marker)
+            // Progress bar: left edge = now, markers for start & deadline
             const barTrack = document.createElement('div');
-            barTrack.style.cssText = 'height:6px;border-radius:3px;position:relative;margin-top:1px;';
+            barTrack.style.cssText = 'height:8px;border-radius:4px;position:relative;margin-top:2px;background:#f0f0f0;overflow:hidden;';
 
-            let markerPercent = 0;
-            let barBg = '#e8e8e8';
-            let markerColor = '#90a4ae';
+            // Time scale: max distance from now to either start or deadline (with 10% margin)
+            const startDist = nextDate - now;
+            const deadlineDist = deadlineDate - now;
+            const scaleMs = Math.max(
+                Math.abs(startDist),
+                Math.abs(deadlineDist),
+                3600000 // at least 1 hour visible
+            ) * 1.15;
 
-            if (now < nextDate) {
-                // Before start: marker at left edge
-                markerPercent = 0;
-                barBg = '#e8e8e8';
-                markerColor = '#90a4ae';
-            } else if (now < deadlineDate) {
-                // Between start and deadline: marker moves
-                const totalMs = deadlineDate - nextDate;
+            // Positions relative to now (left edge)
+            const startPct = Math.min(100, Math.max(0, (startDist / scaleMs) * 100));
+            const deadlinePct = Math.min(100, Math.max(0, (deadlineDist / scaleMs) * 100));
+
+            // Determine colors
+            let activeColor = '#4caf50';
+            if (now >= deadlineDate) {
+                activeColor = '#f44336'; // red (overdue)
+            } else if (now >= nextDate) {
+                const totalActiveMs = deadlineDate - nextDate;
                 const elapsedMs = now - nextDate;
-                markerPercent = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
-
-                const remainingPercent = 100 - markerPercent;
-                if (remainingPercent > 50) {
-                    markerColor = '#4caf50'; // green
-                } else if (remainingPercent > 20) {
-                    markerColor = '#ff9800'; // orange
-                } else {
-                    markerColor = '#f44336'; // red
-                }
-            } else {
-                // After deadline: entire bar red
-                markerPercent = 100;
-                barBg = '#ffcdd2';
-                markerColor = '#f44336';
+                const remainingPct = totalActiveMs > 0
+                    ? 100 - (elapsedMs / totalActiveMs * 100)
+                    : 0;
+                if (remainingPct <= 20) activeColor = '#f44336';      // red
+                else if (remainingPct <= 50) activeColor = '#ff9800'; // orange
+                else activeColor = '#4caf50';                         // green
             }
 
-            barTrack.style.background = barBg;
+            // 1. Zone before start (grey) - only if start is in future
+            if (now < nextDate) {
+                const beforeStart = document.createElement('div');
+                beforeStart.style.cssText = `position:absolute;left:0;top:0;height:100%;width:${startPct}%;background:repeating-linear-gradient(90deg,#e0e0e0 0px,#e0e0e0 3px,transparent 3px,transparent 6px);opacity:0.6;`;
+                barTrack.appendChild(beforeStart);
 
-            // Moving marker
-            const marker = document.createElement('div');
-            marker.style.cssText = `position:absolute;left:${markerPercent}%;top:-1px;width:2px;height:8px;background:${markerColor};border-radius:1px;transform:translateX(-50%);box-shadow:0 0 2px rgba(0,0,0,0.15);transition:left 0.3s ease;`;
-            barTrack.appendChild(marker);
+                // Countdown label inside bar (e.g. "1h30m")
+                const diffMs = nextDate - now;
+                const diffH = Math.floor(diffMs / 3600000);
+                const diffM = Math.floor((diffMs % 3600000) / 60000);
+                const countdownLabel = document.createElement('div');
+                countdownLabel.textContent = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
+                countdownLabel.style.cssText = `position:absolute;left:4px;top:0;height:100%;display:flex;align-items:center;font-size:8px;color:#888;font-weight:bold;pointer-events:none;`;
+                barTrack.appendChild(countdownLabel);
+            }
+
+            // 2. Active zone (start to deadline) - colored fill
+            if (nextDate < deadlineDate) {
+                const activeStart = Math.max(0, startPct);
+                const activeEnd = Math.min(100, deadlinePct);
+                const activeWidth = activeEnd - activeStart;
+                if (activeWidth > 0) {
+                    const activeBar = document.createElement('div');
+                    activeBar.style.cssText = `position:absolute;left:${activeStart}%;top:0;height:100%;width:${activeWidth}%;background:${activeColor};opacity:${now >= nextDate ? 1 : 0.3};transition:opacity 0.3s ease;`;
+                    barTrack.appendChild(activeBar);
+                }
+            }
+
+            // 3. Start marker (thin white line)
+            if (startPct > 0 && startPct < 100) {
+                const startMarker = document.createElement('div');
+                startMarker.style.cssText = `position:absolute;left:${startPct}%;top:0;width:2px;height:100%;background:rgba(255,255,255,0.8);transform:translateX(-50%);box-shadow:0 0 2px rgba(0,0,0,0.2);`;
+                barTrack.appendChild(startMarker);
+            }
+
+            // 4. Deadline marker (thin dark line)
+            if (deadlinePct > 0 && deadlinePct <= 100) {
+                const dlMarker = document.createElement('div');
+                dlMarker.style.cssText = `position:absolute;left:${deadlinePct}%;top:-1px;width:2px;height:10px;background:#333;border-radius:1px;transform:translateX(-50%);`;
+                barTrack.appendChild(dlMarker);
+            }
+
+            // 5. Now indicator (left edge pulse dot)
+            const nowDot = document.createElement('div');
+            nowDot.style.cssText = 'position:absolute;left:2px;top:2px;width:4px;height:4px;background:#666;border-radius:50%;';
+            barTrack.appendChild(nowDot);
+
             container.appendChild(barTrack);
 
             return container;
