@@ -1195,6 +1195,146 @@
             padding: 2px 4px;
         }
 
+        /* When Editor */
+        .when-editor-popup {
+            position: fixed;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            z-index: 10000;
+            width: 300px;
+            font-size: 13px;
+        }
+        .when-editor-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .when-section {
+            margin-bottom: 12px;
+        }
+        .when-section-label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .when-type-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+        .when-type-btn {
+            padding: 5px 4px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+            transition: all 0.15s;
+        }
+        .when-type-btn:hover {
+            border-color: #4a90d9;
+        }
+        .when-type-btn.active {
+            background: #4a90d9;
+            color: white;
+            border-color: #4a90d9;
+        }
+        .when-days-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 3px;
+        }
+        .when-day-btn {
+            padding: 6px 2px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+            cursor: pointer;
+            font-size: 11px;
+            text-align: center;
+            transition: all 0.15s;
+        }
+        .when-day-btn:hover {
+            border-color: #4a90d9;
+        }
+        .when-day-btn.active {
+            background: #4a90d9;
+            color: white;
+            border-color: #4a90d9;
+        }
+        .when-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .when-row input[type="number"] {
+            width: 50px;
+            padding: 4px 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            text-align: center;
+        }
+        .when-row input[type="time"] {
+            padding: 4px 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .when-row span {
+            color: #555;
+            font-size: 12px;
+        }
+        .when-preview {
+            background: #f5f7fa;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 12px;
+            color: #555;
+            margin-bottom: 10px;
+            min-height: 20px;
+        }
+        .when-preview .next-date {
+            color: #4a90d9;
+            font-weight: 500;
+        }
+        .when-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .when-btn {
+            padding: 5px 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .when-btn.cancel {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .when-btn.save {
+            background: #4a90d9;
+            color: white;
+        }
+        .when-btn.clear {
+            background: #ffebee;
+            color: #c62828;
+            margin-right: auto;
+        }
+
         @media (max-width: 768px) {
             .toolbar {
                 top: auto;
@@ -1483,7 +1623,15 @@
                 parentId: null,
                 priority: 0,
                 details: {
-                    when: { cycle: '', startDate: '', deadline: '' },
+                    when: {
+                        repeatType: 'none',
+                        daysOfWeek: [],
+                        baseTime: '09:00',
+                        deadlineDays: 0,
+                        deadlineTime: '17:00',
+                        nextDate: null,
+                        lastCompleted: null
+                    },
                     what: '',
                     who: '',
                     where: ''
@@ -1958,7 +2106,8 @@
                     el.classList.add('active');
                 }
             } else if (type === 'when') {
-                const hasValue = node.details?.when?.cycle || node.details?.when?.startDate || node.details?.when?.deadline;
+                const w = node.details?.when;
+                const hasValue = w && (w.repeatType !== 'none' || w.deadlineDays > 0 || (w.daysOfWeek && w.daysOfWeek.length > 0));
                 el.textContent = '🕐';
                 if (hasValue) el.classList.add('active');
             } else if (type === 'what') {
@@ -2124,27 +2273,9 @@
                 popup.dataset.input = 'priority-select';
                 popup.dataset.selectRef = select;
             } else if (type === 'when') {
-                const fields = [
-                    { key: 'cycle', label: '周期', placeholder: '毎日/毎週月曜/毎月1日 等' },
-                    { key: 'startDate', label: '開始日', type: 'date' },
-                    { key: 'deadline', label: '締切日', type: 'date' }
-                ];
-                fields.forEach(f => {
-                    const row = document.createElement('div');
-                    row.style.cssText = 'margin-bottom:6px;';
-                    const lbl = document.createElement('label');
-                    lbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:2px;';
-                    lbl.textContent = f.label;
-                    row.appendChild(lbl);
-                    const input = document.createElement('input');
-                    input.type = f.type || 'text';
-                    input.style.cssText = 'width:100%;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
-                    input.placeholder = f.placeholder || '';
-                    input.value = node.details?.when?.[f.key] || '';
-                    input.dataset.key = f.key;
-                    row.appendChild(input);
-                    content.appendChild(row);
-                });
+                popup.remove();
+                openWhenEditor(node);
+                return;
             } else {
                 const textarea = document.createElement('textarea');
                 textarea.style.cssText = 'width:100%;min-height:60px;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
@@ -2168,15 +2299,9 @@
                 if (type === 'priority') {
                     const sel = popup.querySelector('select');
                     node.priority = parseInt(sel.value);
-                } else if (type === 'when') {
-                    if (!node.details) node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '' };
-                    if (!node.details.when) node.details.when = { cycle: '', startDate: '', deadline: '' };
-                    popup.querySelectorAll('input[data-key]').forEach(inp => {
-                        node.details.when[inp.dataset.key] = inp.value;
-                    });
                 } else {
                     const ta = popup.querySelector('textarea');
-                    if (!node.details) node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '' };
+                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseTime: '09:00', deadlineDays: 0, deadlineTime: '17:00', nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
                     node.details[type] = ta.value;
                 }
                 popup.remove();
@@ -2245,27 +2370,14 @@
             wTitle.style.cssText = 'font-size:13px;font-weight:600;color:#333;margin-bottom:6px;';
             wTitle.textContent = '🕐 When（日時）';
             wSection.appendChild(wTitle);
-            const wFields = [
-                { key: 'cycle', label: '周期', placeholder: '毎日/毎週月曜/毎月1日 等' },
-                { key: 'startDate', label: '開始日', type: 'date' },
-                { key: 'deadline', label: '締切日', type: 'date' }
-            ];
-            wFields.forEach(f => {
-                const row = document.createElement('div');
-                row.style.cssText = 'margin-bottom:6px;';
-                const lbl = document.createElement('label');
-                lbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:2px;';
-                lbl.textContent = f.label;
-                row.appendChild(lbl);
-                const input = document.createElement('input');
-                input.type = f.type || 'text';
-                input.style.cssText = 'width:100%;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
-                input.placeholder = f.placeholder || '';
-                input.value = node.details?.when?.[f.key] || '';
-                input.dataset.whenKey = f.key;
-                row.appendChild(input);
-                wSection.appendChild(row);
+            const wEditBtn = document.createElement('button');
+            wEditBtn.textContent = 'Whenを編集';
+            wEditBtn.style.cssText = 'width:100%;padding:8px;border:1px solid #4a90d9;border-radius:5px;background:#f0f7ff;color:#4a90d9;cursor:pointer;font-size:13px;';
+            wEditBtn.addEventListener('click', () => {
+                overlay.remove();
+                openWhenEditor(node);
             });
+            wSection.appendChild(wEditBtn);
             modal.appendChild(wSection);
 
             // What, Who, Where
@@ -2301,11 +2413,7 @@
             saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
             saveBtn.addEventListener('click', () => {
                 node.priority = parseInt(pSelect.value);
-                if (!node.details) node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '' };
-                if (!node.details.when) node.details.when = { cycle: '', startDate: '', deadline: '' };
-                modal.querySelectorAll('input[data-when-key]').forEach(inp => {
-                    node.details.when[inp.dataset.whenKey] = inp.value;
-                });
+                if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseTime: '09:00', deadlineDays: 0, deadlineTime: '17:00', nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
                 modal.querySelectorAll('textarea[data-field-key]').forEach(ta => {
                     node.details[ta.dataset.fieldKey] = ta.value;
                 });
@@ -2321,6 +2429,286 @@
                 if (e.target === overlay) overlay.remove();
             });
             document.body.appendChild(overlay);
+        }
+
+        function openWhenEditor(node) {
+            const existing = document.querySelector('.when-editor-popup');
+            if (existing) existing.remove();
+
+            // Initialize when data
+            if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseTime: '09:00', deadlineDays: 0, deadlineTime: '17:00', nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+            if (!node.details.when) node.details.when = { repeatType: 'none', daysOfWeek: [], baseTime: '09:00', deadlineDays: 0, deadlineTime: '17:00', nextDate: null, lastCompleted: null };
+            const w = node.details.when;
+
+            const popup = document.createElement('div');
+            popup.className = 'when-editor-popup';
+            popup.style.cssText = 'position:fixed;background:white;border:1px solid #ddd;border-radius:10px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:10000;width:300px;font-size:13px;';
+
+            const title = document.createElement('div');
+            title.className = 'when-editor-title';
+            title.innerHTML = '🕐 When（周期・期限）';
+            popup.appendChild(title);
+
+            // --- 周期タイプ ---
+            const typeSection = document.createElement('div');
+            typeSection.className = 'when-section';
+            const typeLabel = document.createElement('div');
+            typeLabel.className = 'when-section-label';
+            typeLabel.textContent = '周期';
+            typeSection.appendChild(typeLabel);
+
+            const typeGrid = document.createElement('div');
+            typeGrid.className = 'when-type-grid';
+            const types = [
+                { key: 'none', label: '一度だけ' },
+                { key: 'daily', label: '毎日' },
+                { key: 'weekly', label: '毎週' },
+                { key: 'monthly', label: '毎月' },
+                { key: 'yearly', label: '毎年' }
+            ];
+            let currentType = w.repeatType || 'none';
+
+            types.forEach(t => {
+                const btn = document.createElement('div');
+                btn.className = 'when-type-btn' + (currentType === t.key ? ' active' : '');
+                btn.textContent = t.label;
+                btn.dataset.type = t.key;
+                btn.addEventListener('click', () => {
+                    currentType = t.key;
+                    typeGrid.querySelectorAll('.when-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === t.key));
+                    daysSection.style.display = (currentType === 'weekly') ? 'block' : 'none';
+                    updatePreview();
+                });
+                typeGrid.appendChild(btn);
+            });
+            typeSection.appendChild(typeGrid);
+            popup.appendChild(typeSection);
+
+            // --- 曜日（毎週のみ）---
+            const daysSection = document.createElement('div');
+            daysSection.className = 'when-section';
+            daysSection.style.display = (currentType === 'weekly') ? 'block' : 'none';
+            const daysLabel = document.createElement('div');
+            daysLabel.className = 'when-section-label';
+            daysLabel.textContent = '曜日';
+            daysSection.appendChild(daysLabel);
+
+            const daysGrid = document.createElement('div');
+            daysGrid.className = 'when-days-grid';
+            const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
+            let selectedDays = (w.daysOfWeek || []).slice();
+
+            dayNames.forEach((name, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'when-day-btn' + (selectedDays.includes(idx) ? ' active' : '');
+                btn.textContent = name;
+                btn.dataset.day = idx;
+                btn.addEventListener('click', () => {
+                    const dayIdx = parseInt(btn.dataset.day);
+                    if (selectedDays.includes(dayIdx)) {
+                        selectedDays = selectedDays.filter(d => d !== dayIdx);
+                        btn.classList.remove('active');
+                    } else {
+                        selectedDays.push(dayIdx);
+                        btn.classList.add('active');
+                    }
+                    updatePreview();
+                });
+                daysGrid.appendChild(btn);
+            });
+            daysSection.appendChild(daysGrid);
+            popup.appendChild(daysSection);
+
+            // --- 基準時刻 ---
+            const timeSection = document.createElement('div');
+            timeSection.className = 'when-section';
+            const timeRow = document.createElement('div');
+            timeRow.className = 'when-row';
+            timeRow.innerHTML = '<span>基準時刻</span>';
+            const timeInput = document.createElement('input');
+            timeInput.type = 'time';
+            timeInput.value = w.baseTime || '09:00';
+            timeInput.addEventListener('change', updatePreview);
+            timeRow.appendChild(timeInput);
+            timeSection.appendChild(timeRow);
+            popup.appendChild(timeSection);
+
+            // --- 期限 ---
+            const deadlineSection = document.createElement('div');
+            deadlineSection.className = 'when-section';
+            const deadlineLabel = document.createElement('div');
+            deadlineLabel.className = 'when-section-label';
+            deadlineLabel.textContent = '期限（基準から）';
+            deadlineSection.appendChild(deadlineLabel);
+
+            const deadlineRow = document.createElement('div');
+            deadlineRow.className = 'when-row';
+            const deadlineDays = document.createElement('input');
+            deadlineDays.type = 'number';
+            deadlineDays.min = '0';
+            deadlineDays.value = (w.deadlineDays !== undefined ? w.deadlineDays : 0).toString();
+            deadlineDays.addEventListener('input', updatePreview);
+            const deadlineTime = document.createElement('input');
+            deadlineTime.type = 'time';
+            deadlineTime.value = w.deadlineTime || '17:00';
+            deadlineTime.addEventListener('change', updatePreview);
+            deadlineRow.appendChild(deadlineDays);
+            deadlineRow.appendChild(document.createTextNode(' 日後 '));
+            deadlineRow.appendChild(deadlineTime);
+            deadlineRow.appendChild(document.createTextNode(' まで'));
+            deadlineSection.appendChild(deadlineRow);
+            popup.appendChild(deadlineSection);
+
+            // --- プレビュー ---
+            const previewSection = document.createElement('div');
+            previewSection.className = 'when-section';
+            const preview = document.createElement('div');
+            preview.className = 'when-preview';
+            previewSection.appendChild(preview);
+            popup.appendChild(previewSection);
+
+            // --- ボタン ---
+            const btnRow = document.createElement('div');
+            btnRow.className = 'when-buttons';
+            const clearBtn = document.createElement('button');
+            clearBtn.className = 'when-btn clear';
+            clearBtn.textContent = 'クリア';
+            clearBtn.addEventListener('click', () => {
+                node.details.when = { repeatType: 'none', daysOfWeek: [], baseTime: '09:00', deadlineDays: 0, deadlineTime: '17:00', nextDate: null, lastCompleted: null };
+                popup.remove();
+                renderNodes();
+            });
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'when-btn cancel';
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.addEventListener('click', () => popup.remove());
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'when-btn save';
+            saveBtn.textContent = '保存';
+            saveBtn.addEventListener('click', () => {
+                node.details.when = {
+                    repeatType: currentType,
+                    daysOfWeek: selectedDays.slice().sort(),
+                    baseTime: timeInput.value || '09:00',
+                    deadlineDays: parseInt(deadlineDays.value) || 0,
+                    deadlineTime: deadlineTime.value || '17:00',
+                    nextDate: null,
+                    lastCompleted: w.lastCompleted || null
+                };
+                // Calculate next activation date
+                node.details.when.nextDate = calculateNextDate(node.details.when);
+                popup.remove();
+                renderNodes();
+            });
+            btnRow.appendChild(clearBtn);
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(saveBtn);
+            popup.appendChild(btnRow);
+
+            // Position
+            document.body.appendChild(popup);
+            const rect = popup.getBoundingClientRect();
+            const x = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2)));
+            const y = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2)));
+            popup.style.left = x + 'px';
+            popup.style.top = y + 'px';
+
+            // Close on outside click
+            setTimeout(() => {
+                document.addEventListener('click', function closeWhenEditor(ev) {
+                    if (popup.contains(ev.target)) return;
+                    popup.remove();
+                    document.removeEventListener('click', closeWhenEditor);
+                });
+            }, 0);
+
+            function updatePreview() {
+                const type = currentType;
+                const days = selectedDays.length > 0 ? selectedDays.sort().map(d => dayNames[d]).join('・') : '未選択';
+                const base = timeInput.value;
+                const dd = parseInt(deadlineDays.value) || 0;
+                const dt = deadlineTime.value;
+
+                let text = '';
+                if (type === 'none') {
+                    text = '一度だけ：基準 ' + base;
+                } else if (type === 'daily') {
+                    text = '毎日 ' + base + ' 開始';
+                } else if (type === 'weekly') {
+                    text = '毎週 ' + days + '曜日 ' + base + ' 開始';
+                } else if (type === 'monthly') {
+                    text = '毎月 ' + base + ' 開始';
+                } else if (type === 'yearly') {
+                    text = '毎年 ' + base + ' 開始';
+                }
+
+                if (dd > 0 || dt !== base) {
+                    text += '\n期限：開始から ' + dd + ' 日後 ' + dt + ' まで';
+                }
+
+                // Calculate and show next date
+                const tempWhen = {
+                    repeatType: type,
+                    daysOfWeek: selectedDays.slice().sort(),
+                    baseTime: base,
+                    deadlineDays: dd,
+                    deadlineTime: dt
+                };
+                const next = calculateNextDate(tempWhen);
+                if (next) {
+                    text += '\n次回：' + next.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                }
+
+                preview.innerHTML = text.replace(/\n/g, '<br>');
+            }
+
+            updatePreview();
+        }
+
+        // Calculate next activation date based on when settings
+        function calculateNextDate(when) {
+            if (!when || when.repeatType === 'none') return null;
+
+            const now = new Date();
+            const [hours, minutes] = (when.baseTime || '09:00').split(':');
+
+            let next = new Date(now);
+            next.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+            if (when.repeatType === 'daily') {
+                if (next <= now) {
+                    next.setDate(next.getDate() + 1);
+                }
+            } else if (when.repeatType === 'weekly') {
+                const targetDays = when.daysOfWeek || [];
+                if (targetDays.length === 0) return null;
+
+                // Find next occurrence
+                let found = false;
+                for (let i = 0; i < 14; i++) {
+                    const check = new Date(next);
+                    check.setDate(check.getDate() + i);
+                    const dayOfWeek = (check.getDay() + 6) % 7; // Monday=0
+                    if (targetDays.includes(dayOfWeek)) {
+                        if (i > 0 || check > now) {
+                            next = check;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (!found) return null;
+            } else if (when.repeatType === 'monthly') {
+                if (next <= now) {
+                    next.setMonth(next.getMonth() + 1);
+                }
+            } else if (when.repeatType === 'yearly') {
+                if (next <= now) {
+                    next.setFullYear(next.getFullYear() + 1);
+                }
+            }
+
+            return next;
         }
 
         function renderNodes() {
