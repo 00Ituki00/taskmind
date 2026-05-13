@@ -1420,6 +1420,10 @@
             isPanning: false,
             lastMouseX: 0,
             lastMouseY: 0,
+            rightClickPanning: false,
+            rightClickPanStartX: 0,
+            rightClickPanStartY: 0,
+            suppressContextMenu: false,
             selectedNodeId: null,
             selectedNodeIds: [],
             isSelecting: false,
@@ -4389,6 +4393,12 @@
                 state.lastMouseX = e.clientX;
                 state.lastMouseY = e.clientY;
                 container.classList.add('panning');
+                if (e.button === 2) {
+                    state.rightClickPanning = true;
+                    state.rightClickPanStartX = e.clientX;
+                    state.rightClickPanStartY = e.clientY;
+                    state.suppressContextMenu = false;
+                }
                 e.preventDefault();
             } else {
                 // Range selection start
@@ -4499,6 +4509,12 @@
             }
 
             if (state.isPanning) {
+                if (state.rightClickPanning) {
+                    const dist = Math.hypot(e.clientX - state.rightClickPanStartX, e.clientY - state.rightClickPanStartY);
+                    if (dist > 3) {
+                        state.suppressContextMenu = true;
+                    }
+                }
                 state.panX += e.clientX - state.lastMouseX;
                 state.panY += e.clientY - state.lastMouseY;
                 state.lastMouseX = e.clientX;
@@ -5193,6 +5209,7 @@
         window.addEventListener('mouseup', () => {
             console.log('[DEBUG] window mouseup. dragNode=', state.dragNode ? state.dragNode.id : null, 'isDragging=', state.isDragging);
             state.isPanning = false;
+            state.rightClickPanning = false;
             container.classList.remove('panning');
             if (state.isSelecting) {
                 state.isSelecting = false;
@@ -5731,6 +5748,11 @@
 
         // ==================== Context Menu (Canvas) ====================
         container.addEventListener('contextmenu', (e) => {
+            if (state.suppressContextMenu) {
+                e.preventDefault();
+                state.suppressContextMenu = false;
+                return;
+            }
             if (e.target !== container && e.target !== canvas && !e.target.closest('#nodes') && !e.target.closest('.conn-group') && !e.target.closest('#connections')) return;
             e.preventDefault();
             showCanvasContextMenu(e.clientX, e.clientY, e);
