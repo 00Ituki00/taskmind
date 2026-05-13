@@ -6209,6 +6209,8 @@
                         ? `「${activatedNodes[0].title}」が本日の予定です`
                         : activatedNodes.map(n => `・${n.title}`).join('\n')
                 );
+                // アクティブ化要求
+                requestAttention(activatedCount);
             }
 
             // --- 開始時刻通過通知 ---
@@ -6229,6 +6231,8 @@
                         ? `「${startedNodes[0].title}」の開始時刻を通過しました`
                         : startedNodes.map(n => `・${n.title}`).join('\n')
                 );
+                // アクティブ化要求
+                requestAttention(startedCount);
             }
 
             return activatedCount + startedCount;
@@ -6237,7 +6241,14 @@
         // デスクトップ通知送信ヘルパー
         function sendWhenNotification(title, body) {
             if (!('Notification' in window)) return;
-            const send = () => new Notification(title, { body: body, icon: '/favicon.ico' });
+            const send = () => {
+                const n = new Notification(title, { body: body, icon: '/favicon.ico' });
+                // 通知クリックでウィンドウをアクティブ化
+                n.addEventListener('click', () => {
+                    window.focus();
+                    if (navigator.clearAppBadge) navigator.clearAppBadge();
+                });
+            };
             if (Notification.permission === 'granted') {
                 send();
             } else if (Notification.permission === 'default') {
@@ -6246,6 +6257,44 @@
                 });
             }
         }
+
+        // アクティブ化要求（タスクバー明滅・タブ点滅・バッジ）
+        function requestAttention(count) {
+            // 1. ウィンドウ前面化（ブラウザが許可する場合）
+            try { window.focus(); } catch (e) {}
+
+            // 2. タスクバー/ドックバッジ（Chrome/Edge対応）
+            if (navigator.setAppBadge) {
+                navigator.setAppBadge(count).catch(() => {});
+            }
+
+            // 3. タイトル点滅
+            flashTitle(count);
+        }
+
+        let _flashInterval = null;
+        let _originalTitle = document.title;
+        function flashTitle(count) {
+            if (_flashInterval) return;
+            const msg = count ? `【${count}件】` : '【通知】';
+            let on = false;
+            _flashInterval = setInterval(() => {
+                document.title = on ? _originalTitle : msg + _originalTitle;
+                on = !on;
+            }, 1000);
+            // 10秒後に停止
+            setTimeout(() => { stopFlashTitle(); }, 10000);
+        }
+        function stopFlashTitle() {
+            if (_flashInterval) {
+                clearInterval(_flashInterval);
+                _flashInterval = null;
+                document.title = _originalTitle;
+            }
+        }
+        // ユーザーが画面をクリックしたら点滅停止
+        document.addEventListener('click', stopFlashTitle);
+        document.addEventListener('keydown', stopFlashTitle);
 
         // 自動再計算: 1分ごとにチェック
         setInterval(() => {
