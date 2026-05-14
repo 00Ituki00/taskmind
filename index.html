@@ -701,22 +701,6 @@
             display: none;
         }
 
-        .group-label {
-            position: absolute;
-            top: -22px;
-            left: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            color: #789;
-            background: rgba(255,255,255,0.8);
-            padding: 2px 8px;
-            border-radius: 4px;
-            pointer-events: auto;
-            cursor: text;
-            user-select: text;
-            outline: none;
-        }
-
         /* Toolbar */
         .toolbar {
             position: fixed;
@@ -1373,8 +1357,6 @@
         <button class="tool-btn" id="btn-node" title="ノード追加 (N)" data-mode="node">📦</button>
         <button class="tool-btn" id="btn-connect" title="接続 (C)" data-mode="connect">🔗</button>
         <div class="tool-separator"></div>
-        <button class="tool-btn" id="btn-group" title="グループ化 (G)" data-mode="group">📁</button>
-        <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-recalc" title="When再計算">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
@@ -1389,7 +1371,6 @@
         <div id="canvas">
             <svg id="connections" width="5000" height="5000"></svg>
             <div id="selection-box" class="selection-box" style="display:none;"></div>
-            <div id="groups"></div>
             <div id="nodes"></div>
         </div>
     </div>
@@ -1442,9 +1423,6 @@
             dragNode: null,
             dragOffsetX: 0,
             dragOffsetY: 0,
-            groupDrag: null,
-            groupDragOffsetX: 0,
-            groupDragOffsetY: 0,
             lastPinchDist: 0,
             lastPinchScale: 1,
             draggingConn: null,
@@ -1465,7 +1443,6 @@
         const container = document.getElementById('canvas-container');
         const canvas = document.getElementById('canvas');
         const nodesEl = document.getElementById('nodes');
-        const groupsEl = document.getElementById('groups');
         const connectionsSvg = document.getElementById('connections');
         const toastEl = document.getElementById('toast');
         const modeIndicator = document.getElementById('mode-indicator');
@@ -1578,15 +1555,12 @@
             if (mode === 'connect') {
                 modeIndicator.textContent = '接続モード: 開始ノードを選択';
                 modeIndicator.classList.add('active');
-            } else if (mode === 'group') {
-                modeIndicator.textContent = 'グループモード: Ctrl+クリックで複数選択してグループ化';
-                modeIndicator.classList.add('active');
             } else {
                 modeIndicator.classList.remove('active');
                 state.connectingFrom = null;
             }
 
-            if (mode !== 'group' && mode !== 'select') {
+            if (mode !== 'select') {
                 clearSelection();
             }
             if (mode !== 'select') {
@@ -1649,7 +1623,6 @@
                 expanded: false,
                 width: calculateNodeWidth(title),
                 height: null,
-                groupId: null,
                 parentId: null,
                 priority: 0,
                 details: {
@@ -1681,7 +1654,6 @@
 
         function deleteNode(nodeId) {
             const deletedNode = state.nodes.find(n => n.id === nodeId);
-            const hadGroupId = deletedNode?.groupId;
 
             // Remove from parent's children array if it's a child node
             if (deletedNode && deletedNode.parentId !== null) {
@@ -1698,22 +1670,6 @@
             state.nodes = state.nodes.filter(n => n.id !== nodeId);
             state.connections = state.connections.filter(c => c.from !== nodeId && c.to !== nodeId);
 
-            // Remove node from any group it belonged to
-            if (hadGroupId) {
-                const group = state.groups.find(g => g.id === hadGroupId);
-                if (group) {
-                    group.nodeIds = group.nodeIds.filter(id => id !== nodeId);
-                    // Remove empty groups
-                    if (group.nodeIds.length < 2) {
-                        state.groups = state.groups.filter(g => g.id !== hadGroupId);
-                        group.nodeIds.forEach(nid => {
-                            const n = state.nodes.find(node => node.id === nid);
-                            if (n) n.groupId = null;
-                        });
-                    }
-                }
-            }
-
             // Clear parentId of child nodes if this node was their parent
             state.nodes.forEach(n => {
                 if (n.parentId === nodeId) {
@@ -1721,21 +1677,8 @@
                 }
             });
 
-            // Also remove from groups where this node was a member (redundant safety)
-            state.groups.forEach(g => {
-                g.nodeIds = g.nodeIds.filter(id => id !== nodeId);
-                if (g.nodeIds.length < 2) {
-                    // Mark for deletion after loop
-                }
-            });
-            state.groups = state.groups.filter(g => g.nodeIds.length >= 2);
-            state.nodes.forEach(n => {
-                if (!state.groups.some(g => g.id === n.groupId)) n.groupId = null;
-            });
-
             renderNodes();
             renderConnections();
-            renderGroups();
         }
 
         // ==================== Connection Operations ====================
@@ -1753,73 +1696,12 @@
             renderConnections();
         }
 
-        // ==================== Group Operations ====================
-        function createGroup(nodeIds, label = 'グループ') {
-            if (nodeIds.length < 2) return;
-
-            // Use the last selected node as parent, others as children
-            const parentId = state.selectedNodeId || nodeIds[0];
-            const childIds = nodeIds.filter(id => id !== parentId);
-
-            if (childIds.length === 0) return;
-
-            const parent = state.nodes.find(n => n.id === parentId);
-            if (!parent) return;
-
-            // Initialize parent.children if needed
-            if (!parent.children) parent.children = [];
-
-            // Position children inside parent area (relative coordinates)
-            childIds.forEach((childId, index) => {
-                const child = state.nodes.find(n => n.id === childId);
-                if (child) {
-                    child.parentId = parentId;
-                    // Add to parent's children array
-                    if (!parent.children.includes(childId)) {
-                        parent.children.push(childId);
-                    }
-                    // Auto-expand parent when child is added
-                    parent.expanded = true;
-                    // Position child relative to parent
-                    child.x = 20;
-                    child.y = (parent.height || 50) + 10 + (index * 35);
-                    // Adjust width to fit parent
-                    child.width = Math.max(160, (parent.width || 200) - 40);
-                }
-            });
-
-            renderNodes();
-            renderConnections();
-        }
-
-        function updateGroupBounds(group) {
-            const nodes = state.nodes.filter(n => group.nodeIds.includes(n.id));
-            if (nodes.length === 0) return;
-
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            nodes.forEach(n => {
-                minX = Math.min(minX, n.x);
-                minY = Math.min(minY, n.y);
-                maxX = Math.max(maxX, n.x + (n.width || 200));
-                maxY = Math.max(maxY, n.y + (n.height || 100));
-            });
-
-            group.x = minX - 20;
-            group.y = minY - 20;
-            group.width = maxX - minX + 40;
-            group.height = maxY - minY + 40;
-        }
-
         container.addEventListener('click', (e) => {
             if (!e.target.closest('.context-menu')) {
                 const menu = document.querySelector('.context-menu');
                 if (menu) menu.remove();
             }
         });
-
-        function renderGroups() {
-            groupsEl.innerHTML = '';
-        }
 
         // ==================== Helpers ====================
         function getNodeEdgePoint(node, targetNode) {
@@ -4253,8 +4135,7 @@
             state.dragStartY = nodeAbsY;
 
             // Multi-select drag: if node is already selected, keep selection and start drag
-            if (!e.ctrlKey && !e.metaKey && state.mode !== 'group' &&
-                state.mode !== 'connect' &&
+            if (!e.ctrlKey && !e.metaKey && state.mode !== 'connect' &&
                 state.selectedNodeIds.length > 0 && state.selectedNodeIds.includes(node.id)) {
                 state.dragNode = node;
                 state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
@@ -4281,12 +4162,7 @@
                 return;
             }
 
-            if (e.ctrlKey || e.metaKey || state.mode === 'group') {
-                toggleNodeSelection(node.id, true);
-                return;
-            }
-
-            if (state.mode === 'group') {
+            if (e.ctrlKey || e.metaKey) {
                 toggleNodeSelection(node.id, true);
                 return;
             }
@@ -4590,30 +4466,6 @@
                         el.style.outlineOffset = '';
                     }
                 });
-                return;
-            }
-
-            if (state.groupDrag) {
-                const newX = (e.clientX - state.panX) / state.scale - state.groupDragOffsetX;
-                const newY = (e.clientY - state.panY) / state.scale - state.groupDragOffsetY;
-                const dx = newX - state.groupDrag.x;
-                const dy = newY - state.groupDrag.y;
-                state.groupDrag.x = newX;
-                state.groupDrag.y = newY;
-
-                // Move all member nodes relative to group
-                state.groupDrag.nodeIds.forEach(id => {
-                    const node = state.nodes.find(n => n.id === id);
-                    const orig = state.groupDragNodePositions.get(id);
-                    if (node && orig) {
-                        node.x = orig.x + dx;
-                        node.y = orig.y + dy;
-                    }
-                });
-
-                renderNodes();
-                renderConnections();
-                renderGroups();
                 return;
             }
 
@@ -5076,7 +4928,6 @@
 
                 renderNodes();
                 renderConnections();
-                renderGroups();
             }
         });
 
@@ -5094,29 +4945,6 @@
                 state.lastMouseX = touch.clientX;
                 state.lastMouseY = touch.clientY;
                 updateTransform();
-            }
-
-            if (state.groupDrag && e.touches.length === 1) {
-                const touch = e.touches[0];
-                const newX = (touch.clientX - state.panX) / state.scale - state.groupDragOffsetX;
-                const newY = (touch.clientY - state.panY) / state.scale - state.groupDragOffsetY;
-                const dx = newX - state.groupDrag.x;
-                const dy = newY - state.groupDrag.y;
-                state.groupDrag.x = newX;
-                state.groupDrag.y = newY;
-
-                state.groupDrag.nodeIds.forEach(id => {
-                    const node = state.nodes.find(n => n.id === id);
-                    const orig = state.groupDragNodePositions.get(id);
-                    if (node && orig) {
-                        node.x = orig.x + dx;
-                        node.y = orig.y + dy;
-                    }
-                });
-
-                renderNodes();
-                renderConnections();
-                renderGroups();
             }
 
             if (e.touches.length === 2) {
@@ -5940,19 +5768,6 @@
                     }});
                 }
 
-                if (state.selectedNodeIds.length > 1) {
-                    items.push({ text: 'グループ化', icon: '📁', action: () => {
-                        const name = prompt('グループ名:', 'グループ');
-                        if (name) createGroup([...state.selectedNodeIds], name);
-                        clearSelection();
-                    }});
-                } else if (state.selectedNodeId) {
-                    items.push({ text: 'グループ化', icon: '📁', action: () => {
-                        const selected = [state.selectedNodeId];
-                        const name = prompt('グループ名:', 'グループ');
-                        if (name) createGroup(selected, name);
-                    }});
-                }
             }
 
             items.push({ text: '', class: 'context-separator' });
@@ -6114,49 +5929,6 @@
             box.style.height = Math.abs(y2 - y1) + 'px';
         }
 
-        // ==================== Group Drag ====================
-        function handleGroupMouseDown(e, group) {
-            if (e.button !== 0) return;
-            e.stopPropagation();
-            e.preventDefault();
-
-            state.groupDrag = group;
-            const startX = (e.clientX - state.panX) / state.scale;
-            const startY = (e.clientY - state.panY) / state.scale;
-            state.groupDragOffsetX = startX - group.x;
-            state.groupDragOffsetY = startY - group.y;
-
-            // Also drag all member nodes
-            const nodePositions = new Map();
-            group.nodeIds.forEach(id => {
-                const node = state.nodes.find(n => n.id === id);
-                if (node) {
-                    nodePositions.set(id, { x: node.x, y: node.y });
-                }
-            });
-            state.groupDragNodePositions = nodePositions;
-        }
-
-        function handleGroupTouchStart(e, group) {
-            e.stopPropagation();
-            e.preventDefault();
-
-            const touch = e.touches[0];
-            state.groupDrag = group;
-            const startX = (touch.clientX - state.panX) / state.scale;
-            const startY = (touch.clientY - state.panY) / state.scale;
-            state.groupDragOffsetX = startX - group.x;
-            state.groupDragOffsetY = startY - group.y;
-
-            const nodePositions = new Map();
-            group.nodeIds.forEach(id => {
-                const node = state.nodes.find(n => n.id === id);
-                if (node) {
-                    nodePositions.set(id, { x: node.x, y: node.y });
-                }
-            });
-            state.groupDragNodePositions = nodePositions;
-        }
         function saveToFile(overwrite = false) {
             const data = {
                 version: 2,
@@ -6290,21 +6062,8 @@
                         state.connections = data.connections || [];
                         state.nextId = data.nextId || 1;
 
-                        // Migrate old groups data to parentId relationships
-                        if (data.groups && data.groups.length > 0) {
-                            data.groups.forEach(g => {
-                                if (g.nodeIds && g.nodeIds.length > 0) {
-                                    const parentId = g.nodeIds[0];
-                                    g.nodeIds.slice(1).forEach(childId => {
-                                        const child = state.nodes.find(n => n.id === childId);
-                                        if (child) child.parentId = parentId;
-                                    });
-                                }
-                            });
-                        }
                         renderNodes();
                         renderConnections();
-                        renderGroups();
                         fitToView();
                         // ロード時にwhen再計算実行
                         recalculateWhenDates();
