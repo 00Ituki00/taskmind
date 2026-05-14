@@ -1622,6 +1622,11 @@
         });
 
         // ==================== Node Operations ====================
+        function calculateNodeWidth(title) {
+            // Estimate width based on title length: ~15px per char + padding for checkbox/indicators
+            return Math.max(160, Math.min(400, title.length * 15 + 70));
+        }
+
         function createNode(x, y, title = '新規ノード') {
             const node = {
                 id: state.nextId++,
@@ -1631,7 +1636,7 @@
                 color: state.colors[Math.floor(Math.random() * state.colors.length)],
                 completed: false,
                 expanded: false,
-                width: 240,
+                width: calculateNodeWidth(title),
                 height: null,
                 groupId: null,
                 parentId: null,
@@ -5365,6 +5370,7 @@
                         state.dragNode.x = absPos.x;
                         state.dragNode.y = absPos.y;
                         state.dragNode.parentId = null;
+                        state.dragNode.width = calculateNodeWidth(state.dragNode.title);
                     }
                     const targetNode = state.nodes.find(n => n.id === state.reorderTarget.siblingId);
                     if (targetNode) {
@@ -5465,6 +5471,7 @@
                         state.dragNode.x = absPos.x;
                         state.dragNode.y = absPos.y;
                         state.dragNode.parentId = null;
+                        state.dragNode.width = calculateNodeWidth(state.dragNode.title);
                         if (parent.children) {
                             parent.children = parent.children.filter(id => id !== state.dragNode.id);
                             if (parent.children.length === 0) {
@@ -5864,6 +5871,7 @@
                             }
                         }
                         node.parentId = null;
+                        node.width = calculateNodeWidth(node.title);
                         renderNodes();
                         showToast('親子関係を解除しました');
                     }});
@@ -6019,6 +6027,7 @@
                             }
                         }
                         node.parentId = null;
+                        node.width = calculateNodeWidth(node.title);
                         renderNodes();
                         showToast('親子関係を解除しました');
                     }
