@@ -5622,18 +5622,14 @@
                     { type: 'priority', icon: () => {
                         const p = node.priority || 0;
                         return p === 0 ? '☆' : '★'.repeat(p);
-                    }, title: '優先度', color: p => p === 0 ? '#ccc' : '#f5a623' },
-                    { type: 'when', icon: () => {
+                    }, title: '優先度', active: () => (node.priority || 0) > 0 },
+                    { type: 'when', icon: () => '🕐', title: '期限', active: () => {
                         const w = node.details?.when;
-                        const hasWhen = w && w.repeatType !== 'none';
-                        return hasWhen ? '🕐' : '🕐';
-                    }, title: '期限', color: () => {
-                        const w = node.details?.when;
-                        return w && w.repeatType !== 'none' ? '#333' : '#ccc';
+                        return w && w.repeatType !== 'none';
                     }},
-                    { type: 'what', icon: () => node.details?.what ? '📝' : '📝', title: '内容', color: () => node.details?.what ? '#333' : '#ccc' },
-                    { type: 'who', icon: () => node.details?.who ? '👤' : '👤', title: '担当', color: () => node.details?.who ? '#333' : '#ccc' },
-                    { type: 'where', icon: () => node.details?.where ? '📍' : '📍', title: '場所', color: () => node.details?.where ? '#333' : '#ccc' }
+                    { type: 'what', icon: () => '📝', title: '内容', active: () => !!node.details?.what },
+                    { type: 'who', icon: () => '👤', title: '担当', active: () => !!node.details?.who },
+                    { type: 'where', icon: () => '📍', title: '場所', active: () => !!node.details?.where }
                 ];
 
                 indicators.forEach(ind => {
@@ -5641,8 +5637,8 @@
                     btn.className = 'context-indicator-btn';
                     btn.textContent = ind.icon();
                     btn.title = ind.title;
-                    btn.style.cssText = 'cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:background 0.15s;';
-                    btn.style.color = ind.color();
+                    const isActive = ind.active();
+                    btn.style.cssText = `cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:background 0.15s,opacity 0.15s;opacity:${isActive ? '1' : '0.35'};${isActive ? 'color:#333;' : ''}`;
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         menu.remove();
