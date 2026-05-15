@@ -2618,8 +2618,14 @@
                 return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
             };
             // baseDateTime優先、なければbaseTimeから生成、それもなければデフォルト
+            // ISO文字列をローカルのdatetime-local形式(YYYY-MM-DDTHH:mm)に変換
+            const isoToLocalISO = isoStr => {
+                const d = new Date(isoStr);
+                const pad = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            };
             if (w.baseDateTime) {
-                timeInput.value = w.baseDateTime.substring(0, 16);
+                timeInput.value = isoToLocalISO(w.baseDateTime);
             } else if (w.baseTime) {
                 const today = new Date();
                 const [h, m] = w.baseTime.split(':');
@@ -2706,7 +2712,7 @@
             const defaultDl = new Date();
             defaultDl.setDate(defaultDl.getDate() + 1);
             defaultDl.setHours(18, 0, 0, 0);
-            deadlineDateInput.value = w.deadlineDate ? w.deadlineDate.substring(0, 16) : toLocalISO(defaultDl);
+            deadlineDateInput.value = w.deadlineDate ? isoToLocalISO(w.deadlineDate) : toLocalISO(defaultDl);
             deadlineDateInput.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
             deadlineDateInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
             absoluteRow.appendChild(deadlineDateInput);
@@ -2714,6 +2720,9 @@
             deadlineSection.appendChild(absoluteRow);
 
             container.appendChild(deadlineSection);
+
+            // 初期化時に期限タイプの表示状態を反映
+            updateDeadlineUI();
 
             // --- プレビュー ---
             const previewSection = document.createElement('div');
@@ -2790,44 +2799,40 @@
                 const baseTimeStr = baseDt ? baseDt.substring(11, 16) : '09:00';
                 const dd = parseInt(deadlineDays.value) || 0;
                 const dt = deadlineTime.value;
+                const dlType = currentDeadlineType;
+                const dlDate = deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null;
 
                 let text = '';
+                // 開始日時（常に先頭）
                 if (uiType === 'none') {
-                    text = '一度だけ';
-                } else if (uiType === 'daily') {
-                    text = '毎日 ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
-                } else if (uiType === 'weekly') {
-                    const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                    text = weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
-                } else if (uiType === 'monthly-day') {
-                    text = '毎月 ' + currentMonthDay + '日 ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
-                } else if (uiType === 'monthly-week') {
-                    const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                    text = '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
-                } else if (uiType === 'yearly-date') {
-                    text = '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
-                } else if (uiType === 'yearly-week') {
-                    const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                    text = '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
+                    text = '開始：' + baseStr;
+                } else {
+                    text = '次回：' + baseStr;
+                    text += '\n周期：';
+                    if (uiType === 'daily') {
+                        text += '毎日 ' + baseTimeStr;
+                    } else if (uiType === 'weekly') {
+                        const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                        text += weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                    } else if (uiType === 'monthly-day') {
+                        text += '毎月 ' + currentMonthDay + '日 ' + baseTimeStr;
+                    } else if (uiType === 'monthly-week') {
+                        const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                        text += '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                    } else if (uiType === 'yearly-date') {
+                        text += '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + baseTimeStr;
+                    } else if (uiType === 'yearly-week') {
+                        const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                        text += '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                    }
                 }
 
-                const dlType = (getValue().deadlineType || 'relative');
-                const dlDate = getValue().deadlineDate;
+                // 期限（開始の後に表示）
                 if (dlType === 'absolute' && dlDate) {
                     const dl = new Date(dlDate);
                     text += '\n期限：' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
                 } else if (dd > 0 || dt !== baseTimeStr) {
                     text += '\n期限：開始から ' + dd + ' 日後 ' + dt + ' まで';
-                }
-
-                const next = calculateNextDate(getValue());
-                if (next) {
-                    const nextStr = next.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                    if (uiType === 'none') {
-                        text += '\n開始：' + nextStr;
-                    } else {
-                        text += '\n次回：' + nextStr;
-                    }
                 }
 
                 preview.innerHTML = text.replace(/\n/g, '<br>');
