@@ -120,7 +120,7 @@
         }
 
         .node-indicators .indicator-group {
-            display: flex;
+            display: none;
             align-items: center;
             gap: 2px;
             background: rgba(255,255,255,0.95);
@@ -866,7 +866,7 @@
         }
 
         .node .node-tasks .node .node-indicators .indicator-group {
-            display: flex;
+            display: none;
             align-items: center;
             gap: 2px;
             background: rgba(255,255,255,0.95);
@@ -1659,12 +1659,12 @@
                 nodeWidth = domEl.offsetWidth;
                 nodeHeight = domEl.offsetHeight;
             }
-            
+
             const cx = node.x + nodeWidth / 2;
             const cy = node.y + nodeHeight / 2;
             const halfW = nodeWidth / 2;
             const halfH = nodeHeight / 2;
-            
+
             let targetWidth = targetNode.width || 200;
             let targetHeight = targetNode.height || 50;
             const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
@@ -1672,7 +1672,7 @@
                 targetWidth = targetDomEl.offsetWidth;
                 targetHeight = targetDomEl.offsetHeight;
             }
-            
+
             const tx = targetNode.x + targetWidth / 2;
             const ty = targetNode.y + targetHeight / 2;
             const dx = tx - cx;
@@ -1693,7 +1693,7 @@
 
         function enableTitleEdit(titleEl, node) {
             console.log('enableTitleEdit called', titleEl, node);
-            
+
             let rect;
             if (titleEl && document.contains(titleEl)) {
                 rect = titleEl.getBoundingClientRect();
@@ -1707,9 +1707,9 @@
                     height: 30
                 };
             }
-            
+
             const originalText = node.title || '無題';
-            
+
             // Create overlay input positioned over the title element
             const input = document.createElement('input');
             input.type = 'text';
@@ -1732,25 +1732,25 @@
                 box-sizing: border-box;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             `;
-            
+
             document.body.appendChild(input);
             input.focus();
             input.select();
             console.log('Overlay input created and focused');
-            
+
             const cleanup = () => {
                 if (input.parentNode) {
                     input.parentNode.removeChild(input);
                 }
             };
-            
+
             const save = () => {
                 if (!input.parentNode) return; // Already cleaned up
                 node.title = input.value || '無題';
                 cleanup();
                 renderNodes();
             };
-            
+
             input.addEventListener('blur', save);
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
@@ -1910,7 +1910,7 @@
                 el.addEventListener('mousedown', (e) => {
                     console.log('[DEBUG] priority mousedown fired. target=', e.target.outerHTML.substring(0, 50));
                     _lastMouseX = e.clientX; _lastMouseY = e.clientY;
-                    // ピッカー用クリック候補を記録（mouseupで判定）
+                    // ピッカー用クリック候補を記録(mouseupで判定)
                     state.pendingPriorityClick = {
                         nodeId: node.id,
                         element: el,
@@ -1931,7 +1931,7 @@
                     }
                     state.pendingPriorityClick = null;
                 });
-                // clickイベントはフォールバックとして残す（ブラウザがclickを発火する場合）
+                // clickイベントはフォールバックとして残す(ブラウザがclickを発火する場合)
                 el.addEventListener('click', (e) => {
                     console.log('[DEBUG] priority click fired! target=', e.target.outerHTML.substring(0, 50));
                     e.stopPropagation();
@@ -1943,7 +1943,7 @@
                     createPriorityPicker(node, el, _lastMouseX || e.clientX, _lastMouseY || e.clientY);
                 });
             } else {
-                // priorityと同じくmousedown+mouseupでクリック検出（clickイベントが発火しない問題対策）
+                // priorityと同じくmousedown+mouseupでクリック検出(clickイベントが発火しない問題対策)
                 let _lastMouseX = 0, _lastMouseY = 0;
                 el.addEventListener('mousedown', (e) => {
                     console.log('[DEBUG] indicator mousedown fired. type=' + type);
@@ -2032,7 +2032,7 @@
                 picker.appendChild(star);
             }
 
-            // mousedown座標でピッカー配置（clickイベントのclientXが0になる場合への対策）
+            // mousedown座標でピッカー配置(clickイベントのclientXが0になる場合への対策)
             const pickerRect = picker.getBoundingClientRect();
             const vw = window.innerWidth;
             const vh = window.innerHeight;
@@ -2043,7 +2043,7 @@
             picker.style.left = px + 'px';
             picker.style.top = py + 'px';
 
-            // ピッカー外クリックで閉じる（ピッカー内クリックは除外）
+            // ピッカー外クリックで閉じる(ピッカー内クリックは除外)
             setTimeout(() => {
                 document.addEventListener('click', function closePicker(ev) {
                     if (picker.contains(ev.target)) return;
@@ -2073,10 +2073,10 @@
             const title = document.createElement('div');
             title.style.cssText = 'font-weight:600;margin-bottom:8px;font-size:14px;color:#333;';
             title.textContent = type === 'priority' ? '重要度' :
-                type === 'when' ? 'When（日時）' :
-                type === 'what' ? 'What（詳細）' :
-                type === 'who' ? 'Who（担当）' :
-                type === 'where' ? 'Where（場所）' : type;
+                type === 'when' ? 'When(日時)' :
+                type === 'what' ? 'What(詳細)' :
+                type === 'who' ? 'Who(担当)' :
+                type === 'where' ? 'Where(場所)' : type;
             popup.appendChild(title);
 
             const content = document.createElement('div');
@@ -2087,7 +2087,7 @@
                 for (let i = 0; i <= 5; i++) {
                     const opt = document.createElement('option');
                     opt.value = i;
-                    opt.textContent = i === 0 ? '0（未設定）' : '★'.repeat(i) + ' (' + i + ')';
+                    opt.textContent = i === 0 ? '0(未設定)' : '★'.repeat(i) + ' (' + i + ')';
                     if ((node.priority || 0) === i) opt.selected = true;
                     select.appendChild(opt);
                 }
@@ -2178,7 +2178,7 @@
             for (let i = 0; i <= 5; i++) {
                 const opt = document.createElement('option');
                 opt.value = i;
-                opt.textContent = i === 0 ? '0（未設定）' : '★'.repeat(i) + ' (' + i + ')';
+                opt.textContent = i === 0 ? '0(未設定)' : '★'.repeat(i) + ' (' + i + ')';
                 if ((node.priority || 0) === i) opt.selected = true;
                 pSelect.appendChild(opt);
             }
@@ -2190,13 +2190,13 @@
             wSection.style.cssText = 'margin-bottom:12px;border:1px solid #e0e0e0;border-radius:8px;padding:12px;';
             const wTitle = document.createElement('div');
             wTitle.style.cssText = 'font-size:13px;font-weight:600;color:#333;margin-bottom:10px;';
-            wTitle.textContent = '🕐 When（周期・期限）';
+            wTitle.textContent = '🕐 When(周期・期限)';
             wSection.appendChild(wTitle);
-            
+
             // Initialize when data
             if (!node.details) node.details = { when: { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
             if (!node.details.when) node.details.when = { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
-            
+
             const whenEditor = createWhenEditorUI(node.details.when, (newWhen) => {
                 node.details.when = newWhen;
             });
@@ -2205,9 +2205,9 @@
 
             // What, Who, Where
             const simpleFields = [
-                { key: 'what', label: '📝 What（詳細）', placeholder: '詳細情報を入力' },
-                { key: 'who', label: '👤 Who（担当）', placeholder: '担当者を入力' },
-                { key: 'where', label: '📍 Where（場所）', placeholder: '場所を入力' }
+                { key: 'what', label: '📝 What(詳細)', placeholder: '詳細情報を入力' },
+                { key: 'who', label: '👤 Who(担当)', placeholder: '担当者を入力' },
+                { key: 'where', label: '📍 Where(場所)', placeholder: '場所を入力' }
             ];
             simpleFields.forEach(f => {
                 const row = document.createElement('div');
@@ -2288,7 +2288,7 @@
             const container = document.createElement('div');
             container.className = 'when-editor-content';
 
-            // --- 周期タイプ（7種類、モード切替なし） ---
+            // --- 周期タイプ(7種類、モード切替なし) ---
             const typeSection = document.createElement('div');
             typeSection.className = 'when-section';
             const typeLabel = document.createElement('div');
@@ -2302,10 +2302,10 @@
                 { key: 'none', label: '一度だけ' },
                 { key: 'daily', label: '毎日' },
                 { key: 'weekly', label: '毎週' },
-                { key: 'monthly-day', label: '毎月（日付）' },
-                { key: 'monthly-week', label: '毎月（曜日）' },
-                { key: 'yearly-date', label: '毎年（日付）' },
-                { key: 'yearly-week', label: '毎年（曜日）' }
+                { key: 'monthly-day', label: '毎月(日付)' },
+                { key: 'monthly-week', label: '毎月(曜日)' },
+                { key: 'yearly-date', label: '毎年(日付)' },
+                { key: 'yearly-week', label: '毎年(曜日)' }
             ];
 
             types.forEach(t => {
@@ -2325,7 +2325,7 @@
             typeSection.appendChild(typeGrid);
             container.appendChild(typeSection);
 
-            // --- 週設定（毎週 / 毎月（曜日）/ 毎年（曜日）） ---
+            // --- 週設定(毎週 / 毎月(曜日)/ 毎年(曜日)) ---
             const weekSection = document.createElement('div');
             weekSection.className = 'when-section';
             weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
@@ -2343,7 +2343,7 @@
                 if (opt.key === currentWeekOfMonth) o.selected = true;
                 weekSelect.appendChild(o);
             });
-            // 初期選択値を変数と同期（オプションにない場合、ブラウザが自動選択した値に合わせる）
+            // 初期選択値を変数と同期(オプションにない場合、ブラウザが自動選択した値に合わせる)
             currentWeekOfMonth = weekSelect.value;
             weekSelect.addEventListener('change', () => {
                 currentWeekOfMonth = weekSelect.value;
@@ -2379,7 +2379,7 @@
             weekSection.appendChild(weekRow2);
             container.appendChild(weekSection);
 
-            // --- 月-日付指定（毎月（日付）） ---
+            // --- 月-日付指定(毎月(日付)) ---
             const monthlyDaySection = document.createElement('div');
             monthlyDaySection.className = 'when-section';
             monthlyDaySection.style.display = (uiType === 'monthly-day') ? 'block' : 'none';
@@ -2402,7 +2402,7 @@
             monthlyDaySection.appendChild(monthlyDayRow);
             container.appendChild(monthlyDaySection);
 
-            // --- 年-日付指定（毎年（日付）） ---
+            // --- 年-日付指定(毎年(日付)) ---
             const yearlyDateSection = document.createElement('div');
             yearlyDateSection.className = 'when-section';
             yearlyDateSection.style.display = (uiType === 'yearly-date') ? 'block' : 'none';
@@ -2438,7 +2438,7 @@
             yearlyDateSection.appendChild(yearlyDateRow);
             container.appendChild(yearlyDateSection);
 
-            // --- 年-月指定（毎年（曜日）） ---
+            // --- 年-月指定(毎年(曜日)) ---
             const yearlyMonthSection = document.createElement('div');
             yearlyMonthSection.className = 'when-section';
             yearlyMonthSection.style.display = (uiType === 'yearly-week') ? 'block' : 'none';
@@ -2513,11 +2513,11 @@
             deadlineTypeRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;';
             const dlTypeRelative = document.createElement('div');
             dlTypeRelative.className = 'when-type-btn' + ((w.deadlineType || 'relative') === 'relative' ? ' active' : '');
-            dlTypeRelative.textContent = '相対（開始から）';
+            dlTypeRelative.textContent = '相対(開始から)';
             dlTypeRelative.style.cssText = 'flex:1;font-size:11px;padding:5px 2px;';
             const dlTypeAbsolute = document.createElement('div');
             dlTypeAbsolute.className = 'when-type-btn' + (w.deadlineType === 'absolute' ? ' active' : '');
-            dlTypeAbsolute.textContent = '絶対（特定日時）';
+            dlTypeAbsolute.textContent = '絶対(特定日時)';
             dlTypeAbsolute.style.cssText = 'flex:1;font-size:11px;padding:5px 2px;';
 
             let currentDeadlineType = w.deadlineType || 'relative';
@@ -2600,7 +2600,7 @@
                     o.textContent = opt.label;
                     weekSelect.appendChild(o);
                 });
-                // 選択値を復元（無効な場合は第1に）
+                // 選択値を復元(無効な場合は第1に)
                 if (Array.from(weekSelect.options).some(o => o.value === currentVal)) {
                     weekSelect.value = currentVal;
                 } else {
@@ -2659,12 +2659,12 @@
                 const dlDate = deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null;
 
                 let text = '';
-                // 開始日時（常に先頭）
+                // 開始日時(常に先頭)
                 if (uiType === 'none') {
-                    text = '開始：' + baseStr;
+                    text = '開始:' + baseStr;
                 } else {
-                    text = '次回：' + baseStr;
-                    text += '\n周期：';
+                    text = '次回:' + baseStr;
+                    text += '\n周期:';
                     if (uiType === 'daily') {
                         text += '毎日 ' + baseTimeStr;
                     } else if (uiType === 'weekly') {
@@ -2683,12 +2683,12 @@
                     }
                 }
 
-                // 期限（開始の後に表示）
+                // 期限(開始の後に表示)
                 if (dlType === 'absolute' && dlDate) {
                     const dl = new Date(dlDate);
-                    text += '\n期限：' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
+                    text += '\n期限:' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
                 } else if (dd > 0 || dt !== baseTimeStr) {
-                    text += '\n期限：開始から ' + dd + ' 日後 ' + dt + ' まで';
+                    text += '\n期限:開始から ' + dd + ' 日後 ' + dt + ' まで';
                 }
 
                 preview.innerHTML = text.replace(/\n/g, '<br>');
@@ -2716,7 +2716,7 @@
 
             const title = document.createElement('div');
             title.className = 'when-editor-title';
-            title.innerHTML = '🕐 When（周期・期限）';
+            title.innerHTML = '🕐 When(周期・期限)';
             popup.appendChild(title);
 
             const editor = createWhenEditorUI(node.details.when);
@@ -3097,7 +3097,7 @@
                 }
             }
 
-            // 未知のrepeatTypeの場合はnullを返す（不整合データのガード）
+            // 未知のrepeatTypeの場合はnullを返す(不整合データのガード)
             if (!['none', 'daily', 'weekly', 'monthly', 'yearly'].includes(when.repeatType)) {
                 return null;
             }
@@ -3252,11 +3252,11 @@
                     if (!child.expanded) {
                         childTasksEl.classList.add('collapsed');
                     }
-                    
+
                     if (child.expanded) {
                         renderChildren(child, childTasksEl, depth + 1);
                     }
-                    
+
                     childEl.appendChild(childTasksEl);
 
                     containerEl.appendChild(childEl);
@@ -3272,7 +3272,7 @@
                 el.className = 'node' + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
                     + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
                     + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '');
-                
+
                 // Use absolute position for actively dragged child nodes only
                 if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
                     let absX, absY;
@@ -3300,7 +3300,7 @@
                     }
                 }
                 el.dataset.id = node.id;
-                
+
                 // Set explicit width/height for resizable nodes
                 if (node.width) {
                     el.style.width = node.width + 'px';
@@ -3323,10 +3323,10 @@
                     el.style.width = (node.width || 200) + 'px';
                     el.style.minHeight = 'auto';
                     el.style.padding = '8px 10px';
-                    
+
                     const wrapper = document.createElement('div');
                     wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;';
-                    
+
                     const checkbox = document.createElement('span');
                     checkbox.className = 'node-color';
                     checkbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${node.color || '#4a90d9'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;`;
@@ -3344,25 +3344,25 @@
                         e.stopPropagation();
                         showColorPicker(e, node);
                     });
-                    
+
                     const title = document.createElement('span');
                     title.textContent = node.title;
                     title.className = 'node-title' + (node.completed ? ' completed' : '');
                     title.style.cssText = 'flex:1;font-size:13px;word-break:break-word;';
-                    
+
                     wrapper.appendChild(checkbox);
                     wrapper.appendChild(title);
                     el.appendChild(wrapper);
-                    
+
                     el.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         showCanvasContextMenu(e.clientX, e.clientY, e);
                     });
-                    
+
                     el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
                     el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
-                    
+
                     nodesEl.appendChild(el);
                     return;
                 }
@@ -3474,7 +3474,7 @@
                     resizeHandle.className = 'resize-handle ' + pos;
                     resizeHandle.dataset.nodeId = node.id;
                     resizeHandle.dataset.pos = pos;
-                    
+
                     resizeHandle.addEventListener('mousedown', (e) => {
                         e.stopPropagation();
                         const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
@@ -3484,7 +3484,7 @@
                         state.resizeStartY = e.clientY;
                         state.resizeStartWidth = node.width || 200;
                         state.resizeStartHeight = node.height || (domEl ? domEl.offsetHeight : 50);
-                        
+
                         // Calculate absolute position for resize start
                         let resizeStartLeft, resizeStartTop;
                         if (node.parentId !== null) {
@@ -3503,17 +3503,17 @@
                         }
                         state.resizeStartLeft = resizeStartLeft;
                         state.resizeStartTop = resizeStartTop;
-                        
+
                         if (domEl) {
                             domEl.classList.add('resizing');
                         }
                         resizeHandle.classList.add('resizing');
                     });
-                    
+
                     nodesEl.appendChild(resizeHandle);
                 });
             });
-            
+
             // Update all resize handle positions after DOM rendering is fully complete
             // Use double requestAnimationFrame to ensure layout is calculated
             requestAnimationFrame(() => {
@@ -3522,7 +3522,7 @@
                 });
             });
         }
-        
+
         // Update all resize handle positions based on actual DOM state
         function updateAllHandlePositions() {
             state.nodes.forEach(node => {
@@ -3544,10 +3544,10 @@
                 }
                 const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
                 if (!domEl) return;
-                
+
                 const nw = domEl.offsetWidth;
                 const actualH = domEl.offsetHeight;
-                
+
                 document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(handle => {
                     const pos = handle.dataset.pos;
                     let hx, hy;
@@ -3639,7 +3639,7 @@
                 // Double-click to toggle collapse (mousedown-based for reliability + dblclick fallback)
                 let connLastMouseDown = 0;
                 let connMouseDownPos = { x: 0, y: 0 };
-                
+
                 const doToggleCollapse = (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -3655,9 +3655,9 @@
                     renderNodes();
                     renderConnections();
                 };
-                
+
                 hitPath.addEventListener('dblclick', doToggleCollapse);
-                
+
                 // mousedown-based double-click detection for SVG reliability
                 hitPath.addEventListener('mousedown', (e) => {
                     if (e.button !== 0) return;
@@ -3665,7 +3665,7 @@
                     const dx = e.clientX - connMouseDownPos.x;
                     const dy = e.clientY - connMouseDownPos.y;
                     const dist = Math.hypot(dx, dy);
-                    
+
                     if (now - connLastMouseDown < 300 && dist < 10) {
                         // Double-click detected
                         connLastMouseDown = 0;
@@ -3742,7 +3742,7 @@
                     plus.textContent = '+';
 
                     // Click indicator to expand
-                    // +インジケータのダブルクリック/ドラッグ処理（indicatorとplusで変数を共有）
+                    // +インジケータのダブルクリック/ドラッグ処理(indicatorとplusで変数を共有)
                     // 注意: renderConnections()の呼び出しごとにリセットされないようstateで管理
                     if (!state.indClickState) state.indClickState = {};
                     const indClickKey = conn.from + '-' + conn.to;
@@ -3787,14 +3787,14 @@
 
                             indClick.lastMouseDown = now;
                             indClick.mouseDownPos = { x: e.clientX, y: e.clientY };
-                            
+
                             // Single click: start drag
                             e.stopPropagation();
                             e.preventDefault();
-                            
+
                             // Collect all hidden descendant nodes with their offsets from indicator
                             const hiddenDescendants = [];
-                            
+
                             // Include the direct target node (B) first
                             const toNode = state.nodes.find(n => n.id === conn.to);
                             if (toNode) {
@@ -3805,7 +3805,7 @@
                                     conn: conn
                                 });
                             }
-                            
+
                             // Recursively collect ALL descendants (not just collapsed connections)
                             // In cascade collapse, child connections may not have collapsed flag
                             const collectHidden = (nodeId) => {
@@ -3825,7 +3825,7 @@
                                     });
                             };
                             collectHidden(conn.to);
-                            
+
                             state.dragIndicator = {
                                 conn: conn,
                                 indOffsetX: (e.clientX - container.getBoundingClientRect().left - state.panX) / state.scale - indX,
@@ -4122,12 +4122,12 @@
                 state.dragNode = node;
                 state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
                 state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
-                
+
                 // Don't start drag immediately - wait for mousemove threshold
                 state.isDragging = false;
                 state.dragStartMouseX = e.clientX;
                 state.dragStartMouseY = e.clientY;
-                
+
                 return;
             }
 
@@ -4154,13 +4154,13 @@
             state.dragNode = node;
             state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
             state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
-            
+
             // Don't start drag immediately - wait for mousemove threshold
             state.isDragging = false;
             state.pendingExtract = false;  // Reset extraction flag at drag start
             state.dragStartMouseX = e.clientX;
             state.dragStartMouseY = e.clientY;
-            
+
             renderNodes();
         }
 
@@ -4223,15 +4223,15 @@
 
         container.addEventListener('mousedown', (e) => {
             // Skip if clicking on interactive elements (nodes, connections, UI)
-            if (e.target.closest('.node') || e.target.closest('.conn-group') || e.target.closest('.conn-point') || 
-                e.target.closest('.toolbar') || e.target.closest('.zoom-controls') || 
+            if (e.target.closest('.node') || e.target.closest('.conn-group') || e.target.closest('.conn-point') ||
+                e.target.closest('.toolbar') || e.target.closest('.zoom-controls') ||
                 e.target.closest('.context-menu') || e.target.closest('.color-picker') ||
                 e.target.classList.contains('selection-box')) return;
 
             if (state.mode === 'node') {
                 const x = (e.clientX - state.panX) / state.scale;
                 const y = (e.clientY - state.panY) / state.scale;
-                
+
                 // Check if click is inside any existing node - if so, nest the new node inside it
                 let parentNode = null;
                 for (const n of state.nodes) {
@@ -4244,9 +4244,9 @@
                         break;
                     }
                 }
-                
+
                 const newNode = createNode(x, y);
-                
+
                 if (parentNode) {
                     // Nest inside the parent node
                     if (!parentNode.children) parentNode.children = [];
@@ -4256,7 +4256,7 @@
                     newNode.y = 10;
                     parentNode.expanded = true;
                 }
-                
+
                 setMode('select');
                 // Auto-focus title for immediate editing
                 requestAnimationFrame(() => {
@@ -4303,7 +4303,7 @@
                 if (state.mode === 'node') {
                     const x = (touch.clientX - state.panX) / state.scale;
                     const y = (touch.clientY - state.panY) / state.scale;
-                    
+
                     // Check if touch is inside any existing node - if so, nest the new node inside it
                     let parentNode = null;
                     for (const n of state.nodes) {
@@ -4316,9 +4316,9 @@
                             break;
                         }
                     }
-                    
+
                     const newNode = createNode(x, y);
-                    
+
                     if (parentNode) {
                         // Nest inside the parent node
                         if (!parentNode.children) parentNode.children = [];
@@ -4328,7 +4328,7 @@
                         newNode.y = 10;
                         parentNode.expanded = true;
                     }
-                    
+
                     setMode('select');
                     requestAnimationFrame(() => {
                         const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
@@ -4366,7 +4366,7 @@
                 const containerRect = container.getBoundingClientRect();
                 const newIndX = (e.clientX - containerRect.left - state.panX) / state.scale - state.dragIndicator.indOffsetX;
                 const newIndY = (e.clientY - containerRect.top - state.panY) / state.scale - state.dragIndicator.indOffsetY;
-                
+
                 // Update current indicator position for rendering
                 state.dragIndicator.currentIndX = newIndX;
                 state.dragIndicator.currentIndY = newIndY;
@@ -4490,12 +4490,12 @@
                 const dx = (e.clientX - state.resizeStartX) / state.scale;
                 const dy = (e.clientY - state.resizeStartY) / state.scale;
                 const pos = state.resizeHandle;
-                
+
                 let newWidth = state.resizeStartWidth;
                 let newHeight = state.resizeStartHeight;
                 let newX = state.resizeStartLeft;
                 let newY = state.resizeStartTop;
-                
+
                 if (pos.includes('e')) {
                     newWidth = Math.max(160, state.resizeStartWidth + dx);
                 }
@@ -4510,10 +4510,10 @@
                     newHeight = Math.max(50, state.resizeStartHeight - dy);
                     newY = state.resizeStartTop + dy;
                 }
-                
+
                 state.resizingNode.width = newWidth;
                 state.resizingNode.height = newHeight;
-                
+
                 // Update position - use absX/absY for child nodes, x/y for root nodes
                 if (state.resizingNode.parentId !== null) {
                     state.resizingNode.absX = newX;
@@ -4522,7 +4522,7 @@
                     state.resizingNode.x = newX;
                     state.resizingNode.y = newY;
                 }
-                
+
                 // Update DOM directly to avoid full re-render during resize
                 const domEl = document.querySelector(`.node[data-id="${state.resizingNode.id}"]`);
                 if (domEl) {
@@ -4531,7 +4531,7 @@
                     domEl.style.left = newX + 'px';
                     domEl.style.top = newY + 'px';
                 }
-                
+
                 // Update resize handles position during resize
                 document.querySelectorAll(`.resize-handle[data-node-id="${state.resizingNode.id}"]`).forEach(handle => {
                     const pos = handle.dataset.pos;
@@ -4543,13 +4543,13 @@
                     handle.style.left = hx + 'px';
                     handle.style.top = hy + 'px';
                 });
-                
+
                 renderConnections();
                 return;
             }
 
             // Child drag is now started directly on mousedown - no candidate needed (unified drag)
-            
+
             // Check drag threshold before starting actual drag
             if (state.dragNode && !state.isDragging) {
                 const dx = Math.abs(e.clientX - state.dragStartMouseX);
@@ -4569,9 +4569,9 @@
                 }
                 const newX = (e.clientX - state.panX) / state.scale - state.dragOffsetX;
                 const newY = (e.clientY - state.panY) / state.scale - state.dragOffsetY;
-                
+
                 console.log('Child drag move:', state.dragNode.id, 'newX:', newX, 'newY:', newY, 'parentId:', state.dragNode.parentId);
-                
+
                 // Calculate old absolute position
                 let oldAbsX = state.dragNode.x;
                 let oldAbsY = state.dragNode.y;
@@ -4580,10 +4580,10 @@
                     oldAbsX = absPos.x;
                     oldAbsY = absPos.y;
                 }
-                
+
                 const dx = newX - oldAbsX;
                 const dy = newY - oldAbsY;
-                
+
                 // Update position - for child nodes, update relative to parent but use absolute for display
                 if (state.dragNode.parentId !== null) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
@@ -4644,13 +4644,13 @@
                     // Skip external drop target detection if dragging child within same parent
                     // (reorder/nest logic below handles this case)
                     const isDraggingChildWithinParent = state.dragNode.parentId !== null;
-                    
+
                     if (!isDraggingChildWithinParent) {
                         const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
                         const mx = (e.clientX - canvasRect.left - state.panX) / state.scale;
                         const my = (e.clientY - canvasRect.top - state.panY) / state.scale;
                         let candidates = [];
-                        
+
                         // Check all nodes (both root and child) for drop target detection
                         for (const node of state.nodes) {
                             if (node.id === state.dragNode.id) continue;
@@ -4670,9 +4670,9 @@
                                 current = state.nodes.find(n => n.id === current.parentId);
                             }
                             if (isDescendant) continue;
-                            
+
                             let nx, ny, nw, nh;
-                            
+
                             if (node.parentId === null) {
                                 // Root node - use absolute coordinates
                                 nx = node.x;
@@ -4694,7 +4694,7 @@
                                 nw = rect.width / state.scale;
                                 nh = rect.height / state.scale;
                             }
-                            
+
                             // Bounding box hit test
                             if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
                                 const centerX = nx + nw / 2;
@@ -4704,7 +4704,7 @@
                                 candidates.push({ node, dist, midX: nx + nw / 2 });
                             }
                         }
-                        
+
                         // Pick candidate with closest center to mouse
                         let targetNode = null;
                         let minDist = Infinity;
@@ -4716,7 +4716,7 @@
                                 targetMidX = c.midX;
                             }
                         }
-                        
+
                         // Clear all node indicators before updating
                         document.querySelectorAll('.node').forEach(el => {
                             el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
@@ -4786,10 +4786,10 @@
                         }
                         // pw/ph used below
                         const MARGIN = 30;
-                        
+
                         // Check if mouse is outside parent bounds - prioritize extraction
                         const isOutsideParent = mx < px - MARGIN || mx > px + pw + MARGIN || my < py - MARGIN || my > py + ph + MARGIN;
-                        
+
                         if (isOutsideParent) {
                             // Mouse outside parent - check reorderTarget first, then dropTarget
                             if (state.reorderTarget) {
@@ -4831,7 +4831,7 @@
                             const siblings = parent.children.filter(id => id !== state.dragNode.id);
                             const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
                             const parentEl = document.querySelector(`.node[data-id="${parent.id}"]`);
-                            
+
                             // Clear all indicators within the same parent
                             if (parentEl) {
                                 parentEl.querySelectorAll(':scope > .node-tasks > .node').forEach(el => {
@@ -4952,7 +4952,7 @@
 
                 const newX = (touch.clientX - state.panX) / state.scale - state.dragOffsetX;
                 const newY = (touch.clientY - state.panY) / state.scale - state.dragOffsetY;
-                
+
                 // Calculate old absolute position
                 let oldAbsX = state.dragNode.x;
                 let oldAbsY = state.dragNode.y;
@@ -4961,10 +4961,10 @@
                     oldAbsX = absPos.x;
                     oldAbsY = absPos.y;
                 }
-                
+
                 const dx = newX - oldAbsX;
                 const dy = newY - oldAbsY;
-                
+
                 // Update position (relative if child, absolute if parent)
                 if (state.dragNode.parentId !== null) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
@@ -5008,7 +5008,7 @@
                     if (node.id === state.draggingConn.from) continue;
                     // Skip hidden nodes
                     if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
-                    
+
                     // Calculate absolute position for proper hit testing
                     let nx = node.x;
                     let ny = node.y;
@@ -5017,7 +5017,7 @@
                         nx = absPos.x;
                         ny = absPos.y;
                     }
-                    
+
                     const nw = node.width || 200;
                     const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
                     const nh = domEl ? domEl.offsetHeight : (node.height || 50);
@@ -5179,7 +5179,7 @@
             let didReorder = false;
             if (state.reorderTarget && state.dragNode && !state.dropTarget) {
                 const siblingParentId = state.reorderTarget.siblingParentId;
-                
+
                 if (siblingParentId === null) {
                     // Target is a root node - make dragged node a root node
                     if (state.dragNode.parentId !== null) {
@@ -5244,8 +5244,8 @@
                                 state.dragNode.parentId = siblingParentId;
                                 if (!newParent.children) newParent.children = [];
                                 const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
-                                let insertIndex = toIndex !== -1 ? 
-                                    (state.reorderTarget.insertBefore ? toIndex : toIndex + 1) : 
+                                let insertIndex = toIndex !== -1 ?
+                                    (state.reorderTarget.insertBefore ? toIndex : toIndex + 1) :
                                     newParent.children.length;
                                 newParent.children.splice(insertIndex, 0, state.dragNode.id);
                                 didReorder = true;
@@ -5259,14 +5259,14 @@
                             state.dragNode.y = state.dragNode.y - parentAbsPos.y;
                             if (!newParent.children) newParent.children = [];
                             const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
-                            let insertIndex = toIndex !== -1 ? 
-                                (state.reorderTarget.insertBefore ? toIndex : toIndex + 1) : 
+                            let insertIndex = toIndex !== -1 ?
+                                (state.reorderTarget.insertBefore ? toIndex : toIndex + 1) :
                                 newParent.children.length;
                             newParent.children.splice(insertIndex, 0, state.dragNode.id);
                             didReorder = true;
                             showToast('順序を変更しました');
                         }
-                        
+
                         if (!didReorder) {
                             // Position relative to new parent
                             const parentAbsPos = getNodeAbsolutePosition(newParent);
@@ -5317,7 +5317,7 @@
                     dropY = absPos.y;
                 }
                 let candidates = [];
-                
+
                 for (const n of state.nodes) {
                     if (n.id === state.dragNode.id) continue;
                     if (n.id === state.dragNode.parentId) continue; // skip current parent
@@ -5333,7 +5333,7 @@
                         current = state.nodes.find(node => node.id === current.parentId);
                     }
                     if (isDescendant) continue;
-                    
+
                     let nx, ny, nw, nh;
                     if (n.parentId === null) {
                         nx = n.x;
@@ -5350,7 +5350,7 @@
                         nw = rect.width / state.scale;
                         nh = rect.height / state.scale;
                     }
-                    
+
                     // Bounding box hit test
                     if (dropX >= nx && dropX <= nx + nw && dropY >= ny && dropY <= ny + nh) {
                         const centerX = nx + nw / 2;
@@ -5359,7 +5359,7 @@
                         candidates.push({ node: n, dist });
                     }
                 }
-                
+
                 // Pick candidate with closest center to drop position
                 let nearestNode = null;
                 let minDist = Infinity;
@@ -5369,7 +5369,7 @@
                         nearestNode = c.node;
                     }
                 }
-                
+
                 if (nearestNode) {
                     // Remove from old parent's children
                     if (state.dragNode.parentId !== null) {
@@ -5610,13 +5610,35 @@
             // Node-specific items
             const targetNode = clickEvent?.target?.closest('.node');
             const targetChildNode = clickEvent?.target?.closest('.node .node-tasks .node');
-            
+
+            // Show indicators for the target node
+            function showNodeIndicators(nodeEl) {
+                if (nodeEl) {
+                    const indicators = nodeEl.querySelector('.node-indicators .indicator-group');
+                    if (indicators) indicators.style.display = 'flex';
+                }
+            }
+            function hideNodeIndicators() {
+                document.querySelectorAll('.node-indicators .indicator-group').forEach(g => {
+                    g.style.display = 'none';
+                });
+            }
+            if (targetNode) showNodeIndicators(targetNode);
+            if (targetChildNode) showNodeIndicators(targetChildNode);
+
+            // 元のmenu.removeをラップしてインジケーターも非表示にする
+            const originalRemove = menu.remove.bind(menu);
+            menu.remove = function() {
+                hideNodeIndicators();
+                originalRemove();
+            };
+
             if (targetChildNode) {
                 // Child node context menu
                 const childId = parseInt(targetChildNode.dataset.id);
                 const childNode = state.nodes.find(n => n.id === childId);
                 const childTitleEl = targetChildNode.querySelector('.node-title');
-                
+
                     if (childNode && childTitleEl) {
                     items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
                         console.log('Child title edit clicked', childTitleEl, childNode);
@@ -5706,7 +5728,7 @@
                     const conn = state.connections.find(c => c.from === connFrom && c.to === connTo);
                     const fromNode = state.nodes.find(n => n.id === connFrom);
                     const toNode = state.nodes.find(n => n.id === connTo);
-                    
+
                     if (conn && fromNode && toNode) {
                         items.push({ text: conn.collapsed ? '接続を展開' : '接続を折りたたむ', icon: '📂', action: () => {
                             conn.collapsed = !conn.collapsed;
@@ -5723,7 +5745,7 @@
                         }});
                     }
                 }
-                
+
                 // Canvas items
                 if (!targetConnGroup && state.connectingFrom) {
                     items.push({ text: '接続モードをキャンセル', icon: '❌', action: () => {
@@ -6032,7 +6054,7 @@
                             delete node.tasks;
                             return node;
                         });
-                        
+
                         // Build children arrays from parentId for old data compatibility
                         state.nodes.forEach(node => {
                             if (!node.children || node.children.length === 0) {
@@ -6142,7 +6164,7 @@
         // ==================== When Recalculation ====================
         /**
          * 全ノードのwhenを再計算
-         * - nextDateが現在時刻を過ぎていたらノードを再有効化（completed=false）
+         * - nextDateが現在時刻を過ぎていたらノードを再有効化(completed=false)
          * - 次回日時を再計算してnextDateを更新
          * @returns {number} 再有効化したノード数
          */
@@ -6162,21 +6184,21 @@
                 const nextDateStart = new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
 
                 if (node.completed) {
-                    // 完了状態で開始日を過ぎていれば有効化（日付のみ比較）
+                    // 完了状態で開始日を過ぎていれば有効化(日付のみ比較)
                     if (nextDateStart <= todayStart) {
                         node.completed = false;
                         activatedNodes.push({ title: node.title, date: nextDate });
-                        console.log(`[When] ノード「${node.title}」を有効化（開始日: ${nextDate.toLocaleDateString('ja-JP')}）`);
+                        console.log(`[When] ノード「${node.title}」を有効化(開始日: ${nextDate.toLocaleDateString('ja-JP')})`);
                     }
                 } else {
                     // 有効状態で開始日時を通過していれば通知
                     if (nextDate <= now) {
                         startedNodes.push({ title: node.title, date: nextDate });
-                        console.log(`[When] ノード「${node.title}」の開始時刻を通過（${nextDate.toLocaleString('ja-JP')}）`);
+                        console.log(`[When] ノード「${node.title}」の開始時刻を通過(${nextDate.toLocaleString('ja-JP')})`);
                     }
                 }
 
-                // 次回日時を再計算（有効化・通知の有無に関わらず）
+                // 次回日時を再計算(有効化・通知の有無に関わらず)
                 const newNextDate = calculateNextDate(w);
                 if (newNextDate) {
                     w.nextDate = newNextDate.toISOString();
@@ -6252,12 +6274,12 @@
             }
         }
 
-        // アクティブ化要求（タスクバー明滅・タブ点滅・バッジ）
+        // アクティブ化要求(タスクバー明滅・タブ点滅・バッジ)
         function requestAttention(count) {
-            // 1. ウィンドウ前面化（ブラウザが許可する場合）
+            // 1. ウィンドウ前面化(ブラウザが許可する場合)
             try { window.focus(); } catch (e) {}
 
-            // 2. タスクバー/ドックバッジ（Chrome/Edge対応）
+            // 2. タスクバー/ドックバッジ(Chrome/Edge対応)
             if (navigator.setAppBadge) {
                 navigator.setAppBadge(count).catch(() => {});
             }
