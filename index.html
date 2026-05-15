@@ -1628,6 +1628,7 @@
                 details: {
                     when: {
                         repeatType: 'none',
+                        baseDateTime: null,
                         baseTime: '09:00',
                         deadlineType: 'relative',
                         deadlineDays: 0,
@@ -2263,7 +2264,7 @@
                     node.priority = parseInt(sel.value);
                 } else {
                     const ta = popup.querySelector('textarea');
-                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
                     node.details[type] = ta.value;
                 }
                 popup.remove();
@@ -2334,8 +2335,8 @@
             wSection.appendChild(wTitle);
             
             // Initialize when data
-            if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
-            if (!node.details.when) node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+            if (!node.details) node.details = { when: { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+            if (!node.details.when) node.details.when = { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
             
             const whenEditor = createWhenEditorUI(node.details.when, (newWhen) => {
                 node.details.when = newWhen;
@@ -2376,7 +2377,7 @@
             saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
             saveBtn.addEventListener('click', () => {
                 node.priority = parseInt(pSelect.value);
-                if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+                if (!node.details) node.details = { when: { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
                 // Save when data from integrated editor
                 if (whenEditor) {
                     node.details.when = whenEditor.getValue();
@@ -2601,16 +2602,34 @@
             yearlyMonthSection.appendChild(yearlyMonthRow);
             container.appendChild(yearlyMonthSection);
 
-            // --- 開始時刻 ---
+            // --- 開始日時 ---
             const timeSection = document.createElement('div');
             timeSection.className = 'when-section';
             const timeRow = document.createElement('div');
             timeRow.className = 'when-row';
-            timeRow.innerHTML = '<span>開始時刻</span>';
+            timeRow.innerHTML = '<span>開始日時</span>';
             const timeInput = document.createElement('input');
-            timeInput.type = 'time';
-            timeInput.value = w.baseTime || '09:00';
+            timeInput.type = 'datetime-local';
+            // デフォルト値: 今日の09:00
+            const defaultBase = new Date();
+            defaultBase.setHours(9, 0, 0, 0);
+            const toLocalISO = d => {
+                const pad = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            };
+            // baseDateTime優先、なければbaseTimeから生成、それもなければデフォルト
+            if (w.baseDateTime) {
+                timeInput.value = w.baseDateTime.substring(0, 16);
+            } else if (w.baseTime) {
+                const today = new Date();
+                const [h, m] = w.baseTime.split(':');
+                today.setHours(parseInt(h), parseInt(m), 0, 0);
+                timeInput.value = toLocalISO(today);
+            } else {
+                timeInput.value = toLocalISO(defaultBase);
+            }
             timeInput.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
+            timeInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
             timeRow.appendChild(timeInput);
             timeSection.appendChild(timeRow);
             container.appendChild(timeSection);
@@ -2744,7 +2763,8 @@
 
                 return {
                     repeatType: repeatType,
-                    baseTime: timeInput.value || '09:00',
+                    baseDateTime: timeInput.value ? new Date(timeInput.value).toISOString() : null,
+                    baseTime: timeInput.value ? timeInput.value.substring(11, 16) : '09:00',
                     deadlineType: currentDeadlineType,
                     deadlineDays: parseInt(deadlineDays.value) || 0,
                     deadlineTime: deadlineTime.value || '18:00',
@@ -2768,28 +2788,31 @@
             }
 
             function updatePreview() {
-                const base = timeInput.value;
+                const baseDt = timeInput.value;
+                const baseDate = baseDt ? new Date(baseDt) : null;
+                const baseStr = baseDate ? baseDate.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '09:00';
+                const baseTimeStr = baseDt ? baseDt.substring(11, 16) : '09:00';
                 const dd = parseInt(deadlineDays.value) || 0;
                 const dt = deadlineTime.value;
 
                 let text = '';
                 if (uiType === 'none') {
-                    text = '一度だけ：開始 ' + base;
+                    text = '一度だけ：開始 ' + baseStr;
                 } else if (uiType === 'daily') {
-                    text = '毎日 ' + base + ' 開始';
+                    text = '毎日 ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
                 } else if (uiType === 'weekly') {
                     const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                    text = weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
+                    text = weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
                 } else if (uiType === 'monthly-day') {
-                    text = '毎月 ' + currentMonthDay + '日 ' + base + ' 開始';
+                    text = '毎月 ' + currentMonthDay + '日 ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
                 } else if (uiType === 'monthly-week') {
                     const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                    text = '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
+                    text = '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
                 } else if (uiType === 'yearly-date') {
-                    text = '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + base + ' 開始';
+                    text = '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
                 } else if (uiType === 'yearly-week') {
                     const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                    text = '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
+                    text = '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
                 }
 
                 const dlType = (getValue().deadlineType || 'relative');
@@ -2797,7 +2820,7 @@
                 if (dlType === 'absolute' && dlDate) {
                     const dl = new Date(dlDate);
                     text += '\n期限：' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
-                } else if (dd > 0 || dt !== base) {
+                } else if (dd > 0 || dt !== baseTimeStr) {
                     text += '\n期限：開始から ' + dd + ' 日後 ' + dt + ' まで';
                 }
 
@@ -2819,8 +2842,8 @@
             if (existing) existing.remove();
 
             // Initialize when data with new structure
-            if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
-            if (!node.details.when) node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+            if (!node.details) node.details = { when: { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+            if (!node.details.when) node.details.when = { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
 
             const popup = document.createElement('div');
             popup.className = 'when-editor-popup';
@@ -2841,7 +2864,7 @@
             clearBtn.className = 'when-btn clear';
             clearBtn.textContent = 'クリア';
             clearBtn.addEventListener('click', () => {
-                node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+                node.details.when = { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
                 popup.remove();
                 renderNodes();
             });
@@ -3042,10 +3065,21 @@
             if (!when || !when.repeatType || when.repeatType === 'none') return null;
 
             const now = new Date();
-            const [hours, minutes] = (when.baseTime || '09:00').split(':');
+            let hours, minutes;
+            let next;
 
-            let next = new Date(now);
-            next.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            if (when.baseDateTime) {
+                const baseDate = new Date(when.baseDateTime);
+                hours = baseDate.getHours();
+                minutes = baseDate.getMinutes();
+                next = new Date(baseDate);
+            } else {
+                const timeParts = (when.baseTime || '09:00').split(':');
+                hours = parseInt(timeParts[0]);
+                minutes = parseInt(timeParts[1]);
+                next = new Date(now);
+                next.setHours(hours, minutes, 0, 0);
+            }
 
             if (when.repeatType === 'daily') {
                 if (next <= now) {
