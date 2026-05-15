@@ -5611,27 +5611,53 @@
             const targetNode = clickEvent?.target?.closest('.node');
             const targetChildNode = clickEvent?.target?.closest('.node .node-tasks .node');
 
-            // Show indicators for the target node
-            function showNodeIndicators(nodeEl) {
-                if (nodeEl) {
-                    const indicators = nodeEl.querySelector('.node-indicators .indicator-group');
-                    if (indicators) indicators.style.display = 'flex';
-                }
-            }
-            function hideNodeIndicators() {
-                document.querySelectorAll('.node-indicators .indicator-group').forEach(g => {
-                    g.style.display = 'none';
-                });
-            }
-            if (targetNode) showNodeIndicators(targetNode);
-            if (targetChildNode) showNodeIndicators(targetChildNode);
+            // Helper: add indicator items to context menu
+            function addIndicatorItems(node) {
+                if (!node) return;
+                items.push({ text: '', class: 'context-separator' });
 
-            // 元のmenu.removeをラップしてインジケーターも非表示にする
-            const originalRemove = menu.remove.bind(menu);
-            menu.remove = function() {
-                hideNodeIndicators();
-                originalRemove();
-            };
+                // 優先度
+                const p = node.priority || 0;
+                const pLabel = p === 0 ? '☆ 優先度' : '★'.repeat(p) + ' 優先度';
+                items.push({ text: pLabel, action: () => {
+                    menu.remove();
+                    openDetailEditor(node, 'priority');
+                }});
+
+                // 期限
+                const w = node.details?.when;
+                const hasWhen = w && w.repeatType !== 'none';
+                let whenLabel = '🕐 期限 未設定';
+                if (hasWhen && w.nextDate) {
+                    const nd = new Date(w.nextDate);
+                    whenLabel = '🕐 期限 ' + nd.toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+                }
+                items.push({ text: whenLabel, action: () => {
+                    menu.remove();
+                    openDetailEditor(node, 'when');
+                }});
+
+                // 内容
+                const what = node.details?.what;
+                items.push({ text: what ? '📝 ' + what.substring(0, 20) + (what.length > 20 ? '...' : '') : '📝 内容 未設定', action: () => {
+                    menu.remove();
+                    openDetailEditor(node, 'what');
+                }});
+
+                // 担当
+                const who = node.details?.who;
+                items.push({ text: who ? '👤 ' + who : '👤 担当 未設定', action: () => {
+                    menu.remove();
+                    openDetailEditor(node, 'who');
+                }});
+
+                // 場所
+                const where = node.details?.where;
+                items.push({ text: where ? '📍 ' + where : '📍 場所 未設定', action: () => {
+                    menu.remove();
+                    openDetailEditor(node, 'where');
+                }});
+            }
 
             if (targetChildNode) {
                 // Child node context menu
@@ -5668,6 +5694,7 @@
                         menu.remove();
                         openBulkDetailEditor(childNode);
                     }});
+                    addIndicatorItems(childNode);
                 }
             } else if (targetNode) {
                 const nodeId = parseInt(targetNode.dataset.id);
@@ -5699,6 +5726,7 @@
                     menu.remove();
                     openBulkDetailEditor(node);
                 }});
+                addIndicatorItems(node);
                 items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
                     if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
                 }});
