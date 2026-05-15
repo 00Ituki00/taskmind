@@ -5611,52 +5611,48 @@
             const targetNode = clickEvent?.target?.closest('.node');
             const targetChildNode = clickEvent?.target?.closest('.node .node-tasks .node');
 
-            // Helper: add indicator items to context menu
-            function addIndicatorItems(node) {
+            // Helper: add indicator toolbar to context menu (horizontal icons)
+            function addIndicatorToolbar(node) {
                 if (!node) return;
-                items.push({ text: '', class: 'context-separator' });
+                const toolbar = document.createElement('div');
+                toolbar.className = 'context-indicator-toolbar';
+                toolbar.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 0;border-top:1px solid #eee;margin-top:4px;';
 
-                // 優先度
-                const p = node.priority || 0;
-                const pLabel = p === 0 ? '☆ 優先度' : '★'.repeat(p) + ' 優先度';
-                items.push({ text: pLabel, action: () => {
-                    menu.remove();
-                    openDetailEditor(node, 'priority');
-                }});
+                const indicators = [
+                    { type: 'priority', icon: () => {
+                        const p = node.priority || 0;
+                        return p === 0 ? '☆' : '★'.repeat(p);
+                    }, title: '優先度', color: p => p === 0 ? '#ccc' : '#f5a623' },
+                    { type: 'when', icon: () => {
+                        const w = node.details?.when;
+                        const hasWhen = w && w.repeatType !== 'none';
+                        return hasWhen ? '🕐' : '🕐';
+                    }, title: '期限', color: () => {
+                        const w = node.details?.when;
+                        return w && w.repeatType !== 'none' ? '#333' : '#ccc';
+                    }},
+                    { type: 'what', icon: () => node.details?.what ? '📝' : '📝', title: '内容', color: () => node.details?.what ? '#333' : '#ccc' },
+                    { type: 'who', icon: () => node.details?.who ? '👤' : '👤', title: '担当', color: () => node.details?.who ? '#333' : '#ccc' },
+                    { type: 'where', icon: () => node.details?.where ? '📍' : '📍', title: '場所', color: () => node.details?.where ? '#333' : '#ccc' }
+                ];
 
-                // 期限
-                const w = node.details?.when;
-                const hasWhen = w && w.repeatType !== 'none';
-                let whenLabel = '🕐 期限 未設定';
-                if (hasWhen && w.nextDate) {
-                    const nd = new Date(w.nextDate);
-                    whenLabel = '🕐 期限 ' + nd.toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-                }
-                items.push({ text: whenLabel, action: () => {
-                    menu.remove();
-                    openDetailEditor(node, 'when');
-                }});
-
-                // 内容
-                const what = node.details?.what;
-                items.push({ text: what ? '📝 ' + what.substring(0, 20) + (what.length > 20 ? '...' : '') : '📝 内容 未設定', action: () => {
-                    menu.remove();
-                    openDetailEditor(node, 'what');
-                }});
-
-                // 担当
-                const who = node.details?.who;
-                items.push({ text: who ? '👤 ' + who : '👤 担当 未設定', action: () => {
-                    menu.remove();
-                    openDetailEditor(node, 'who');
-                }});
-
-                // 場所
-                const where = node.details?.where;
-                items.push({ text: where ? '📍 ' + where : '📍 場所 未設定', action: () => {
-                    menu.remove();
-                    openDetailEditor(node, 'where');
-                }});
+                indicators.forEach(ind => {
+                    const btn = document.createElement('span');
+                    btn.className = 'context-indicator-btn';
+                    btn.textContent = ind.icon();
+                    btn.title = ind.title;
+                    btn.style.cssText = 'cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:background 0.15s;';
+                    btn.style.color = ind.color();
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        menu.remove();
+                        openDetailEditor(node, ind.type);
+                    });
+                    btn.addEventListener('mouseenter', () => btn.style.background = '#f0f0f0');
+                    btn.addEventListener('mouseleave', () => btn.style.background = 'transparent');
+                    toolbar.appendChild(btn);
+                });
+                menu.appendChild(toolbar);
             }
 
             if (targetChildNode) {
@@ -5694,7 +5690,7 @@
                         menu.remove();
                         openBulkDetailEditor(childNode);
                     }});
-                    addIndicatorItems(childNode);
+                    addIndicatorToolbar(childNode);
                 }
             } else if (targetNode) {
                 const nodeId = parseInt(targetNode.dataset.id);
@@ -5726,7 +5722,7 @@
                     menu.remove();
                     openBulkDetailEditor(node);
                 }});
-                addIndicatorItems(node);
+                addIndicatorToolbar(node);
                 items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
                     if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
                 }});
