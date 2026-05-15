@@ -2706,10 +2706,6 @@
             const defaultDl = new Date();
             defaultDl.setDate(defaultDl.getDate() + 1);
             defaultDl.setHours(18, 0, 0, 0);
-            const toLocalISO = d => {
-                const pad = n => String(n).padStart(2, '0');
-                return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-            };
             deadlineDateInput.value = w.deadlineDate ? w.deadlineDate.substring(0, 16) : toLocalISO(defaultDl);
             deadlineDateInput.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
             deadlineDateInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
