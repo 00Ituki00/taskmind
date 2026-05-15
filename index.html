@@ -119,33 +119,8 @@
             touch-action: manipulation !important;
         }
 
-        .node-indicators .hamburger {
-            cursor: pointer;
-            opacity: 0.6;
-            transition: opacity 0.2s;
-            user-select: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            font-size: 14px;
-            pointer-events: auto;
-            position: relative;
-            z-index: 100;
-            /* Ensure it's always visible and clickable */
-            visibility: visible;
-            min-width: 20px;
-            min-height: 20px;
-            touch-action: none;
-        }
-
-        .node-indicators .hamburger:hover {
-            opacity: 0.7;
-        }
-
         .node-indicators .indicator-group {
-            display: none;
+            display: flex;
             align-items: center;
             gap: 2px;
             background: rgba(255,255,255,0.95);
@@ -158,10 +133,6 @@
             left: 0;
             white-space: nowrap;
             z-index: 10000;
-        }
-
-        .node-indicators.expanded .indicator-group {
-            display: flex;
         }
 
         .node-indicator {
@@ -894,32 +865,8 @@
             background: transparent;
         }
 
-        .node .node-tasks .node .node-indicators .hamburger {
-            cursor: pointer;
-            opacity: 0.6;
-            transition: opacity 0.2s;
-            user-select: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            font-size: 12px;
-            pointer-events: auto;
-            position: relative;
-            z-index: 100;
-            /* Ensure it's always visible and clickable */
-            visibility: visible;
-            min-width: 18px;
-            min-height: 18px;
-        }
-
-        .node .node-tasks .node .node-indicators .hamburger:hover {
-            opacity: 0.7;
-        }
-
         .node .node-tasks .node .node-indicators .indicator-group {
-            display: none;
+            display: flex;
             align-items: center;
             gap: 2px;
             background: rgba(255,255,255,0.95);
@@ -932,10 +879,6 @@
             left: 0;
             white-space: nowrap;
             z-index: 10;
-        }
-
-        .node .node-tasks .node .node-indicators.expanded .indicator-group {
-            display: flex;
         }
 
         .node .node-tasks .node .node-indicators .indicator-group .node-indicator {
@@ -1911,94 +1854,10 @@
         }
 
         // ==================== Detail Indicators ====================
-        // Global click handler for closing expanded menus when clicking outside
-        document.addEventListener('click', function(e) {
-            console.log('[DEBUG] document click. target=', e.target.className, 'closest node-indicators=', !!e.target.closest('.node-indicators'), 'closest indicator-group=', !!e.target.closest('.indicator-group'));
-            if (e.target.closest('.node-indicators') || e.target.closest('.indicator-group') || e.target.closest('.node-indicator')) return;
-            
-            document.querySelectorAll('.node-indicators.expanded').forEach(container => {
-                const group = container.querySelector('.indicator-group');
-                if (group) {
-                    group.style.display = 'none';
-                }
-                container.classList.remove('expanded');
-                // 状態を同期
-                const hamburger = container.querySelector('.hamburger');
-                if (hamburger) {
-                    const nodeId = parseInt(hamburger.dataset.nodeId, 10);
-                    const node = state.nodes.find(n => n.id === nodeId);
-                    if (node) node.indicatorsExpanded = false;
-                }
-            });
-        });
 
         function createIndicatorMenu(node) {
             const container = document.createElement('div');
             container.className = 'node-indicators';
-            if (node.indicatorsExpanded) {
-                container.classList.add('expanded');
-            }
-
-            const hamburger = document.createElement('span');
-            hamburger.className = 'hamburger';
-            hamburger.textContent = '☰';
-            hamburger.title = '詳細情報を表示';
-            hamburger.dataset.nodeId = node.id;
-            hamburger.setAttribute('role', 'button');
-            hamburger.setAttribute('tabindex', '0');
-            hamburger.style.cssText = 'cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; font-size: 14px; pointer-events: auto; position: relative; z-index: 100; visibility: visible; user-select: none;';
-            
-            const toggleMenu = function(e) {
-                if (e) e.stopPropagation();
-                const container = hamburger.closest('.node-indicators');
-                if (!container) return;
-                const group = container.querySelector('.indicator-group');
-                if (!group) return;
-                
-                const nodeId = parseInt(hamburger.dataset.nodeId, 10);
-                const targetNode = state.nodes.find(n => n.id === nodeId);
-                if (!targetNode) return;
-                
-                // 他の開いているグループを閉じる
-                document.querySelectorAll('.node-indicators.expanded').forEach(otherContainer => {
-                    if (otherContainer !== container) {
-                        otherContainer.classList.remove('expanded');
-                        const otherNodeId = otherContainer.querySelector('.hamburger')?.dataset?.nodeId;
-                        if (otherNodeId) {
-                            const otherNode = state.nodes.find(n => n.id === parseInt(otherNodeId, 10));
-                            if (otherNode) otherNode.indicatorsExpanded = false;
-                        }
-                    }
-                });
-                
-                // トグル
-                targetNode.indicatorsExpanded = !targetNode.indicatorsExpanded;
-                container.classList.toggle('expanded', targetNode.indicatorsExpanded);
-            };
-            
-            let isMouseDownHandled = false;
-            hamburger.addEventListener('mousedown', (e) => {
-                console.log('[DEBUG] hamburger mousedown');
-                e.stopPropagation();
-                isMouseDownHandled = true;
-                toggleMenu(e);
-            });
-            hamburger.addEventListener('click', (e) => {
-                console.log('[DEBUG] hamburger click');
-                e.stopPropagation();
-                if (isMouseDownHandled) {
-                    isMouseDownHandled = false;
-                    return;
-                }
-                toggleMenu(e);
-            });
-            hamburger.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    toggleMenu(e);
-                }
-            });
-            container.appendChild(hamburger);
 
             const group = document.createElement('div');
             group.className = 'indicator-group';
