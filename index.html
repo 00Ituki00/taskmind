@@ -1629,8 +1629,10 @@
                     when: {
                         repeatType: 'none',
                         baseTime: '09:00',
+                        deadlineType: 'relative',
                         deadlineDays: 0,
                         deadlineTime: '18:00',
+                        deadlineDate: null,
                         // 年: 毎年◯月◯日
                         yearMonth: 1,
                         yearDay: 1,
@@ -2261,7 +2263,7 @@
                     node.priority = parseInt(sel.value);
                 } else {
                     const ta = popup.querySelector('textarea');
-                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseTime: '09:00', deadlineDays: 0, deadlineTime: '18:00', nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
                     node.details[type] = ta.value;
                 }
                 popup.remove();
@@ -2332,8 +2334,8 @@
             wSection.appendChild(wTitle);
             
             // Initialize when data
-            if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineDays: 0, deadlineTime: '18:00', yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
-            if (!node.details.when) node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineDays: 0, deadlineTime: '18:00', yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+            if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+            if (!node.details.when) node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
             
             const whenEditor = createWhenEditorUI(node.details.when, (newWhen) => {
                 node.details.when = newWhen;
@@ -2374,7 +2376,7 @@
             saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
             saveBtn.addEventListener('click', () => {
                 node.priority = parseInt(pSelect.value);
-                if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineDays: 0, deadlineTime: '18:00', yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+                if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
                 // Save when data from integrated editor
                 if (whenEditor) {
                     node.details.when = whenEditor.getValue();
@@ -2618,10 +2620,49 @@
             deadlineSection.className = 'when-section';
             const deadlineLabel = document.createElement('div');
             deadlineLabel.className = 'when-section-label';
-            deadlineLabel.textContent = '期限（開始から）';
+            deadlineLabel.textContent = '期限設定';
             deadlineSection.appendChild(deadlineLabel);
-            const deadlineRow = document.createElement('div');
-            deadlineRow.className = 'when-row';
+
+            // 期限タイプ選択
+            const deadlineTypeRow = document.createElement('div');
+            deadlineTypeRow.className = 'when-row';
+            deadlineTypeRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;';
+            const dlTypeRelative = document.createElement('div');
+            dlTypeRelative.className = 'when-type-btn' + ((w.deadlineType || 'relative') === 'relative' ? ' active' : '');
+            dlTypeRelative.textContent = '相対（開始から）';
+            dlTypeRelative.style.cssText = 'flex:1;font-size:11px;padding:5px 2px;';
+            const dlTypeAbsolute = document.createElement('div');
+            dlTypeAbsolute.className = 'when-type-btn' + (w.deadlineType === 'absolute' ? ' active' : '');
+            dlTypeAbsolute.textContent = '絶対（特定日時）';
+            dlTypeAbsolute.style.cssText = 'flex:1;font-size:11px;padding:5px 2px;';
+
+            let currentDeadlineType = w.deadlineType || 'relative';
+
+            function updateDeadlineUI() {
+                relativeRow.style.display = currentDeadlineType === 'relative' ? 'flex' : 'none';
+                absoluteRow.style.display = currentDeadlineType === 'absolute' ? 'flex' : 'none';
+                dlTypeRelative.classList.toggle('active', currentDeadlineType === 'relative');
+                dlTypeAbsolute.classList.toggle('active', currentDeadlineType === 'absolute');
+                updatePreview();
+            }
+
+            dlTypeRelative.addEventListener('click', () => {
+                currentDeadlineType = 'relative';
+                updateDeadlineUI();
+                if (onChange) onChange(getValue());
+            });
+            dlTypeAbsolute.addEventListener('click', () => {
+                currentDeadlineType = 'absolute';
+                updateDeadlineUI();
+                if (onChange) onChange(getValue());
+            });
+            deadlineTypeRow.appendChild(dlTypeRelative);
+            deadlineTypeRow.appendChild(dlTypeAbsolute);
+            deadlineSection.appendChild(deadlineTypeRow);
+
+            // 相対期限
+            const relativeRow = document.createElement('div');
+            relativeRow.className = 'when-row';
             const deadlineDays = document.createElement('input');
             deadlineDays.type = 'number';
             deadlineDays.min = '0';
@@ -2631,11 +2672,32 @@
             deadlineTime.type = 'time';
             deadlineTime.value = w.deadlineTime || '18:00';
             deadlineTime.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
-            deadlineRow.appendChild(deadlineDays);
-            deadlineRow.appendChild(document.createTextNode(' 日後 '));
-            deadlineRow.appendChild(deadlineTime);
-            deadlineRow.appendChild(document.createTextNode(' まで'));
-            deadlineSection.appendChild(deadlineRow);
+            relativeRow.appendChild(deadlineDays);
+            relativeRow.appendChild(document.createTextNode(' 日後 '));
+            relativeRow.appendChild(deadlineTime);
+            relativeRow.appendChild(document.createTextNode(' まで'));
+            deadlineSection.appendChild(relativeRow);
+
+            // 絶対期限
+            const absoluteRow = document.createElement('div');
+            absoluteRow.className = 'when-row';
+            const deadlineDateInput = document.createElement('input');
+            deadlineDateInput.type = 'datetime-local';
+            // デフォルト値: 現在時刻+1日の18:00
+            const defaultDl = new Date();
+            defaultDl.setDate(defaultDl.getDate() + 1);
+            defaultDl.setHours(18, 0, 0, 0);
+            const toLocalISO = d => {
+                const pad = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            };
+            deadlineDateInput.value = w.deadlineDate ? w.deadlineDate.substring(0, 16) : toLocalISO(defaultDl);
+            deadlineDateInput.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
+            deadlineDateInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
+            absoluteRow.appendChild(deadlineDateInput);
+            absoluteRow.appendChild(document.createTextNode(' まで'));
+            deadlineSection.appendChild(absoluteRow);
+
             container.appendChild(deadlineSection);
 
             // --- プレビュー ---
@@ -2683,8 +2745,10 @@
                 return {
                     repeatType: repeatType,
                     baseTime: timeInput.value || '09:00',
+                    deadlineType: currentDeadlineType,
                     deadlineDays: parseInt(deadlineDays.value) || 0,
                     deadlineTime: deadlineTime.value || '18:00',
+                    deadlineDate: deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null,
                     daysOfWeek: currentDaysOfWeek.slice(),
                     weekOfMonth: currentWeekOfMonth,
                     yearMonth: currentYearMonth,
@@ -2728,7 +2792,12 @@
                     text = '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + base + ' 開始';
                 }
 
-                if (dd > 0 || dt !== base) {
+                const dlType = (getValue().deadlineType || 'relative');
+                const dlDate = getValue().deadlineDate;
+                if (dlType === 'absolute' && dlDate) {
+                    const dl = new Date(dlDate);
+                    text += '\n期限：' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
+                } else if (dd > 0 || dt !== base) {
                     text += '\n期限：開始から ' + dd + ' 日後 ' + dt + ' まで';
                 }
 
@@ -2750,8 +2819,8 @@
             if (existing) existing.remove();
 
             // Initialize when data with new structure
-            if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineDays: 0, deadlineTime: '18:00', yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
-            if (!node.details.when) node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineDays: 0, deadlineTime: '18:00', yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+            if (!node.details) node.details = { when: { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+            if (!node.details.when) node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
 
             const popup = document.createElement('div');
             popup.className = 'when-editor-popup';
@@ -2772,7 +2841,7 @@
             clearBtn.className = 'when-btn clear';
             clearBtn.textContent = 'クリア';
             clearBtn.addEventListener('click', () => {
-                node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineDays: 0, deadlineTime: '18:00', yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+                node.details.when = { repeatType: 'none', baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
                 popup.remove();
                 renderNodes();
             });
@@ -2823,10 +2892,15 @@
             const nextDate = new Date(w.nextDate);
 
             // Calculate deadline date
-            const [dlHours, dlMinutes] = (w.deadlineTime || '18:00').split(':');
-            const deadlineDate = new Date(nextDate);
-            deadlineDate.setDate(deadlineDate.getDate() + (w.deadlineDays || 0));
-            deadlineDate.setHours(parseInt(dlHours), parseInt(dlMinutes), 0, 0);
+            let deadlineDate;
+            if (w.deadlineType === 'absolute' && w.deadlineDate) {
+                deadlineDate = new Date(w.deadlineDate);
+            } else {
+                const [dlHours, dlMinutes] = (w.deadlineTime || '18:00').split(':');
+                deadlineDate = new Date(nextDate);
+                deadlineDate.setDate(deadlineDate.getDate() + (w.deadlineDays || 0));
+                deadlineDate.setHours(parseInt(dlHours), parseInt(dlMinutes), 0, 0);
+            }
 
             const container = document.createElement('div');
             container.className = 'when-progress-container';
@@ -2855,7 +2929,7 @@
                 const until = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
                 leftInfo.textContent = `▶${until}`;
                 centerInfo.textContent = `開始 ${fmtHM(nextDate)}`;
-                if (w.deadlineDays > 0) {
+                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
                     rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
                 } else {
                     rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
@@ -2868,7 +2942,7 @@
                 const remain = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
                 leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
                 centerInfo.textContent = `残り ${remain}`;
-                if (w.deadlineDays > 0) {
+                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
                     rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
                 } else {
                     rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
@@ -2877,7 +2951,11 @@
                 // After deadline
                 leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
                 centerInfo.textContent = '期限切れ';
-                rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
+                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                } else {
+                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                }
             }
 
             infoRow.appendChild(leftInfo);
