@@ -2721,9 +2721,6 @@
 
             container.appendChild(deadlineSection);
 
-            // 初期化時に期限タイプの表示状態を反映
-            updateDeadlineUI();
-
             // --- プレビュー ---
             const previewSection = document.createElement('div');
             previewSection.className = 'when-section';
@@ -2839,6 +2836,9 @@
             }
 
             updatePreview();
+
+            // 初期化時に期限タイプの表示状態を反映
+            updateDeadlineUI();
 
             return { el: container, getValue, updatePreview };
         }
