@@ -2793,7 +2793,7 @@
 
                 let text = '';
                 if (uiType === 'none') {
-                    text = '一度だけ：開始 ' + baseStr;
+                    text = '一度だけ';
                 } else if (uiType === 'daily') {
                     text = '毎日 ' + baseTimeStr + ' 開始（初回 ' + baseStr + '）';
                 } else if (uiType === 'weekly') {
@@ -2822,7 +2822,12 @@
 
                 const next = calculateNextDate(getValue());
                 if (next) {
-                    text += '\n次回：' + next.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const nextStr = next.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    if (uiType === 'none') {
+                        text += '\n開始：' + nextStr;
+                    } else {
+                        text += '\n次回：' + nextStr;
+                    }
                 }
 
                 preview.innerHTML = text.replace(/\n/g, '<br>');
@@ -2904,7 +2909,7 @@
         // Returns HTMLElement or null
         function createWhenProgressBar(node) {
             const w = node.details?.when;
-            if (!w || !w.repeatType || w.repeatType === 'none' || !w.nextDate) return null;
+            if (!w || !w.repeatType || !w.nextDate) return null;
             if (node.completed) return null; // 完了済みは非表示
 
             const now = new Date();
@@ -3058,7 +3063,7 @@
 
         // Calculate next activation date based on when settings
         function calculateNextDate(when) {
-            if (!when || !when.repeatType || when.repeatType === 'none') return null;
+            if (!when || !when.repeatType) return null;
 
             const now = new Date();
             let hours, minutes;
@@ -3075,6 +3080,11 @@
                 minutes = parseInt(timeParts[1]);
                 next = new Date(now);
                 next.setHours(hours, minutes, 0, 0);
+            }
+
+            // 一度だけの場合は baseDateTime/baseTime をそのまま nextDate として使用
+            if (when.repeatType === 'none') {
+                return next;
             }
 
             if (when.repeatType === 'daily') {
@@ -3224,7 +3234,7 @@
             }
 
             // 未知のrepeatTypeの場合はnullを返す（不整合データのガード）
-            if (!['daily', 'weekly', 'monthly', 'yearly'].includes(when.repeatType)) {
+            if (!['none', 'daily', 'weekly', 'monthly', 'yearly'].includes(when.repeatType)) {
                 return null;
             }
 
