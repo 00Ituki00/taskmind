@@ -5782,6 +5782,12 @@ function getNodeEdgePoint(node, targetNode) {
                             console.error('Error in enableTitleEdit:', err);
                         }
                     }});
+                    items.push({ text: '接続作成', icon: '🔗', action: () => {
+                        state.connectingFrom = childId;
+                        modeIndicator.textContent = '接続モード: 終了ノードを選択(右クリックでキャンセル)';
+                        modeIndicator.classList.add('active');
+                        setMode('connect');
+                    }});
                     items.push({ text: '子ノードを削除', icon: '🗑️', class: 'delete', action: () => {
                         if (confirm('この子ノードを削除しますか?')) {
                             const parent = state.nodes.find(n => n.id === childNode.parentId);
