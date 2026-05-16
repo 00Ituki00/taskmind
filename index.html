@@ -1747,14 +1747,14 @@
     // 相手が右にいるなら右端、左にいるなら左端（接続元/先関係なく同じ判定）
     const otherOnRight = ocx >= ncx;
 
+    // 子ノードの場合は親ノードの外に接続点を出すため、オフセットを大きくする
+    const isChildNode = node.parentId !== null;
+    const offset = isChildNode ? 20 : 0;
+
     if (otherOnRight) {
-        // 子ノードの場合は右端を少し外側に出して視認性を上げる
-        const offset = node.parentId !== null ? 6 : 0;
         return { x: nx + nodeWidth + offset, y: ny + nodeHeight / 2 };
     } else {
-        // 子ノードの場合は左端を少し外側に出して視認性を上げる
-        const offset = node.parentId !== null ? -6 : 0;
-        return { x: nx + offset, y: ny + nodeHeight / 2 };
+        return { x: nx - offset, y: ny + nodeHeight / 2 };
     }
 }
 
@@ -3893,9 +3893,9 @@ function getNodeEdgePoint(node, targetNode) {
                 fromDot.setAttribute('cx', x1);
                 fromDot.setAttribute('cy', y1);
                 fromDot.setAttribute('r', '5');
-                fromDot.setAttribute('fill', fromColor);
-                fromDot.setAttribute('stroke', '#fff');
-                fromDot.setAttribute('stroke-width', '1.5');
+                fromDot.setAttribute('fill', '#fff');
+                fromDot.setAttribute('stroke', fromColor);
+                fromDot.setAttribute('stroke-width', '2');
                 fromDot.setAttribute('pointer-events', 'none');
                 fromDot.classList.add('conn-endpoint');
                 group.appendChild(fromDot);
@@ -3904,9 +3904,9 @@ function getNodeEdgePoint(node, targetNode) {
                 toDot.setAttribute('cx', x2);
                 toDot.setAttribute('cy', y2);
                 toDot.setAttribute('r', '5');
-                toDot.setAttribute('fill', toColor);
-                toDot.setAttribute('stroke', '#fff');
-                toDot.setAttribute('stroke-width', '1.5');
+                toDot.setAttribute('fill', '#fff');
+                toDot.setAttribute('stroke', toColor);
+                toDot.setAttribute('stroke-width', '2');
                 toDot.setAttribute('pointer-events', 'none');
                 toDot.classList.add('conn-endpoint');
                 group.appendChild(toDot);
