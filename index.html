@@ -49,14 +49,12 @@
 
         .connection-line {
             fill: none;
-            stroke: #999;
             stroke-width: 2;
             pointer-events: none;
             cursor: pointer;
         }
 
         .conn-group:hover .connection-line {
-            stroke: #666;
             stroke-width: 3;
         }
 
@@ -1680,18 +1678,15 @@
     const ncx = nx + nodeWidth / 2;
     const ocx = ox + otherWidth / 2;
 
-    if (isSource) {
-        if (ocx >= ncx) {
-            return { x: nx + nodeWidth, y: ny + nodeHeight / 2 };
-        } else {
-            return { x: nx, y: ny + nodeHeight / 2 };
-        }
+    // 相手が右にいるなら右端、左にいるなら左端（接続元/先関係なく同じ判定）
+    const otherOnRight = ocx >= ncx;
+
+    if (otherOnRight) {
+        return { x: nx + nodeWidth, y: ny + nodeHeight / 2 };
     } else {
-        if (ncx >= ocx) {
-            return { x: nx + nodeWidth, y: ny + nodeHeight / 2 };
-        } else {
-            return { x: nx, y: ny + nodeHeight / 2 };
-        }
+        // 子ノードの場合は左端を少し外側に出して視認性を上げる
+        const offset = node.parentId !== null ? -6 : 0;
+        return { x: nx + offset, y: ny + nodeHeight / 2 };
     }
 }
 
@@ -3679,6 +3674,38 @@ function getNodeEdgePoint(node, targetNode) {
 
                 const pathD = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
 
+                // Get node colors for gradient and endpoints
+                const fromColor = fromNode.color || '#999';
+                const toColor = toNode.color || '#999';
+
+                // Create SVG gradient for this connection
+                const svg = document.getElementById('connections');
+                let defs = svg.querySelector('defs');
+                if (!defs) {
+                    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                    svg.prepend(defs);
+                }
+                const gradId = `conn-grad-${conn.from}-${conn.to}`;
+                // Remove existing gradient if any (to update colors)
+                const existingGrad = document.getElementById(gradId);
+                if (existingGrad) existingGrad.remove();
+                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+                gradient.setAttribute('id', gradId);
+                gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+                gradient.setAttribute('x1', x1);
+                gradient.setAttribute('y1', y1);
+                gradient.setAttribute('x2', x2);
+                gradient.setAttribute('y2', y2);
+                const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop1.setAttribute('offset', '0%');
+                stop1.setAttribute('stop-color', fromColor);
+                const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop2.setAttribute('offset', '100%');
+                stop2.setAttribute('stop-color', toColor);
+                gradient.appendChild(stop1);
+                gradient.appendChild(stop2);
+                defs.appendChild(gradient);
+
                 // Group for hover management
                 const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 group.classList.add('conn-group');
@@ -3695,10 +3722,11 @@ function getNodeEdgePoint(node, targetNode) {
                 hitPath.style.pointerEvents = 'all';
                 hitPath.style.cursor = 'pointer';
 
-                // Visible line - no pointer events, let hitPath handle interactions
+                // Visible line with gradient
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', pathD);
                 path.setAttribute('class', 'connection-line');
+                path.setAttribute('stroke', `url(#${gradId})`);
                 path.setAttribute('pointer-events', 'none');
                 path.style.pointerEvents = 'none';
 
@@ -3768,6 +3796,27 @@ function getNodeEdgePoint(node, targetNode) {
 
                 group.appendChild(hitPath);
                 group.appendChild(path);
+
+                // Endpoint dots colored by each node's color box
+                const fromDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromDot.setAttribute('cx', x1);
+                fromDot.setAttribute('cy', y1);
+                fromDot.setAttribute('r', '4');
+                fromDot.setAttribute('fill', fromColor);
+                fromDot.setAttribute('stroke', '#fff');
+                fromDot.setAttribute('stroke-width', '1.5');
+                fromDot.setAttribute('pointer-events', 'none');
+                group.appendChild(fromDot);
+
+                const toDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                toDot.setAttribute('cx', x2);
+                toDot.setAttribute('cy', y2);
+                toDot.setAttribute('r', '4');
+                toDot.setAttribute('fill', toColor);
+                toDot.setAttribute('stroke', '#fff');
+                toDot.setAttribute('stroke-width', '1.5');
+                toDot.setAttribute('pointer-events', 'none');
+                group.appendChild(toDot);
 
                 // Collapsed indicator at mid-point (where label would be)
                 let indX, indY;
