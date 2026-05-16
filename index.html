@@ -48,12 +48,14 @@
         }
 
         .conn-endpoint {
-            transition: r 0.2s ease;
+            transition: r 0.2s ease, opacity 0.2s ease;
+            opacity: 0;
         }
 
         .conn-group:hover .conn-endpoint {
             r: 7;
             stroke-width: 2;
+            opacity: 1;
         }
 
         .conn-group:hover polygon {
@@ -1663,27 +1665,33 @@
 
         // ==================== Helpers ====================
         function getNodeConnectionSidePoint(node, otherNode, isSource) {
-    let nodeWidth = node.width || 200;
-    let nodeHeight = node.height || 50;
+    // Get accurate position from DOM when available
+    let nx, ny, nodeWidth, nodeHeight;
     const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
     if (domEl) {
-        nodeWidth = domEl.offsetWidth;
-        nodeHeight = domEl.offsetHeight;
+        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+        const rect = domEl.getBoundingClientRect();
+        nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+        ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+        nodeWidth = rect.width / state.scale;
+        nodeHeight = rect.height / state.scale;
+    } else {
+        nx = node.x; ny = node.y;
+        if (node.parentId !== null) {
+            const abs = getNodeAbsolutePosition(node);
+            nx = abs.x; ny = abs.y;
+        }
+        nodeWidth = node.width || 200;
+        nodeHeight = node.height || 50;
     }
 
     let otherWidth = otherNode.width || 200;
     const otherDomEl = document.querySelector(`.node[data-id="${otherNode.id}"]`);
     if (otherDomEl) {
-        otherWidth = otherDomEl.offsetWidth;
+        otherWidth = otherDomEl.offsetWidth / state.scale;
     }
 
-    let nx = node.x, ny = node.y;
     let ox = otherNode.x, oy = otherNode.y;
-    
-    if (node.parentId !== null) {
-        const abs = getNodeAbsolutePosition(node);
-        nx = abs.x; ny = abs.y;
-    }
     if (otherNode.parentId !== null) {
         const abs = getNodeAbsolutePosition(otherNode);
         ox = abs.x; oy = abs.y;
@@ -1707,30 +1715,50 @@
 }
 
 function getNodeEdgePoint(node, targetNode) {
-            // Use actual DOM dimensions when available for accurate edge calculation
-            let nodeWidth = node.width || 200;
-            let nodeHeight = node.height || 50;
+            // Use actual DOM dimensions and position when available for accurate edge calculation
+            let nodeWidth, nodeHeight, cx, cy;
             const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
             if (domEl) {
-                nodeWidth = domEl.offsetWidth;
-                nodeHeight = domEl.offsetHeight;
+                const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                const rect = domEl.getBoundingClientRect();
+                nodeWidth = rect.width / state.scale;
+                nodeHeight = rect.height / state.scale;
+                const nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+                const ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+                cx = nx + nodeWidth / 2;
+                cy = ny + nodeHeight / 2;
+            } else {
+                nodeWidth = node.width || 200;
+                nodeHeight = node.height || 50;
+                cx = node.x + nodeWidth / 2;
+                cy = node.y + nodeHeight / 2;
             }
-
-            const cx = node.x + nodeWidth / 2;
-            const cy = node.y + nodeHeight / 2;
             const halfW = nodeWidth / 2;
             const halfH = nodeHeight / 2;
 
             let targetWidth = targetNode.width || 200;
             let targetHeight = targetNode.height || 50;
+            let tx, ty;
             const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
             if (targetDomEl) {
-                targetWidth = targetDomEl.offsetWidth;
-                targetHeight = targetDomEl.offsetHeight;
+                const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                const rect = targetDomEl.getBoundingClientRect();
+                targetWidth = rect.width / state.scale;
+                targetHeight = rect.height / state.scale;
+                const tox = (rect.left - canvasRect.left - state.panX) / state.scale;
+                const toy = (rect.top - canvasRect.top - state.panY) / state.scale;
+                tx = tox + targetWidth / 2;
+                ty = toy + targetHeight / 2;
+            } else {
+                tx = targetNode.x + targetWidth / 2;
+                ty = targetNode.y + targetHeight / 2;
+                if (targetNode.parentId !== null) {
+                    const abs = getNodeAbsolutePosition(targetNode);
+                    tx = abs.x + targetWidth / 2;
+                    ty = abs.y + targetHeight / 2;
+                }
             }
 
-            const tx = targetNode.x + targetWidth / 2;
-            const ty = targetNode.y + targetHeight / 2;
             const dx = tx - cx;
             const dy = ty - cy;
             const absDx = Math.abs(dx);
