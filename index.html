@@ -1406,19 +1406,52 @@
         const zoomLevelEl = document.getElementById('zoom-level');
         const fileInput = document.getElementById('file-input');
 
-        // Connection line double-click via event delegation (more reliable than per-element listeners)
+        // Connection line double-click via event delegation with distance-based priority
         let svgConnLastMouseDown = 0;
         let svgConnMouseDownPos = { x: 0, y: 0 };
         connectionsSvg.addEventListener('mousedown', (e) => {
-            // Find the conn-group ancestor first, then query hitPath within it
-            const group = e.target.closest('.conn-group');
-            if (!group) return;
-            const hitPath = group.querySelector('path[stroke-width="20"]');
-            if (!hitPath) return;
-            const from = parseInt(group.getAttribute('data-from'));
-            const to = parseInt(group.getAttribute('data-to'));
-            const conn = state.connections.find(c => c.from === from && c.to === to);
-            if (!conn) return;
+            // Find closest connection path to mouse position (distance-based priority)
+            const mouseX = (e.clientX - state.panX) / state.scale;
+            const mouseY = (e.clientY - state.panY) / state.scale;
+
+            let closestConn = null;
+            let closestGroup = null;
+            let minDist = Infinity;
+
+            const groups = connectionsSvg.querySelectorAll('.conn-group');
+            for (const group of groups) {
+                const hitPath = group.querySelector('path[stroke-width="10"]');
+                if (!hitPath) continue;
+                const from = parseInt(group.getAttribute('data-from'));
+                const to = parseInt(group.getAttribute('data-to'));
+                const conn = state.connections.find(c => c.from === from && c.to === to);
+                if (!conn) continue;
+
+                // Calculate distance from mouse to path
+                const pathLen = hitPath.getTotalLength();
+                if (pathLen === 0) continue;
+
+                let bestDist = Infinity;
+                const step = Math.max(pathLen / 20, 5);
+                for (let i = 0; i <= pathLen; i += step) {
+                    const pt = hitPath.getPointAtLength(Math.min(i, pathLen));
+                    const d = Math.hypot(pt.x - mouseX, pt.y - mouseY);
+                    if (d < bestDist) bestDist = d;
+                }
+
+                // Convert hit threshold to canvas scale
+                const threshold = 15 / state.scale;
+                if (bestDist < threshold && bestDist < minDist) {
+                    minDist = bestDist;
+                    closestConn = conn;
+                    closestGroup = group;
+                }
+            }
+
+            if (!closestConn || !closestGroup) return;
+
+            const from = closestConn.from;
+            const to = closestConn.to;
             const now = Date.now();
             const dx = e.clientX - svgConnMouseDownPos.x;
             const dy = e.clientY - svgConnMouseDownPos.y;
@@ -1427,10 +1460,10 @@
                 svgConnLastMouseDown = 0;
                 e.stopPropagation();
                 e.preventDefault();
-                conn.collapsed = !conn.collapsed;
-                if (conn.collapsed && !conn.originalToPos) {
+                closestConn.collapsed = !closestConn.collapsed;
+                if (closestConn.collapsed && !closestConn.originalToPos) {
                     const toNode = state.nodes.find(n => n.id === to);
-                    if (toNode) conn.originalToPos = { x: toNode.x, y: toNode.y };
+                    if (toNode) closestConn.originalToPos = { x: toNode.x, y: toNode.y };
                 }
                 renderNodes();
                 renderConnections();
@@ -1664,6 +1697,17 @@
         });
 
         // ==================== Helpers ====================
+        function darkenColor(color, factor = 0.75) {
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            const dr = Math.round(r * factor);
+            const dg = Math.round(g * factor);
+            const db = Math.round(b * factor);
+            return `#${dr.toString(16).padStart(2,'0')}${dg.toString(16).padStart(2,'0')}${db.toString(16).padStart(2,'0')}`;
+        }
+
         function getNodeConnectionSidePoint(node, otherNode, isSource) {
     // Get accurate position from DOM when available
     let nx, ny, nodeWidth, nodeHeight;
@@ -3759,12 +3803,12 @@ function getNodeEdgePoint(node, targetNode) {
                 group.setAttribute('data-from', conn.from);
                 group.setAttribute('data-to', conn.to);
 
-                // Invisible wider path for easier hit testing
+                // Invisible wider path for easier hit testing (reduced from 20 to 10)
                 const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 hitPath.setAttribute('d', pathD);
                 hitPath.setAttribute('fill', 'none');
-                hitPath.setAttribute('stroke', 'rgba(0,0,0,0.01)');
-                hitPath.setAttribute('stroke-width', '20');
+                hitPath.setAttribute('stroke', 'rgba(0,0,0,0)');
+                hitPath.setAttribute('stroke-width', '10');
                 hitPath.setAttribute('pointer-events', 'all');
                 hitPath.style.pointerEvents = 'all';
                 hitPath.style.cursor = 'pointer';
@@ -4074,14 +4118,47 @@ function getNodeEdgePoint(node, targetNode) {
                     group.appendChild(arrow);
                 }
 
-                // Right-click on connection to delete
+                // Right-click on connection to delete - use distance-based priority
                 group.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    showConnectionContextMenu(e.clientX, e.clientY, conn);
+
+                    // Distance-based priority: check if this is the closest connection to mouse
+                    const mouseX = (e.clientX - state.panX) / state.scale;
+                    const mouseY = (e.clientY - state.panY) / state.scale;
+
+                    let closestConn = conn;
+                    let minDist = Infinity;
+
+                    const groups = connectionsSvg.querySelectorAll('.conn-group');
+                    for (const g of groups) {
+                        const hitPath = g.querySelector('path[stroke-width="10"]');
+                        if (!hitPath) continue;
+                        const pathLen = hitPath.getTotalLength();
+                        if (pathLen === 0) continue;
+
+                        let bestDist = Infinity;
+                        const step = Math.max(pathLen / 20, 5);
+                        for (let i = 0; i <= pathLen; i += step) {
+                            const pt = hitPath.getPointAtLength(Math.min(i, pathLen));
+                            const d = Math.hypot(pt.x - mouseX, pt.y - mouseY);
+                            if (d < bestDist) bestDist = d;
+                        }
+
+                        const threshold = 15 / state.scale;
+                        if (bestDist < threshold && bestDist < minDist) {
+                            minDist = bestDist;
+                            const fromId = parseInt(g.getAttribute('data-from'));
+                            const toId = parseInt(g.getAttribute('data-to'));
+                            const foundConn = state.connections.find(c => c.from === fromId && c.to === toId);
+                            if (foundConn) closestConn = foundConn;
+                        }
+                    }
+
+                    showConnectionContextMenu(e.clientX, e.clientY, closestConn);
                 });
 
-                // Wider invisible hover area
+                // Wider invisible hover area (reduced from 30 to 15)
                 const hoverPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 // Use shortened path when collapsed to avoid hidden node area
                 if (conn.collapsed) {
@@ -4093,7 +4170,7 @@ function getNodeEdgePoint(node, targetNode) {
                 }
                 hoverPath.setAttribute('fill', 'none');
                 hoverPath.setAttribute('stroke', 'transparent');
-                hoverPath.setAttribute('stroke-width', '30');
+                hoverPath.setAttribute('stroke-width', '15');
                 hoverPath.setAttribute('pointer-events', 'stroke');
                 hoverPath.setAttribute('cursor', 'pointer');
                 hoverPath.style.opacity = '0';
