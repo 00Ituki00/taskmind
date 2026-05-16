@@ -47,6 +47,20 @@
             overflow: visible;
         }
 
+        .conn-endpoint {
+            transition: r 0.2s ease;
+        }
+
+        .conn-group:hover .conn-endpoint {
+            r: 7;
+            stroke-width: 2;
+        }
+
+        .conn-group:hover polygon {
+            fill-opacity: 1;
+            filter: drop-shadow(0 0 2px rgba(0,0,0,0.2));
+        }
+
         .connection-line {
             fill: none;
             stroke-width: 2;
@@ -1682,7 +1696,9 @@
     const otherOnRight = ocx >= ncx;
 
     if (otherOnRight) {
-        return { x: nx + nodeWidth, y: ny + nodeHeight / 2 };
+        // 子ノードの場合は右端を少し外側に出して視認性を上げる
+        const offset = node.parentId !== null ? 6 : 0;
+        return { x: nx + nodeWidth + offset, y: ny + nodeHeight / 2 };
     } else {
         // 子ノードの場合は左端を少し外側に出して視認性を上げる
         const offset = node.parentId !== null ? -6 : 0;
@@ -3273,7 +3289,10 @@ function getNodeEdgePoint(node, targetNode) {
                     }
 
                     // Use unified drag handler (same as root nodes)
-                    childEl.addEventListener('mousedown', (e) => handleNodeMouseDown(e, child));
+                    childEl.addEventListener('mousedown', (e) => {
+                        e.stopPropagation(); // Prevent parent node event from firing
+                        handleNodeMouseDown(e, child);
+                    });
                     childEl.addEventListener('touchstart', (e) => handleNodeTouchStart(e, child), { passive: false });
 
                     // Use unified drag-and-drop handlers (same as root nodes)
@@ -3801,21 +3820,23 @@ function getNodeEdgePoint(node, targetNode) {
                 const fromDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 fromDot.setAttribute('cx', x1);
                 fromDot.setAttribute('cy', y1);
-                fromDot.setAttribute('r', '4');
+                fromDot.setAttribute('r', '5');
                 fromDot.setAttribute('fill', fromColor);
                 fromDot.setAttribute('stroke', '#fff');
                 fromDot.setAttribute('stroke-width', '1.5');
                 fromDot.setAttribute('pointer-events', 'none');
+                fromDot.classList.add('conn-endpoint');
                 group.appendChild(fromDot);
 
                 const toDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 toDot.setAttribute('cx', x2);
                 toDot.setAttribute('cy', y2);
-                toDot.setAttribute('r', '4');
+                toDot.setAttribute('r', '5');
                 toDot.setAttribute('fill', toColor);
                 toDot.setAttribute('stroke', '#fff');
                 toDot.setAttribute('stroke-width', '1.5');
                 toDot.setAttribute('pointer-events', 'none');
+                toDot.classList.add('conn-endpoint');
                 group.appendChild(toDot);
 
                 // Collapsed indicator at mid-point (where label would be)
@@ -4021,7 +4042,7 @@ function getNodeEdgePoint(node, targetNode) {
                         ${x2 - arrowLen * Math.cos(angle - arrowAngle)},${y2 - arrowLen * Math.sin(angle - arrowAngle)}
                         ${x2 - arrowLen * Math.cos(angle + arrowAngle)},${y2 - arrowLen * Math.sin(angle + arrowAngle)}
                     `);
-                    arrow.setAttribute('fill', '#999');
+                    arrow.setAttribute('fill', toColor);
                     group.appendChild(arrow);
                 }
 
@@ -4529,8 +4550,13 @@ function getNodeEdgePoint(node, targetNode) {
                 let candidates = [];
                 for (const node of state.nodes) {
                     if (node.id === state.draggingConn.from || node.id === state.draggingConn.to) continue;
-                    const nx = node.x;
-                    const ny = node.y;
+                    let nx, ny;
+                    if (node.parentId !== null) {
+                        const abs = getNodeAbsolutePosition(node);
+                        nx = abs.x; ny = abs.y;
+                    } else {
+                        nx = node.x; ny = node.y;
+                    }
                     const nw = node.width || 200;
                     const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
                     const nh = domEl ? domEl.offsetHeight : (node.height || 50);
