@@ -1650,7 +1650,52 @@
         });
 
         // ==================== Helpers ====================
-        function getNodeEdgePoint(node, targetNode) {
+        function getNodeConnectionSidePoint(node, otherNode, isSource) {
+    let nodeWidth = node.width || 200;
+    let nodeHeight = node.height || 50;
+    const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+    if (domEl) {
+        nodeWidth = domEl.offsetWidth;
+        nodeHeight = domEl.offsetHeight;
+    }
+
+    let otherWidth = otherNode.width || 200;
+    const otherDomEl = document.querySelector(`.node[data-id="${otherNode.id}"]`);
+    if (otherDomEl) {
+        otherWidth = otherDomEl.offsetWidth;
+    }
+
+    let nx = node.x, ny = node.y;
+    let ox = otherNode.x, oy = otherNode.y;
+    
+    if (node.parentId !== null) {
+        const abs = getNodeAbsolutePosition(node);
+        nx = abs.x; ny = abs.y;
+    }
+    if (otherNode.parentId !== null) {
+        const abs = getNodeAbsolutePosition(otherNode);
+        ox = abs.x; oy = abs.y;
+    }
+
+    const ncx = nx + nodeWidth / 2;
+    const ocx = ox + otherWidth / 2;
+
+    if (isSource) {
+        if (ocx >= ncx) {
+            return { x: nx + nodeWidth, y: ny + nodeHeight / 2 };
+        } else {
+            return { x: nx, y: ny + nodeHeight / 2 };
+        }
+    } else {
+        if (ncx >= ocx) {
+            return { x: nx + nodeWidth, y: ny + nodeHeight / 2 };
+        } else {
+            return { x: nx, y: ny + nodeHeight / 2 };
+        }
+    }
+}
+
+function getNodeEdgePoint(node, targetNode) {
             // Use actual DOM dimensions when available for accurate edge calculation
             let nodeWidth = node.width || 200;
             let nodeHeight = node.height || 50;
@@ -3586,22 +3631,43 @@
                 const toNode = state.nodes.find(n => n.id === conn.to);
                 if (!fromNode || !toNode) return;
 
-                // Skip connections involving child nodes (rendered inside parent's task list)
-                if (fromNode.parentId !== null || toNode.parentId !== null) return;
+                // Skip parent-child relationships (already shown as nested list)
+                if (toNode.parentId === fromNode.id || fromNode.parentId === toNode.id) return;
 
-                // Calculate edge points (intersection with node boundaries)
-                const fromEdge = getNodeEdgePoint(fromNode, toNode);
-                const toEdge = getNodeEdgePoint(toNode, fromNode);
+                // Calculate edge points: root nodes use center, child nodes use left/right side
+                let fromEdge, toEdge;
+                if (fromNode.parentId === null) {
+                    fromEdge = getNodeEdgePoint(fromNode, toNode);
+                } else {
+                    fromEdge = getNodeConnectionSidePoint(fromNode, toNode, true);
+                }
+                if (toNode.parentId === null) {
+                    toEdge = getNodeEdgePoint(toNode, fromNode);
+                } else {
+                    toEdge = getNodeConnectionSidePoint(toNode, fromNode, false);
+                }
 
                 const x1 = fromEdge.x;
                 const y1 = fromEdge.y;
                 const x2 = toEdge.x;
                 const y2 = toEdge.y;
 
-                const fromCx = fromNode.x + (fromNode.width || 200) / 2;
-                const fromCy = fromNode.y + (fromNode.height || 50) / 2;
-                const toCx = toNode.x + (toNode.width || 200) / 2;
-                const toCy = toNode.y + (toNode.height || 50) / 2;
+                // Calculate absolute centers for control points
+                let fromAbsX = fromNode.x, fromAbsY = fromNode.y;
+                let toAbsX = toNode.x, toAbsY = toNode.y;
+                if (fromNode.parentId !== null) {
+                    const abs = getNodeAbsolutePosition(fromNode);
+                    fromAbsX = abs.x; fromAbsY = abs.y;
+                }
+                if (toNode.parentId !== null) {
+                    const abs = getNodeAbsolutePosition(toNode);
+                    toAbsX = abs.x; toAbsY = abs.y;
+                }
+
+                const fromCx = fromAbsX + (fromNode.width || 200) / 2;
+                const fromCy = fromAbsY + (fromNode.height || 50) / 2;
+                const toCx = toAbsX + (toNode.width || 200) / 2;
+                const toCy = toAbsY + (toNode.height || 50) / 2;
 
                 const dx = toCx - fromCx;
                 const dy = toCy - fromCy;
