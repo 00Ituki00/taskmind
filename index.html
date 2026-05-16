@@ -53,7 +53,7 @@
         }
 
         .conn-group:hover .conn-endpoint {
-            r: 7;
+            r: 9;
             stroke-width: 2;
             opacity: 1;
         }
@@ -1749,7 +1749,7 @@
 
     // 子ノードの場合は親ノードの外に接続点を出すため、オフセットを大きくする
     const isChildNode = node.parentId !== null;
-    const offset = isChildNode ? 20 : 0;
+    const offset = isChildNode ? 12 : 0;
 
     if (otherOnRight) {
         return { x: nx + nodeWidth + offset, y: ny + nodeHeight / 2 };
@@ -3892,10 +3892,10 @@ function getNodeEdgePoint(node, targetNode) {
                 const fromDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 fromDot.setAttribute('cx', x1);
                 fromDot.setAttribute('cy', y1);
-                fromDot.setAttribute('r', '5');
-                fromDot.setAttribute('fill', '#fff');
-                fromDot.setAttribute('stroke', fromColor);
-                fromDot.setAttribute('stroke-width', '2');
+                fromDot.setAttribute('r', '7');
+                fromDot.style.fill = '#fff';
+                fromDot.style.stroke = fromColor;
+                fromDot.style.strokeWidth = '1.5';
                 fromDot.setAttribute('pointer-events', 'none');
                 fromDot.classList.add('conn-endpoint');
                 group.appendChild(fromDot);
@@ -3903,10 +3903,10 @@ function getNodeEdgePoint(node, targetNode) {
                 const toDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 toDot.setAttribute('cx', x2);
                 toDot.setAttribute('cy', y2);
-                toDot.setAttribute('r', '5');
-                toDot.setAttribute('fill', '#fff');
-                toDot.setAttribute('stroke', toColor);
-                toDot.setAttribute('stroke-width', '2');
+                toDot.setAttribute('r', '7');
+                toDot.style.fill = '#fff';
+                toDot.style.stroke = toColor;
+                toDot.style.strokeWidth = '1.5';
                 toDot.setAttribute('pointer-events', 'none');
                 toDot.classList.add('conn-endpoint');
                 group.appendChild(toDot);
@@ -3932,7 +3932,7 @@ function getNodeEdgePoint(node, targetNode) {
                     indicator.setAttribute('cy', indY);
                     indicator.setAttribute('r', '12');
                     indicator.setAttribute('fill', '#fff');
-                    indicator.setAttribute('stroke', '#4a90d9');
+                    indicator.setAttribute('stroke', toColor);
                     indicator.setAttribute('stroke-width', '2');
                     indicator.setAttribute('class', 'collapse-indicator');
                     indicator.style.cursor = 'pointer';
@@ -3943,7 +3943,7 @@ function getNodeEdgePoint(node, targetNode) {
                     plus.setAttribute('y', indY + 4);
                     plus.setAttribute('text-anchor', 'middle');
                     plus.setAttribute('font-size', '14');
-                    plus.setAttribute('fill', '#4a90d9');
+                    plus.setAttribute('fill', toColor);
                     plus.setAttribute('class', 'collapse-plus');
                     plus.style.pointerEvents = 'all';
                     plus.style.cursor = 'pointer';
@@ -4077,6 +4077,7 @@ function getNodeEdgePoint(node, targetNode) {
                 fromPoint.setAttribute('cx', x1);
                 fromPoint.setAttribute('cy', y1);
                 fromPoint.setAttribute('r', '6');
+                fromPoint.style.fill = fromColor;
                 fromPoint.addEventListener('mousedown', (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -4093,6 +4094,7 @@ function getNodeEdgePoint(node, targetNode) {
                     toPoint.setAttribute('cx', x2);
                     toPoint.setAttribute('cy', y2);
                     toPoint.setAttribute('r', '6');
+                    toPoint.style.fill = toColor;
                     toPoint.addEventListener('mousedown', (e) => {
                         e.stopPropagation();
                         e.preventDefault();
