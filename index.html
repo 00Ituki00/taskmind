@@ -1649,7 +1649,7 @@
             return node;
         }
 
-        // Sort children of a node: incomplete first, then by priority desc, then by createdAt asc
+        // Sort children of a node recursively: incomplete first, then by priority desc, then by createdAt asc
         function sortNodeChildren(node) {
             if (!node.children || node.children.length < 2) return;
             node.children.sort((aId, bId) => {
@@ -1670,6 +1670,11 @@
                 const ad = a.createdAt ? new Date(a.createdAt) : new Date(0);
                 const bd = b.createdAt ? new Date(b.createdAt) : new Date(0);
                 return ad - bd;
+            });
+            // Recursively sort nested children
+            node.children.forEach(childId => {
+                const child = state.nodes.find(n => n.id === childId);
+                if (child) sortNodeChildren(child);
             });
         }
 
