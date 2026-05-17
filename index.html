@@ -1314,6 +1314,7 @@
         <button class="tool-btn" id="btn-node" title="ノード追加 (N)" data-mode="node">📦</button>
         <button class="tool-btn" id="btn-connect" title="接続 (C)" data-mode="connect">🔗</button>
         <div class="tool-separator"></div>
+        <button class="tool-btn" id="btn-hide-completed" title="完了済みノードを非表示">👁️</button>
         <button class="tool-btn" id="btn-recalc" title="When再計算">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
@@ -1393,7 +1394,8 @@
             colors: ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4dd0e1', '#4db6ac', '#81c784', '#aed581', '#dce775', '#fff176', '#ffd54f', '#ffb74d', '#ff8a65', '#a1887f', '#e0e0e0'],
             reorderTarget: null,
             lastFileHandle: null,
-            lastFileName: null
+            lastFileName: null,
+            hideCompleted: false
         };
 
         // ==================== DOM refs ====================
@@ -3290,6 +3292,8 @@ function getNodeEdgePoint(node, targetNode) {
                 childIds.forEach(childId => {
                     const child = state.nodes.find(n => n.id === childId);
                     if (!child) return;
+                    // Skip completed nodes when hideCompleted is enabled
+                    if (state.hideCompleted && child.completed) return;
                     // Skip if this child is currently being dragged (and drag has actually started)
                     if (state.dragNode?.id === child.id && state.isDragging) return;
                     // Skip hidden nodes
@@ -3432,6 +3436,8 @@ function getNodeEdgePoint(node, targetNode) {
             state.nodes.forEach(node => {
                 // Skip child nodes unless they are being actively dragged
                 if (node.parentId !== null && !(state.dragNode?.id === node.id && state.isDragging)) return;
+                // Skip completed nodes when hideCompleted is enabled
+                if (state.hideCompleted && node.completed) return;
 
                 const el = document.createElement('div');
                 el.className = 'node' + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
@@ -6416,6 +6422,15 @@ function getNodeEdgePoint(node, targetNode) {
         document.getElementById('btn-recalc').addEventListener('click', () => {
             recalculateWhenDates();
             showToast('When再計算完了');
+        });
+        document.getElementById('btn-hide-completed').addEventListener('click', () => {
+            state.hideCompleted = !state.hideCompleted;
+            const btn = document.getElementById('btn-hide-completed');
+            btn.textContent = state.hideCompleted ? '🙈' : '👁️';
+            btn.title = state.hideCompleted ? '完了済みノードを表示' : '完了済みノードを非表示';
+            btn.classList.toggle('active', state.hideCompleted);
+            renderNodes();
+            showToast(state.hideCompleted ? '完了済みノードを非表示にしました' : '完了済みノードを表示しました');
         });
         fileInput.addEventListener('change', (e) => {
             if (e.target.files[0]) loadFromFile(e.target.files[0]);
