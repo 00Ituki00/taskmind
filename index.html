@@ -722,6 +722,10 @@
             background: #e0e8f0;
         }
 
+        .tool-btn.hide-active {
+            opacity: 0.4;
+        }
+
         .tool-separator {
             width: 1px;
             background: #ddd;
@@ -6429,9 +6433,9 @@ function getNodeEdgePoint(node, targetNode) {
         document.getElementById('btn-hide-completed').addEventListener('click', () => {
             state.hideCompleted = !state.hideCompleted;
             const btn = document.getElementById('btn-hide-completed');
-            btn.textContent = state.hideCompleted ? '🫥' : '👁️';
             btn.title = state.hideCompleted ? '完了済みノードを表示' : '完了済みノードを非表示';
             btn.classList.toggle('active', state.hideCompleted);
+            btn.classList.toggle('hide-active', state.hideCompleted);
             renderNodes();
             renderConnections();
             showToast(state.hideCompleted ? '完了済みノードを非表示にしました' : '完了済みノードを表示しました');
