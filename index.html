@@ -5047,21 +5047,18 @@ function getNodeEdgePoint(node, targetNode) {
                             // Header-only bounding box hit test
                             if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
                                 const centerX = nx + nw / 2;
-                                const centerY = ny + nh / 2;
                                 const dist = Math.hypot(mx - centerX, my - centerY);
-                                candidates.push({ node, dist, midX: nx + nw / 2 });
+                                candidates.push({ node, dist });
                             }
                         }
 
                         // Pick candidate with closest center to mouse
                         let targetNode = null;
                         let minDist = Infinity;
-                        let targetMidX = 0;
                         for (const c of candidates) {
                             if (c.dist < minDist) {
                                 minDist = c.dist;
                                 targetNode = c.node;
-                                targetMidX = c.midX;
                             }
                         }
 
