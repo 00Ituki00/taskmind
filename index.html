@@ -1603,6 +1603,7 @@
         }
 
         function createNode(x, y, title = '新規ノード') {
+            const now = new Date().toISOString();
             const node = {
                 id: state.nextId++,
                 x: x,
@@ -1610,6 +1611,8 @@
                 title: title,
                 color: state.colors[Math.floor(Math.random() * state.colors.length)],
                 completed: false,
+                completedAt: null,
+                createdAt: now,
                 expanded: false,
                 width: calculateNodeWidth(title),
                 height: null,
@@ -3307,6 +3310,7 @@ function getNodeEdgePoint(node, targetNode) {
                         // Ignore right-click (button === 2), only toggle on left-click
                         if (e.button === 2) return;
                         child.completed = !child.completed;
+                        child.completedAt = child.completed ? new Date().toISOString() : null;
                         renderNodes();
                     });
                     childCheckbox.addEventListener('contextmenu', (e) => {
@@ -3468,7 +3472,7 @@ function getNodeEdgePoint(node, targetNode) {
                         // Ignore right-click (button === 2), only toggle on left-click
                         if (e.button === 2) return;
                         node.completed = !node.completed;
-                        renderNodes();
+                        node.completedAt = node.completed ? new Date().toISOString() : null;
                     });
                     checkbox.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
@@ -3513,6 +3517,7 @@ function getNodeEdgePoint(node, targetNode) {
                     // Ignore right-click (button === 2), only toggle on left-click
                     if (e.button === 2) return;
                     node.completed = !node.completed;
+                    node.completedAt = node.completed ? new Date().toISOString() : null;
                     renderNodes();
                 });
                 color.addEventListener('contextmenu', (e) => {
@@ -6461,6 +6466,7 @@ function getNodeEdgePoint(node, targetNode) {
                     // 完了状態で開始日を過ぎていれば有効化(日付のみ比較)
                     if (nextDateStart <= todayStart) {
                         node.completed = false;
+                        node.completedAt = null;
                         activatedNodes.push({ title: node.title, date: nextDate });
                         console.log(`[When] ノード「${node.title}」を有効化(開始日: ${nextDate.toLocaleDateString('ja-JP')})`);
                     }
