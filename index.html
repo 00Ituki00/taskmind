@@ -1617,6 +1617,7 @@
                 width: calculateNodeWidth(title),
                 height: null,
                 parentId: null,
+                children: [],
                 priority: 0,
                 details: {
                     when: {
@@ -1646,6 +1647,30 @@
             state.nodes.push(node);
             renderNodes();
             return node;
+        }
+
+        // Sort children of a node: incomplete first, then by priority desc, then by createdAt asc
+        function sortNodeChildren(node) {
+            if (!node.children || node.children.length < 2) return;
+            node.children.sort((aId, bId) => {
+                const a = state.nodes.find(n => n.id === aId);
+                const b = state.nodes.find(n => n.id === bId);
+                if (!a || !b) return 0;
+                // Completed nodes go to bottom
+                if (a.completed !== b.completed) {
+                    return a.completed ? 1 : -1;
+                }
+                // Same completion status: higher priority first
+                const ap = a.priority || 0;
+                const bp = b.priority || 0;
+                if (ap !== bp) {
+                    return bp - ap;
+                }
+                // Same priority: earlier created first
+                const ad = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                const bd = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                return ad - bd;
+            });
         }
 
         function deleteNode(nodeId) {
@@ -5978,6 +6003,15 @@ function getNodeEdgePoint(node, targetNode) {
                     openBulkDetailEditor(node);
                 }});
                 addIndicatorToolbar(node);
+                items.push({ text: '子ノードをソート', icon: '📊', action: () => {
+                    if (node.children && node.children.length > 1) {
+                        sortNodeChildren(node);
+                        showToast('子ノードをソートしました');
+                    } else {
+                        showToast('ソート対象の子ノードがありません');
+                    }
+                    renderNodes();
+                }});
                 items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
                     if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
                 }});
