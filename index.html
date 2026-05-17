@@ -5015,20 +5015,28 @@ function getNodeEdgePoint(node, targetNode) {
                             let nx, ny, nw, nh;
 
                             if (node.parentId === null) {
-                                // Root node - use absolute coordinates
-                                nx = node.x;
-                                ny = node.y;
-                                nw = node.width || 200;
-                                nh = node.height || 50;
+                                // Root node - use header element bounds for hit test to avoid child overlap
                                 const domElRoot = document.querySelector(`.node[data-id="${node.id}"]`);
                                 if (domElRoot) {
-                                    nh = domElRoot.offsetHeight;
+                                    const headerEl = domElRoot.querySelector('.node-header') || domElRoot.querySelector('.node-title');
+                                    const rect = headerEl ? headerEl.getBoundingClientRect() : domElRoot.getBoundingClientRect();
+                                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                                    nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+                                    ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+                                    nw = rect.width / state.scale;
+                                    nh = rect.height / state.scale;
+                                } else {
+                                    nx = node.x;
+                                    ny = node.y;
+                                    nw = node.width || 200;
+                                    nh = node.height || 50;
                                 }
                             } else {
-                                // Child node - use DOM bounding box
+                                // Child node - use header element bounds for hit test
                                 const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
                                 if (!domEl) continue;
-                                const rect = domEl.getBoundingClientRect();
+                                const headerEl = domEl.querySelector('.node-header') || domEl.querySelector('.node-title');
+                                const rect = headerEl ? headerEl.getBoundingClientRect() : domEl.getBoundingClientRect();
                                 const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
                                 nx = (rect.left - canvasRect.left - state.panX) / state.scale;
                                 ny = (rect.top - canvasRect.top - state.panY) / state.scale;
@@ -5036,12 +5044,11 @@ function getNodeEdgePoint(node, targetNode) {
                                 nh = rect.height / state.scale;
                             }
 
-                            // Bounding box hit test
+                            // Header-only bounding box hit test
                             if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
                                 const centerX = nx + nw / 2;
                                 const centerY = ny + nh / 2;
                                 const dist = Math.hypot(mx - centerX, my - centerY);
-                                // Left/right half: store midX for left/right decision at mouseup
                                 candidates.push({ node, dist, midX: nx + nw / 2 });
                             }
                         }
@@ -5224,7 +5231,9 @@ function getNodeEdgePoint(node, targetNode) {
                                 }
                                 if (!el) el = document.querySelector(`.node[data-id="${siblingId}"]`);
                                 if (!el) continue;
-                                const rect = el.getBoundingClientRect();
+                                // Use header element for hit test to avoid child node overlap
+                                const headerEl = el.querySelector('.node-header') || el.querySelector('.node-title');
+                                const rect = headerEl ? headerEl.getBoundingClientRect() : el.getBoundingClientRect();
                                 // Convert mouse screen coords to canvas coords
                                 const elLeft = (rect.left - canvasRect.left - state.panX) / state.scale;
                                 const elRight = (rect.right - canvasRect.left - state.panX) / state.scale;
@@ -5722,23 +5731,28 @@ function getNodeEdgePoint(node, targetNode) {
                     if (isDescendant) continue;
 
                     let nx, ny, nw, nh;
-                    if (n.parentId === null) {
-                        nx = n.x;
-                        ny = n.y;
-                        nw = n.width || 200;
-                        const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
-                        nh = domEl ? domEl.offsetHeight : (n.height || 50);
-                    } else {
-                        const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
-                        if (!domEl) continue;
-                        const rect = domEl.getBoundingClientRect();
+                    const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
+                    if (domEl) {
+                        const headerEl = domEl.querySelector('.node-header') || domEl.querySelector('.node-title');
+                        const rect = headerEl ? headerEl.getBoundingClientRect() : domEl.getBoundingClientRect();
                         nx = (rect.left - canvasRect.left - state.panX) / state.scale;
                         ny = (rect.top - canvasRect.top - state.panY) / state.scale;
                         nw = rect.width / state.scale;
                         nh = rect.height / state.scale;
+                    } else {
+                        if (n.parentId === null) {
+                            nx = n.x;
+                            ny = n.y;
+                        } else {
+                            const absPos = getNodeAbsolutePosition(n);
+                            nx = absPos.x;
+                            ny = absPos.y;
+                        }
+                        nw = n.width || 200;
+                        nh = n.height || 50;
                     }
 
-                    // Bounding box hit test
+                    // Header-only bounding box hit test
                     if (dropX >= nx && dropX <= nx + nw && dropY >= ny && dropY <= ny + nh) {
                         const centerX = nx + nw / 2;
                         const centerY = ny + nh / 2;
