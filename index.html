@@ -5065,9 +5065,20 @@ function getNodeEdgePoint(node, targetNode) {
 
                         if (targetNode) {
                             const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
-                            // Get target vertical bounds for insert-before/after vs nest decision
+                            // Use header element only for drag detection to avoid overlap with child nodes
+                            const headerEl = targetDomEl ? (targetDomEl.querySelector('.node-header') || targetDomEl.querySelector('.node-title')) : null;
+                            // Get target header bounds for insert-before/after vs nest decision
                             let tTop, tBottom, tMidY, tLeft, tRight;
-                            if (targetDomEl) {
+                            if (headerEl) {
+                                const rect = headerEl.getBoundingClientRect();
+                                const cRect = document.getElementById('canvas-container').getBoundingClientRect();
+                                tTop = (rect.top - cRect.top - state.panY) / state.scale;
+                                tBottom = (rect.bottom - cRect.top - state.panY) / state.scale;
+                                tMidY = (tTop + tBottom) / 2;
+                                tLeft = (rect.left - cRect.left - state.panX) / state.scale;
+                                tRight = (rect.right - cRect.left - state.panX) / state.scale;
+                            } else if (targetDomEl) {
+                                // Fallback to full node if no header found
                                 const rect = targetDomEl.getBoundingClientRect();
                                 const cRect = document.getElementById('canvas-container').getBoundingClientRect();
                                 tTop = (rect.top - cRect.top - state.panY) / state.scale;
@@ -5090,7 +5101,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 state.dropTarget = null;
                                 showInsertGuide(targetNode.id, 'before');
                                 if (tooltip) {
-                                    tooltip.textContent = '前に挿入';
+                                    tooltip.textContent = '▲';
                                     tooltip.classList.add('show');
                                 }
                             } else if (my > tBottom - thirdH) {
@@ -5099,7 +5110,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 state.dropTarget = null;
                                 showInsertGuide(targetNode.id, 'after');
                                 if (tooltip) {
-                                    tooltip.textContent = '後に挿入';
+                                    tooltip.textContent = '▼';
                                     tooltip.classList.add('show');
                                 }
                             } else {
@@ -5109,7 +5120,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 hideInsertGuides();
                                 if (targetDomEl) targetDomEl.classList.add('nest-target');
                                 if (tooltip) {
-                                    tooltip.textContent = '入れ込み';
+                                    tooltip.textContent = '▶';
                                     tooltip.classList.add('show');
                                 }
                             }
@@ -5158,7 +5169,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 state.pendingExtract = false;
                                 const insertBefore = state.reorderTarget.insertBefore;
                                 if (tooltip) {
-                                    tooltip.textContent = insertBefore ? '前に挿入' : '後に挿入';
+                                    tooltip.textContent = insertBefore ? '▲' : '▼';
                                     tooltip.classList.add('show');
                                 }
                             } else if (!state.dropTarget) {
@@ -5169,7 +5180,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 state.reorderTarget = null;
                                 hideInsertGuides();
                                 if (tooltip) {
-                                    tooltip.textContent = 'ルートに抽出';
+                                    tooltip.textContent = '⏎';
                                     tooltip.classList.add('show');
                                 }
                             } else {
@@ -5178,7 +5189,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 state.reorderTarget = null;
                                 hideInsertGuides();
                                 if (tooltip) {
-                                    tooltip.textContent = '入れ込み';
+                                    tooltip.textContent = '▶';
                                     tooltip.classList.add('show');
                                 }
                             }
@@ -5232,7 +5243,8 @@ function getNodeEdgePoint(node, targetNode) {
                             }
 
                             if (hitSiblingEl) {
-                                const rect = hitSiblingEl.getBoundingClientRect();
+                                const headerEl = hitSiblingEl.querySelector('.node-header') || hitSiblingEl.querySelector('.node-title');
+                                const rect = headerEl ? headerEl.getBoundingClientRect() : hitSiblingEl.getBoundingClientRect();
                                 const elTop = (rect.top - canvasRect.top - state.panY) / state.scale;
                                 const elBottom = (rect.bottom - canvasRect.top - state.panY) / state.scale;
                                 const elMidY = (elTop + elBottom) / 2;
@@ -5246,7 +5258,7 @@ function getNodeEdgePoint(node, targetNode) {
                                     state.dropTarget = null;
                                     showInsertGuide(hitSiblingId, 'before');
                                     if (tooltip) {
-                                        tooltip.textContent = '前に移動';
+                                        tooltip.textContent = '▲';
                                         tooltip.classList.add('show');
                                     }
                                 } else if (my > elBottom - thirdH) {
@@ -5256,7 +5268,7 @@ function getNodeEdgePoint(node, targetNode) {
                                     state.dropTarget = null;
                                     showInsertGuide(hitSiblingId, 'after');
                                     if (tooltip) {
-                                        tooltip.textContent = '後に移動';
+                                        tooltip.textContent = '▼';
                                         tooltip.classList.add('show');
                                     }
                                 } else {
@@ -5267,7 +5279,7 @@ function getNodeEdgePoint(node, targetNode) {
                                         hitSiblingEl.classList.add('nest-target');
                                         hideInsertGuides();
                                         if (tooltip) {
-                                            tooltip.textContent = '入れ込み';
+                                            tooltip.textContent = '▶';
                                             tooltip.classList.add('show');
                                         }
                                     }
