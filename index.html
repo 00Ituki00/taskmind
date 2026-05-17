@@ -276,6 +276,20 @@
             border-bottom: 4px solid #4a90d9 !important;
             box-shadow: 0 4px 8px rgba(74, 144, 217, 0.3);
         }
+        .insert-guide {
+            position: absolute;
+            height: 3px;
+            background: #4a90d9;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 9999;
+            box-shadow: 0 0 6px rgba(74, 144, 217, 0.6);
+            animation: guidePulse 1s ease-in-out infinite alternate;
+        }
+        @keyframes guidePulse {
+            from { opacity: 0.6; transform: scaleX(0.95); }
+            to { opacity: 1; transform: scaleX(1); }
+        }
         .node .node-tasks .node:hover {
             background: rgba(0,0,0,0.03);
             box-shadow: none;
@@ -2004,6 +2018,36 @@ function getNodeEdgePoint(node, targetNode) {
                     renderConnections();
                 }
             });
+        }
+
+        // Helper: show/hide insert guide lines for drag-and-drop visual feedback
+        function hideInsertGuides() {
+            document.querySelectorAll('.insert-guide').forEach(el => el.remove());
+        }
+
+        function showInsertGuide(nodeId, position) {
+            hideInsertGuides();
+            const nodeEl = document.querySelector(`.node[data-id="${nodeId}"]`);
+            if (!nodeEl) return;
+            const rect = nodeEl.getBoundingClientRect();
+            const cRect = document.getElementById('canvas-container').getBoundingClientRect();
+            const guide = document.createElement('div');
+            guide.className = 'insert-guide';
+            guide.style.position = 'absolute';
+            guide.style.left = (rect.left - cRect.left) + 'px';
+            guide.style.width = rect.width + 'px';
+            guide.style.height = '3px';
+            guide.style.background = '#4a90d9';
+            guide.style.borderRadius = '2px';
+            guide.style.pointerEvents = 'none';
+            guide.style.zIndex = '9999';
+            guide.style.transition = 'none';
+            if (position === 'before') {
+                guide.style.top = (rect.top - cRect.top - 4) + 'px';
+            } else {
+                guide.style.top = (rect.bottom - cRect.top + 1) + 'px';
+            }
+            document.getElementById('canvas-container').appendChild(guide);
         }
 
         // Helper: get absolute position of any node (handles nested depths)
@@ -4851,7 +4895,7 @@ function getNodeEdgePoint(node, targetNode) {
             if (state.dragNode && !state.isDragging) {
                 const dx = Math.abs(e.clientX - state.dragStartMouseX);
                 const dy = Math.abs(e.clientY - state.dragStartMouseY);
-                if (dx > 3 || dy > 3) {
+                if (dx > 5 || dy > 5) {
                     state.isDragging = true;
                     nodesEl.style.cursor = 'grabbing';
                     renderNodes();
@@ -5021,38 +5065,58 @@ function getNodeEdgePoint(node, targetNode) {
 
                         if (targetNode) {
                             const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
-                            if (mx < targetMidX) {
-                                // Left half → reorder/insert next to this node
-                                const rect = targetDomEl ? targetDomEl.getBoundingClientRect() : null;
-                                const canvasRect2 = document.getElementById('canvas-container').getBoundingClientRect();
-                                const midY = rect ? ((rect.top + rect.bottom) / 2 - canvasRect2.top - state.panY) / state.scale : (targetNode.y + 25);
-                                const insertBefore = my < midY;
-                                state.reorderTarget = { siblingId: targetNode.id, insertBefore, siblingParentId: targetNode.parentId };
+                            // Get target vertical bounds for insert-before/after vs nest decision
+                            let tTop, tBottom, tMidY, tLeft, tRight;
+                            if (targetDomEl) {
+                                const rect = targetDomEl.getBoundingClientRect();
+                                const cRect = document.getElementById('canvas-container').getBoundingClientRect();
+                                tTop = (rect.top - cRect.top - state.panY) / state.scale;
+                                tBottom = (rect.bottom - cRect.top - state.panY) / state.scale;
+                                tMidY = (tTop + tBottom) / 2;
+                                tLeft = (rect.left - cRect.left - state.panX) / state.scale;
+                                tRight = (rect.right - cRect.left - state.panX) / state.scale;
+                            } else {
+                                tTop = targetNode.y;
+                                tBottom = targetNode.y + (targetNode.height || 50);
+                                tMidY = (tTop + tBottom) / 2;
+                                tLeft = targetNode.x;
+                                tRight = targetNode.x + (targetNode.width || 200);
+                            }
+                            const thirdH = (tBottom - tTop) / 3;
+                            // Vertical zone: top 1/3 = insert before, bottom 1/3 = insert after, middle 1/3 = nest
+                            if (my < tTop + thirdH) {
+                                // Top zone → insert before this node
+                                state.reorderTarget = { siblingId: targetNode.id, insertBefore: true, siblingParentId: targetNode.parentId };
                                 state.dropTarget = null;
-                                // Show reorder badge on target node
-                                if (targetDomEl) {
-                                    targetDomEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
-                                }
+                                showInsertGuide(targetNode.id, 'before');
                                 if (tooltip) {
-                                    tooltip.textContent = insertBefore ? '\u25B2' : '\u25BC';
+                                    tooltip.textContent = '前に挿入';
+                                    tooltip.classList.add('show');
+                                }
+                            } else if (my > tBottom - thirdH) {
+                                // Bottom zone → insert after this node
+                                state.reorderTarget = { siblingId: targetNode.id, insertBefore: false, siblingParentId: targetNode.parentId };
+                                state.dropTarget = null;
+                                showInsertGuide(targetNode.id, 'after');
+                                if (tooltip) {
+                                    tooltip.textContent = '後に挿入';
                                     tooltip.classList.add('show');
                                 }
                             } else {
-                                // Right half → nest into this node
+                                // Middle zone → nest into this node
                                 state.dropTarget = targetNode;
                                 state.reorderTarget = null;
-                                // Show nest badge on target node
-                                if (targetDomEl) {
-                                    targetDomEl.classList.add('nest-target');
-                                }
+                                hideInsertGuides();
+                                if (targetDomEl) targetDomEl.classList.add('nest-target');
                                 if (tooltip) {
-                                    tooltip.textContent = '\u25B6';
+                                    tooltip.textContent = '入れ込み';
                                     tooltip.classList.add('show');
                                 }
                             }
                         } else {
                             state.dropTarget = null;
                             state.reorderTarget = null;
+                            hideInsertGuides();
                             if (tooltip) tooltip.classList.remove('show');
                         }
                     }
@@ -5094,7 +5158,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 state.pendingExtract = false;
                                 const insertBefore = state.reorderTarget.insertBefore;
                                 if (tooltip) {
-                                    tooltip.textContent = insertBefore ? '\u25B2' : '\u25BC';
+                                    tooltip.textContent = insertBefore ? '前に挿入' : '後に挿入';
                                     tooltip.classList.add('show');
                                 }
                             } else if (!state.dropTarget) {
@@ -5103,16 +5167,18 @@ function getNodeEdgePoint(node, targetNode) {
                                     state.pendingExtract = true;
                                 }
                                 state.reorderTarget = null;
+                                hideInsertGuides();
                                 if (tooltip) {
-                                    tooltip.textContent = '\u23CE';
+                                    tooltip.textContent = 'ルートに抽出';
                                     tooltip.classList.add('show');
                                 }
                             } else {
                                 // Over another node - show nest indicator
                                 state.pendingExtract = false;
                                 state.reorderTarget = null;
+                                hideInsertGuides();
                                 if (tooltip) {
-                                    tooltip.textContent = '\u25B6';
+                                    tooltip.textContent = '入れ込み';
                                     tooltip.classList.add('show');
                                 }
                             }
@@ -5167,30 +5233,41 @@ function getNodeEdgePoint(node, targetNode) {
 
                             if (hitSiblingEl) {
                                 const rect = hitSiblingEl.getBoundingClientRect();
-                                const elLeft = (rect.left - canvasRect.left - state.panX) / state.scale;
-                                const elRight = (rect.right - canvasRect.left - state.panX) / state.scale;
-                                const elMidX = (elLeft + elRight) / 2;
-                                const elMidY = ((rect.top + rect.bottom) / 2 - canvasRect.top - state.panY) / state.scale;
+                                const elTop = (rect.top - canvasRect.top - state.panY) / state.scale;
+                                const elBottom = (rect.bottom - canvasRect.top - state.panY) / state.scale;
+                                const elMidY = (elTop + elBottom) / 2;
+                                const thirdH = (elBottom - elTop) / 3;
                                 const siblingNode = state.nodes.find(n => n.id === hitSiblingId);
 
-                                if (mx < elMidX) {
-                                    // Left half → reorder/insert
-                                    const insertBefore = my < elMidY;
-                                    hitSiblingEl.classList.add(insertBefore ? 'reorder-before' : 'reorder-after');
-                                    state.reorderTarget = { siblingId: hitSiblingId, insertBefore, siblingParentId: parent.id };
+                                if (my < elTop + thirdH) {
+                                    // Top zone → insert before sibling
+                                    hitSiblingEl.classList.add('reorder-before');
+                                    state.reorderTarget = { siblingId: hitSiblingId, insertBefore: true, siblingParentId: parent.id };
                                     state.dropTarget = null;
+                                    showInsertGuide(hitSiblingId, 'before');
                                     if (tooltip) {
-                                        tooltip.textContent = insertBefore ? '\u25B2' : '\u25BC';
+                                        tooltip.textContent = '前に移動';
+                                        tooltip.classList.add('show');
+                                    }
+                                } else if (my > elBottom - thirdH) {
+                                    // Bottom zone → insert after sibling
+                                    hitSiblingEl.classList.add('reorder-after');
+                                    state.reorderTarget = { siblingId: hitSiblingId, insertBefore: false, siblingParentId: parent.id };
+                                    state.dropTarget = null;
+                                    showInsertGuide(hitSiblingId, 'after');
+                                    if (tooltip) {
+                                        tooltip.textContent = '後に移動';
                                         tooltip.classList.add('show');
                                     }
                                 } else {
-                                    // Right half → nest into sibling
+                                    // Middle zone → nest into sibling
                                     if (siblingNode) {
                                         state.dropTarget = siblingNode;
                                         state.reorderTarget = null;
                                         hitSiblingEl.classList.add('nest-target');
+                                        hideInsertGuides();
                                         if (tooltip) {
-                                            tooltip.textContent = '\u25B6';
+                                            tooltip.textContent = '入れ込み';
                                             tooltip.classList.add('show');
                                         }
                                     }
@@ -5199,6 +5276,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 // Not over any sibling - clear
                                 state.reorderTarget = null;
                                 state.dropTarget = null;
+                                hideInsertGuides();
                                 if (tooltip) tooltip.classList.remove('show');
                             }
                         }
@@ -5696,6 +5774,7 @@ function getNodeEdgePoint(node, targetNode) {
             document.querySelectorAll('.node').forEach(el => {
                 el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
             });
+            hideInsertGuides();
             state.reorderTarget = null;
 
             state.dragNode = null;
