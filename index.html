@@ -3758,6 +3758,9 @@ function getNodeEdgePoint(node, targetNode) {
                 const toNode = state.nodes.find(n => n.id === conn.to);
                 if (!fromNode || !toNode) return;
 
+                // Skip connections involving completed nodes when hideCompleted is enabled
+                if (state.hideCompleted && (fromNode.completed || toNode.completed)) return;
+
                 // Skip parent-child relationships (already shown as nested list)
                 if (toNode.parentId === fromNode.id || fromNode.parentId === toNode.id) return;
 
@@ -6426,10 +6429,11 @@ function getNodeEdgePoint(node, targetNode) {
         document.getElementById('btn-hide-completed').addEventListener('click', () => {
             state.hideCompleted = !state.hideCompleted;
             const btn = document.getElementById('btn-hide-completed');
-            btn.textContent = state.hideCompleted ? '🙈' : '👁️';
+            btn.textContent = state.hideCompleted ? '🫥' : '👁️';
             btn.title = state.hideCompleted ? '完了済みノードを表示' : '完了済みノードを非表示';
             btn.classList.toggle('active', state.hideCompleted);
             renderNodes();
+            renderConnections();
             showToast(state.hideCompleted ? '完了済みノードを非表示にしました' : '完了済みノードを表示しました');
         });
         fileInput.addEventListener('change', (e) => {
