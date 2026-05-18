@@ -1949,28 +1949,19 @@ function getNodeEdgePoint(node, targetNode) {
                 renderNodes();
             };
 
-            // 編集確定前にフォーカスが外れた場合の保存フラグ
-            let shouldSaveOnBlur = false;
-
             input.addEventListener('blur', () => {
-                if (shouldSaveOnBlur) {
-                    save();
-                } else {
-                    cleanup();
-                    renderNodes();
-                    clearSelection();
-                }
+                save();
             });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    shouldSaveOnBlur = true;
                     save();
                 }
                 if (e.key === 'Escape') {
                     e.preventDefault();
-                    shouldSaveOnBlur = false;
-                    input.blur();
+                    cleanup();
+                    renderNodes();
+                    clearSelection();
                 }
             });
         }
