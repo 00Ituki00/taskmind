@@ -3668,27 +3668,34 @@ function getNodeEdgePoint(node, targetNode) {
                     
                     let html = '';
                     
-                    // 入力接続（上部）: why(なので)
+                    // From: 入力接続情報
                     if (incomingConns.length > 0) {
+                        html += '<div style="font-weight:600;color:#4a90d9;margin-bottom:4px;font-size:11px;">From:</div>';
                         incomingConns.forEach(conn => {
                             const source = state.nodes.find(n => n.id === conn.from);
                             const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
-                            html += `<div style="color:#888;margin-bottom:4px;font-size:11px;">${sourceTitle} → ${escapeHtml(conn.label)}(なので)</div>`;
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:2px solid #4a90d9;font-size:12px;">${sourceTitle} → ${escapeHtml(conn.label)}</div>`;
                         });
                     }
                     
-                    // メイン: what（詳細）
+                    // what: 詳細情報
                     if (what) {
-                        html += `<div style="margin-bottom:4px;"><div style="font-weight:600;color:#333;margin-bottom:2px;">📝 What</div><div style="color:#555;white-space:pre-wrap;word-break:break-word;">${escapeHtml(what)}</div></div>`;
+                        if (incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                        html += '<div style="font-weight:600;color:#333;margin-bottom:4px;font-size:12px;">what:</div>';
+                        html += `<div style="color:#555;white-space:pre-wrap;word-break:break-word;padding-left:8px;border-left:2px solid #666;">${escapeHtml(what)}</div>`;
+                        if (incomingConns.length > 0) html += '</div>';
                     }
                     
-                    // 出力接続（下部）: what(その為に)
+                    // To: 出力接続情報
                     if (outgoingConns.length > 0) {
+                        if (what || incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                        html += '<div style="font-weight:600;color:#e67e22;margin-bottom:4px;font-size:11px;">To:</div>';
                         outgoingConns.forEach(conn => {
                             const target = state.nodes.find(n => n.id === conn.to);
                             const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
-                            html += `<div style="color:#888;margin-top:4px;font-size:11px;">${escapeHtml(conn.label)}(その為に) → ${targetTitle}</div>`;
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:2px solid #e67e22;font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
                         });
+                        if (what || incomingConns.length > 0) html += '</div>';
                     }
                     
                     // whyフィールドが単独で存在する場合（接続と関係なく）
