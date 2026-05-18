@@ -3707,18 +3707,41 @@ function getNodeEdgePoint(node, targetNode) {
                     return true;
                 }
                 
+                let tooltipTimer = null;
+                let tooltipActive = false;
+                
                 header.addEventListener('mouseenter', (e) => {
-                    if (!updateTooltipContent()) return;
-                    const rect = el.getBoundingClientRect();
-                    tooltip.style.display = 'block';
-                    tooltip.style.left = (rect.right + 8) + 'px';
-                    tooltip.style.top = rect.top + 'px';
-                    document.body.appendChild(tooltip);
+                    if (state.dragNode) return; // ドラッグ中は表示しない
+                    
+                    tooltipTimer = setTimeout(() => {
+                        if (!updateTooltipContent()) return;
+                        const rect = el.getBoundingClientRect();
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = (rect.right + 8) + 'px';
+                        tooltip.style.top = rect.top + 'px';
+                        document.body.appendChild(tooltip);
+                        tooltipActive = true;
+                    }, 120); // 120ms遅延で誤クリックを防止
+                });
+                
+                // mousedown で即座にキャンセル（ドラッグ開始時等）
+                header.addEventListener('mousedown', () => {
+                    if (tooltipTimer) {
+                        clearTimeout(tooltipTimer);
+                        tooltipTimer = null;
+                    }
                 });
                 
                 header.addEventListener('mouseleave', () => {
-                    tooltip.style.display = 'none';
-                    if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
+                    if (tooltipTimer) {
+                        clearTimeout(tooltipTimer);
+                        tooltipTimer = null;
+                    }
+                    if (tooltipActive) {
+                        tooltip.style.display = 'none';
+                        if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
+                        tooltipActive = false;
+                    }
                 });
 
                 el.appendChild(header);
