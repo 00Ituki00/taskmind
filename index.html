@@ -2387,8 +2387,7 @@ function getNodeEdgePoint(node, targetNode) {
             wSection.appendChild(wTitle);
 
             // Initialize when data
-            if (!node.details) node.details = { when: { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
-            if (!node.details.when) node.details.when = { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+            if (!node.details) node.details = { what: '', who: '', where: '' };
 
             const whenEditor = createWhenEditorUI(node.details.when, (newWhen) => {
                 node.details.when = newWhen;
@@ -2429,11 +2428,16 @@ function getNodeEdgePoint(node, targetNode) {
             saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
             saveBtn.addEventListener('click', () => {
                 node.priority = parseInt(pSelect.value);
-                if (!node.details) node.details = { when: { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+                if (!node.details) node.details = { what: '', who: '', where: '' };
                 // Save when data from integrated editor
                 if (whenEditor) {
-                    node.details.when = whenEditor.getValue();
-                    node.details.when.nextDate = calculateNextDate(node.details.when);
+                    const newWhen = whenEditor.getValue();
+                    if (newWhen === null) {
+                        if (node.details) delete node.details.when;
+                    } else {
+                        node.details.when = newWhen;
+                        node.details.when.nextDate = calculateNextDate(node.details.when);
+                    }
                 }
                 modal.querySelectorAll('textarea[data-field-key]').forEach(ta => {
                     node.details[ta.dataset.fieldKey] = ta.value;
