@@ -3668,13 +3668,13 @@ function getNodeEdgePoint(node, targetNode) {
                     
                     let html = '';
                     
-                    // From: 入力接続情報
+                    // From: 入力接続情報（接続元ノードのカラー）
                     if (incomingConns.length > 0) {
-                        html += '<div style="font-weight:600;color:#4a90d9;margin-bottom:4px;font-size:11px;">From:</div>';
                         incomingConns.forEach(conn => {
                             const source = state.nodes.find(n => n.id === conn.from);
                             const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
-                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:2px solid #4a90d9;font-size:12px;">${sourceTitle} → ${escapeHtml(conn.label)}</div>`;
+                            const sourceColor = source ? source.color : '#4a90d9';
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.label)}</div>`;
                         });
                     }
                     
@@ -3686,14 +3686,14 @@ function getNodeEdgePoint(node, targetNode) {
                         if (incomingConns.length > 0) html += '</div>';
                     }
                     
-                    // To: 出力接続情報
+                    // To: 出力接続情報（接続先ノードのカラー）
                     if (outgoingConns.length > 0) {
                         if (what || incomingConns.length > 0) html += '<div style="margin-top:8px;">';
-                        html += '<div style="font-weight:600;color:#e67e22;margin-bottom:4px;font-size:11px;">To:</div>';
                         outgoingConns.forEach(conn => {
                             const target = state.nodes.find(n => n.id === conn.to);
                             const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
-                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:2px solid #e67e22;font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
+                            const targetColor = target ? target.color : '#e67e22';
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
                         });
                         if (what || incomingConns.length > 0) html += '</div>';
                     }
@@ -4573,6 +4573,9 @@ function getNodeEdgePoint(node, targetNode) {
             state.dragNode = node;
             state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
             state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
+
+            // ドラッグ開始時にピッカー等のツールバーをクリア
+            document.querySelectorAll('.priority-picker, .color-picker, .canvas-context-menu, .detail-editor-popup, .node-hover-tooltip').forEach(el => el.remove());
 
             // Don't start drag immediately - wait for mousemove threshold
             state.isDragging = false;
