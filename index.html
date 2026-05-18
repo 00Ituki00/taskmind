@@ -1864,11 +1864,39 @@ function getNodeEdgePoint(node, targetNode) {
         function enableTitleEdit(titleEl, node) {
             console.log('enableTitleEdit called', titleEl, node);
 
+            // DOM要素から正確な位置を取得
+            // 優先順位: 1)タイトル要素のrect 2)ノード要素から計算 3)座標から計算
             let rect;
+            const nodeEl = document.querySelector(`.node[data-id="${node.id}"]`);
+            const headerEl = nodeEl ? nodeEl.querySelector('.node-header') : null;
+            
             if (titleEl && document.contains(titleEl)) {
+                // 最も正確: 実際のタイトル要素のrect
                 rect = titleEl.getBoundingClientRect();
+            } else if (headerEl && document.contains(headerEl)) {
+                // フォールバック: ヘッダー要素から推定
+                const headerRect = headerEl.getBoundingClientRect();
+                // ヘッダー内でタイトルが占める領域を推定
+                // color(16px) + gap(8px) + title + gap(8px) + expand-btn(~14px)
+                const leftOffset = 16 + 16 + 8; // padding + checkbox + gap
+                const rightOffset = 16 + 14 + 8; // padding + expand-btn + gap
+                rect = {
+                    left: headerRect.left + leftOffset,
+                    top: headerRect.top + (headerRect.height - 24) / 2,
+                    width: Math.max(headerRect.width - leftOffset - rightOffset, 100),
+                    height: 24
+                };
+            } else if (nodeEl && document.contains(nodeEl)) {
+                // フォールバック2: ノード全体から推定
+                const nodeRect = nodeEl.getBoundingClientRect();
+                rect = {
+                    left: nodeRect.left + 40,
+                    top: nodeRect.top + 12,
+                    width: Math.max(nodeRect.width - 80, 100),
+                    height: 24
+                };
             } else {
-                // Fallback: calculate position from node coordinates
+                // 最終フォールバック: canvas座標から計算
                 const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
                 rect = {
                     left: containerRect.left + node.x * state.scale + state.panX,
