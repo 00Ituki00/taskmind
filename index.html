@@ -2903,6 +2903,9 @@ function getNodeEdgePoint(node, targetNode) {
             // 初期化時に期限タイプの表示状態を反映
             updateDeadlineUI();
 
+            // 初期化時に条件付きセクションの表示状態を反映
+            updateConditionalSections();
+
             return { el: container, getValue, updatePreview };
         }
 
