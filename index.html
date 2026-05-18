@@ -1949,16 +1949,28 @@ function getNodeEdgePoint(node, targetNode) {
                 renderNodes();
             };
 
-            input.addEventListener('blur', save);
+            // 編集確定前にフォーカスが外れた場合の保存フラグ
+            let shouldSaveOnBlur = false;
+
+            input.addEventListener('blur', () => {
+                if (shouldSaveOnBlur) {
+                    save();
+                } else {
+                    cleanup();
+                    renderNodes();
+                    clearSelection();
+                }
+            });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    shouldSaveOnBlur = true;
                     save();
                 }
                 if (e.key === 'Escape') {
                     e.preventDefault();
-                    cleanup();
-                    renderNodes();
+                    shouldSaveOnBlur = false;
+                    input.blur();
                 }
             });
         }
@@ -4732,6 +4744,7 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 setMode('select');
+                clearSelection();
                 // Auto-focus title for immediate editing
                 requestAnimationFrame(() => {
                     const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
@@ -4768,6 +4781,7 @@ function getNodeEdgePoint(node, targetNode) {
                 if (tempLine) tempLine.remove();
                 modeIndicator.classList.remove('active');
                 setMode('select');
+                clearSelection();
                 // 新規ノードのタイトル編集を開始
                 requestAnimationFrame(() => {
                     const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
@@ -4826,6 +4840,7 @@ function getNodeEdgePoint(node, targetNode) {
                     }
 
                     setMode('select');
+                    clearSelection();
                     requestAnimationFrame(() => {
                         const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
                         const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
@@ -4849,6 +4864,7 @@ function getNodeEdgePoint(node, targetNode) {
                     if (tempLine) tempLine.remove();
                     modeIndicator.classList.remove('active');
                     setMode('select');
+                    clearSelection();
                     requestAnimationFrame(() => {
                         const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
                         const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
@@ -6018,6 +6034,7 @@ function getNodeEdgePoint(node, targetNode) {
                         const cx = (x - state.panX) / state.scale;
                         const cy = (y - state.panY) / state.scale;
                         const newNode = createNode(cx, cy);
+                        clearSelection();
                         requestAnimationFrame(() => {
                             const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
                             const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
