@@ -1950,7 +1950,9 @@ function getNodeEdgePoint(node, targetNode) {
             };
 
             input.addEventListener('blur', () => {
-                save();
+                cleanup();
+                renderNodes();
+                clearSelection();
             });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
