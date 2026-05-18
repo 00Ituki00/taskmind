@@ -1641,25 +1641,6 @@
                 children: [],
                 priority: 0,
                 details: {
-                    when: {
-                        repeatType: 'none',
-                        baseDateTime: null,
-                        baseTime: '09:00',
-                        deadlineType: 'relative',
-                        deadlineDays: 0,
-                        deadlineTime: '18:00',
-                        deadlineDate: null,
-                        // 年: 毎年◯月◯日
-                        yearMonth: 1,
-                        yearDay: 1,
-                        // 月: 毎月◯日
-                        monthDay: 1,
-                        // 週: 第◯週◯曜日
-                        weekOfMonth: 'all',
-                        dayOfWeek: 0,
-                        nextDate: null,
-                        lastCompleted: null
-                    },
                     what: '',
                     who: '',
                     where: ''
@@ -2487,7 +2468,7 @@ function getNodeEdgePoint(node, targetNode) {
             ];
 
             // データ→UIタイプ変換
-            let uiType = w.repeatType || 'none';
+            let uiType = w.repeatType || 'disabled';
             if (uiType === 'monthly') uiType = (w.monthlyMode === 'week') ? 'monthly-week' : 'monthly-day';
             if (uiType === 'yearly') uiType = (w.yearlyMode === 'week') ? 'yearly-week' : 'yearly-date';
 
@@ -2511,6 +2492,7 @@ function getNodeEdgePoint(node, targetNode) {
             const typeGrid = document.createElement('div');
             typeGrid.className = 'when-type-grid';
             const types = [
+                { key: 'disabled', label: 'なし' },
                 { key: 'none', label: '一度だけ' },
                 { key: 'daily', label: '毎日' },
                 { key: 'weekly', label: '毎週' },
@@ -2801,6 +2783,9 @@ function getNodeEdgePoint(node, targetNode) {
             container.appendChild(previewSection);
 
             function updateConditionalSections() {
+                const isDisabled = (uiType === 'disabled');
+                timeSection.style.display = isDisabled ? 'none' : 'block';
+                deadlineSection.style.display = isDisabled ? 'none' : 'block';
                 weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
                 // 毎週のみ「毎週」オプション表示、それ以外は第1〜最終
                 const needAllOption = (uiType === 'weekly');
@@ -2833,6 +2818,8 @@ function getNodeEdgePoint(node, targetNode) {
                 if (uiType === 'monthly-week') { repeatType = 'monthly'; monthlyMode = 'week'; }
                 if (uiType === 'yearly-date') { repeatType = 'yearly'; yearlyMode = 'date'; }
                 if (uiType === 'yearly-week') { repeatType = 'yearly'; yearlyMode = 'week'; }
+
+                if (repeatType === 'disabled') return null;
 
                 return {
                     repeatType: repeatType,
@@ -2871,36 +2858,41 @@ function getNodeEdgePoint(node, targetNode) {
                 const dlDate = deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null;
 
                 let text = '';
-                // 開始日時(常に先頭)
-                if (uiType === 'none') {
-                    text = '開始:' + baseStr;
-                } else {
-                    text = '次回:' + baseStr;
-                    text += '\n周期:';
-                    if (uiType === 'daily') {
-                        text += '毎日 ' + baseTimeStr;
-                    } else if (uiType === 'weekly') {
-                        const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                        text += weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
-                    } else if (uiType === 'monthly-day') {
-                        text += '毎月 ' + currentMonthDay + '日 ' + baseTimeStr;
-                    } else if (uiType === 'monthly-week') {
-                        const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                        text += '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
-                    } else if (uiType === 'yearly-date') {
-                        text += '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + baseTimeStr;
-                    } else if (uiType === 'yearly-week') {
-                        const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                        text += '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
-                    }
-                }
 
-                // 期限(開始の後に表示)
-                if (dlType === 'absolute' && dlDate) {
-                    const dl = new Date(dlDate);
-                    text += '\n期限:' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
-                } else if (dd > 0 || dt !== baseTimeStr) {
-                    text += '\n期限:開始から ' + dd + ' 日後 ' + dt + ' まで';
+                if (uiType === 'disabled') {
+                    text = 'なし（期限・プログレスバーなし）';
+                } else {
+                    // 開始日時(常に先頭)
+                    if (uiType === 'none') {
+                        text = '開始:' + baseStr;
+                    } else {
+                        text = '次回:' + baseStr;
+                        text += '\n周期:';
+                        if (uiType === 'daily') {
+                            text += '毎日 ' + baseTimeStr;
+                        } else if (uiType === 'weekly') {
+                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                            text += weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                        } else if (uiType === 'monthly-day') {
+                            text += '毎月 ' + currentMonthDay + '日 ' + baseTimeStr;
+                        } else if (uiType === 'monthly-week') {
+                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                            text += '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                        } else if (uiType === 'yearly-date') {
+                            text += '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + baseTimeStr;
+                        } else if (uiType === 'yearly-week') {
+                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                            text += '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                        }
+                    }
+
+                    // 期限(開始の後に表示)
+                    if (dlType === 'absolute' && dlDate) {
+                        const dl = new Date(dlDate);
+                        text += '\n期限:' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
+                    } else if (dd > 0 || dt !== baseTimeStr) {
+                        text += '\n期限:開始から ' + dd + ' 日後 ' + dt + ' まで';
+                    }
                 }
 
                 preview.innerHTML = text.replace(/\n/g, '<br>');
@@ -2918,9 +2910,7 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.when-editor-popup');
             if (existing) existing.remove();
 
-            // Initialize when data with new structure
-            if (!node.details) node.details = { when: { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
-            if (!node.details.when) node.details.when = { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+            if (!node.details) node.details = { what: '', who: '', where: '' };
 
             const popup = document.createElement('div');
             popup.className = 'when-editor-popup';
@@ -2941,7 +2931,7 @@ function getNodeEdgePoint(node, targetNode) {
             clearBtn.className = 'when-btn clear';
             clearBtn.textContent = 'クリア';
             clearBtn.addEventListener('click', () => {
-                node.details.when = { repeatType: 'none', baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, yearMonth: 1, yearDay: 1, monthDay: 1, weekOfMonth: 'all', dayOfWeek: 0, nextDate: null, lastCompleted: null };
+                if (node.details) delete node.details.when;
                 popup.remove();
                 renderNodes();
             });
@@ -2953,8 +2943,13 @@ function getNodeEdgePoint(node, targetNode) {
             saveBtn.className = 'when-btn save';
             saveBtn.textContent = '保存';
             saveBtn.addEventListener('click', () => {
-                node.details.when = editor.getValue();
-                node.details.when.nextDate = calculateNextDate(node.details.when);
+                const newWhen = editor.getValue();
+                if (newWhen === null) {
+                    if (node.details) delete node.details.when;
+                } else {
+                    node.details.when = newWhen;
+                    node.details.when.nextDate = calculateNextDate(node.details.when);
+                }
                 popup.remove();
                 renderNodes();
             });
