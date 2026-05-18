@@ -1606,6 +1606,12 @@
             btn.addEventListener('click', () => setMode(btn.dataset.mode));
         });
 
+        // Escape HTML special characters to prevent XSS
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         // ==================== Node Operations ====================
         function calculateNodeWidth(title) {
             // Measure actual text width using a temporary DOM element
@@ -1641,6 +1647,7 @@
                 children: [],
                 priority: 0,
                 details: {
+                    why: '',
                     what: '',
                     who: '',
                     where: ''
@@ -2387,7 +2394,7 @@ function getNodeEdgePoint(node, targetNode) {
             wSection.appendChild(wTitle);
 
             // Initialize when data
-            if (!node.details) node.details = { what: '', who: '', where: '' };
+            if (!node.details) node.details = { why: '', what: '', who: '', where: '' };
 
             const whenEditor = createWhenEditorUI(node.details.when, (newWhen) => {
                 node.details.when = newWhen;
@@ -2397,6 +2404,7 @@ function getNodeEdgePoint(node, targetNode) {
 
             // What, Who, Where
             const simpleFields = [
+                { key: 'why', label: '💡 Why(目的)', placeholder: '目的・理由を入力' },
                 { key: 'what', label: '📝 What(詳細)', placeholder: '詳細情報を入力' },
                 { key: 'who', label: '👤 Who(担当)', placeholder: '担当者を入力' },
                 { key: 'where', label: '📍 Where(場所)', placeholder: '場所を入力' }
@@ -2428,7 +2436,7 @@ function getNodeEdgePoint(node, targetNode) {
             saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
             saveBtn.addEventListener('click', () => {
                 node.priority = parseInt(pSelect.value);
-                if (!node.details) node.details = { what: '', who: '', where: '' };
+                if (!node.details) node.details = { why: '', what: '', who: '', where: '' };
                 // Save when data from integrated editor
                 if (whenEditor) {
                     const newWhen = whenEditor.getValue();
@@ -2917,7 +2925,7 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.when-editor-popup');
             if (existing) existing.remove();
 
-            if (!node.details) node.details = { what: '', who: '', where: '' };
+            if (!node.details) node.details = { why: '', what: '', who: '', where: '' };
 
             const popup = document.createElement('div');
             popup.className = 'when-editor-popup';
@@ -3642,6 +3650,41 @@ function getNodeEdgePoint(node, targetNode) {
                 header.appendChild(indicatorsEl);
 
                 header.appendChild(expandBtn);
+
+                // Hover tooltip for why/what info
+                const tooltip = document.createElement('div');
+                tooltip.className = 'node-hover-tooltip';
+                tooltip.style.cssText = 'position:fixed;display:none;z-index:10001;background:white;border:1px solid #ddd;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);font-size:12px;max-width:280px;pointer-events:none;';
+                
+                function updateTooltipContent() {
+                    const why = node.details?.why?.trim();
+                    const what = node.details?.what?.trim();
+                    if (!why && !what) return false;
+                    
+                    let html = '';
+                    if (why) {
+                        html += `<div style="margin-bottom:8px;"><div style="font-weight:600;color:#333;margin-bottom:2px;">💡 Why</div><div style="color:#555;white-space:pre-wrap;word-break:break-word;">${escapeHtml(why)}</div></div>`;
+                    }
+                    if (what) {
+                        html += `<div><div style="font-weight:600;color:#333;margin-bottom:2px;">📝 What</div><div style="color:#555;white-space:pre-wrap;word-break:break-word;">${escapeHtml(what)}</div></div>`;
+                    }
+                    tooltip.innerHTML = html;
+                    return true;
+                }
+                
+                header.addEventListener('mouseenter', (e) => {
+                    if (!updateTooltipContent()) return;
+                    const rect = el.getBoundingClientRect();
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (rect.right + 8) + 'px';
+                    tooltip.style.top = rect.top + 'px';
+                    document.body.appendChild(tooltip);
+                });
+                
+                header.addEventListener('mouseleave', () => {
+                    tooltip.style.display = 'none';
+                    if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
+                });
 
                 el.appendChild(header);
 
