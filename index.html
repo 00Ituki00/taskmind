@@ -4757,6 +4757,28 @@ function getNodeEdgePoint(node, targetNode) {
                     state.suppressContextMenu = false;
                 }
                 e.preventDefault();
+            } else if (state.connectingFrom) {
+                // 接続作成中の空白クリック → 新規ノード作成して接続
+                const x = (e.clientX - state.panX) / state.scale;
+                const y = (e.clientY - state.panY) / state.scale;
+                const newNode = createNode(x, y);
+                createConnection(state.connectingFrom, newNode.id);
+                state.connectingFrom = null;
+                const tempLine = document.getElementById('pending-connection');
+                if (tempLine) tempLine.remove();
+                modeIndicator.classList.remove('active');
+                setMode('select');
+                // 新規ノードのタイトル編集を開始
+                requestAnimationFrame(() => {
+                    const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                    const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                    try {
+                        enableTitleEdit(titleEl, newNode);
+                    } catch (err) {
+                        console.error('Error in enableTitleEdit:', err);
+                    }
+                });
+                e.preventDefault();
             } else {
                 // Range selection start
                 if (!e.ctrlKey && !e.metaKey) {
@@ -4803,6 +4825,29 @@ function getNodeEdgePoint(node, targetNode) {
                         parentNode.expanded = true;
                     }
 
+                    setMode('select');
+                    requestAnimationFrame(() => {
+                        const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                        const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                        try {
+                            enableTitleEdit(titleEl, newNode);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    });
+                    return;
+                }
+
+                if (state.connectingFrom) {
+                    // 接続作成中の空白タップ → 新規ノード作成して接続
+                    const x = (touch.clientX - state.panX) / state.scale;
+                    const y = (touch.clientY - state.panY) / state.scale;
+                    const newNode = createNode(x, y);
+                    createConnection(state.connectingFrom, newNode.id);
+                    state.connectingFrom = null;
+                    const tempLine = document.getElementById('pending-connection');
+                    if (tempLine) tempLine.remove();
+                    modeIndicator.classList.remove('active');
                     setMode('select');
                     requestAnimationFrame(() => {
                         const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
