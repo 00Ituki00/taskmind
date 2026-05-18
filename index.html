@@ -3659,7 +3659,12 @@ function getNodeEdgePoint(node, targetNode) {
                 function updateTooltipContent() {
                     const why = node.details?.why?.trim();
                     const what = node.details?.what?.trim();
-                    if (!why && !what) return false;
+                    const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
+                    const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
+                    
+                    const hasDetails = why || what;
+                    const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
+                    if (!hasDetails && !hasConns) return false;
                     
                     let html = '';
                     if (why) {
@@ -3668,6 +3673,31 @@ function getNodeEdgePoint(node, targetNode) {
                     if (what) {
                         html += `<div><div style="font-weight:600;color:#333;margin-bottom:2px;">📝 What</div><div style="color:#555;white-space:pre-wrap;word-break:break-word;">${escapeHtml(what)}</div></div>`;
                     }
+                    
+                    // Connection info
+                    if (outgoingConns.length > 0 || incomingConns.length > 0) {
+                        if (html) html += '<div style="margin-top:8px;border-top:1px solid #eee;padding-top:8px;">';
+                        else html += '<div>';
+                        
+                        if (outgoingConns.length > 0) {
+                            html += '<div style="font-weight:600;color:#333;margin-bottom:4px;">🔗 接続（出力）</div>';
+                            outgoingConns.forEach(conn => {
+                                const target = state.nodes.find(n => n.id === conn.to);
+                                const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
+                                html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:2px solid #4a90d9;">${escapeHtml(conn.label)}だから → ${targetTitle}</div>`;
+                            });
+                        }
+                        if (incomingConns.length > 0) {
+                            html += '<div style="font-weight:600;color:#333;margin-bottom:4px;margin-top:6px;">🔗 接続（入力）</div>';
+                            incomingConns.forEach(conn => {
+                                const source = state.nodes.find(n => n.id === conn.from);
+                                const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
+                                html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:2px solid #e67e22;">${sourceTitle} → の為${escapeHtml(conn.label)}</div>`;
+                            });
+                        }
+                        html += '</div>';
+                    }
+                    
                     tooltip.innerHTML = html;
                     return true;
                 }
