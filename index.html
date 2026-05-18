@@ -1940,6 +1940,7 @@ function getNodeEdgePoint(node, targetNode) {
                 if (input.parentNode) {
                     input.parentNode.removeChild(input);
                 }
+                document.removeEventListener('mousedown', onDocMouseDown);
             };
 
             const save = () => {
@@ -1950,9 +1951,7 @@ function getNodeEdgePoint(node, targetNode) {
             };
 
             input.addEventListener('blur', () => {
-                cleanup();
-                renderNodes();
-                clearSelection();
+                save();
             });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
@@ -1966,6 +1965,18 @@ function getNodeEdgePoint(node, targetNode) {
                     clearSelection();
                 }
             });
+
+            // 入力ボックス以外のクリックで確定（blurが発火しない場合のフォールバック）
+            const onDocMouseDown = (e) => {
+                if (!input.parentNode) {
+                    document.removeEventListener('mousedown', onDocMouseDown);
+                    return;
+                }
+                if (e.target === input || input.contains(e.target)) return;
+                save();
+                document.removeEventListener('mousedown', onDocMouseDown);
+            };
+            document.addEventListener('mousedown', onDocMouseDown);
         }
 
         function enableConnectionLabelEdit(conn) {
