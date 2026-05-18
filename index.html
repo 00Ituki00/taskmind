@@ -2402,9 +2402,8 @@ function getNodeEdgePoint(node, targetNode) {
             wSection.appendChild(whenEditor.el);
             modal.appendChild(wSection);
 
-            // What, Who, Where
+            // What, Who, Where (Whyは接続線で示すため削除)
             const simpleFields = [
-                { key: 'why', label: '💡 Why(目的)', placeholder: '目的・理由を入力' },
                 { key: 'what', label: '📝 What(詳細)', placeholder: '詳細情報を入力' },
                 { key: 'who', label: '👤 Who(担当)', placeholder: '担当者を入力' },
                 { key: 'where', label: '📍 Where(場所)', placeholder: '場所を入力' }
