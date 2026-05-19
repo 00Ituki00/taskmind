@@ -2584,7 +2584,7 @@ function getNodeEdgePoint(node, targetNode) {
             weekRow1.innerHTML = '<span>第</span>';
             const weekSelect = document.createElement('select');
             weekSelect.style.cssText = 'padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;';
-            const weekOptsForType = (uiType === 'weekly') ? weekOptions : weekOptions.filter(o => o.key !== 'all');
+            const weekOptsForType = weekOptions;
             weekOptsForType.forEach(opt => {
                 const o = document.createElement('option');
                 o.value = opt.key;
@@ -2842,7 +2842,7 @@ function getNodeEdgePoint(node, targetNode) {
                 timeSection.style.display = isDisabled ? 'none' : 'block';
                 deadlineSection.style.display = isDisabled ? 'none' : 'block';
                 weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
-                // 毎週のみ「毎週」オプション表示、それ以外は第1〜最終
+                // 毎週・毎月(曜日)・毎年(曜日)共通で「毎週」〜「最終」オプション表示
                 const needAllOption = (uiType === 'weekly');
                 const currentVal = weekSelect.value;
                 weekSelect.innerHTML = '';
@@ -2852,11 +2852,11 @@ function getNodeEdgePoint(node, targetNode) {
                     o.textContent = opt.label;
                     weekSelect.appendChild(o);
                 });
-                // 選択値を復元(無効な場合は第1に)
+                // 選択値を復元(無効な場合は毎週に)
                 if (Array.from(weekSelect.options).some(o => o.value === currentVal)) {
                     weekSelect.value = currentVal;
                 } else {
-                    weekSelect.value = '1';
+                    weekSelect.value = 'all';
                 }
                 currentWeekOfMonth = weekSelect.value;
                 monthlyDaySection.style.display = (uiType === 'monthly-day') ? 'block' : 'none';
