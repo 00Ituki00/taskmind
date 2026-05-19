@@ -1587,8 +1587,8 @@
                     weekly: true,
                     monthly: true,
                     yearly: true,
-                    asap: true,
-                    unset: true
+                    task: true,
+                    asap: true
                 }
             }
         };
@@ -4500,11 +4500,11 @@ function getNodeEdgePoint(node, targetNode) {
                     const rt = n.details?.when?.repeatType;
                     return rt === 'yearly-date' || rt === 'yearly-week';
                 }},
-                { key: 'asap', label: '随時', match: n => {
+                { key: 'task', label: 'タスク', match: n => {
                     const rt = n.details?.when?.repeatType;
                     return rt === 'none' && n.details?.when?.deadlineDate;
                 }},
-                { key: 'unset', label: '未設定', match: n => {
+                { key: 'asap', label: '随時', match: n => {
                     const rt = n.details?.when?.repeatType;
                     return !rt || rt === 'none' && !n.details?.when?.deadlineDate;
                 }}
