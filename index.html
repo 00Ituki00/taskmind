@@ -3575,13 +3575,18 @@ function getNodeEdgePoint(node, targetNode) {
                     if (childLink) {
                         const childLinkIcon = document.createElement('a');
                         childLinkIcon.textContent = '🔗';
+                        childLinkIcon.href = childLink;
+                        childLinkIcon.target = '_blank';
+                        childLinkIcon.rel = 'noopener noreferrer';
                         childLinkIcon.style.cssText = 'margin-left:4px;font-size:11px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
                         childLinkIcon.title = 'Open link: ' + childLink;
                         childLinkIcon.addEventListener('mouseenter', () => childLinkIcon.style.opacity = '1');
                         childLinkIcon.addEventListener('mouseleave', () => childLinkIcon.style.opacity = '0.7');
+                        childLinkIcon.addEventListener('mousedown', (e) => {
+                            e.stopPropagation();
+                        });
                         childLinkIcon.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            window.open(childLink, '_blank', 'noopener,noreferrer');
                         });
                         childEl.appendChild(childLinkIcon);
                     }
@@ -3862,13 +3867,18 @@ function getNodeEdgePoint(node, targetNode) {
                 if (link) {
                     const linkIcon = document.createElement('a');
                     linkIcon.textContent = '🔗';
+                    linkIcon.href = link;
+                    linkIcon.target = '_blank';
+                    linkIcon.rel = 'noopener noreferrer';
                     linkIcon.style.cssText = 'margin-left:4px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
                     linkIcon.title = 'Open link: ' + link;
                     linkIcon.addEventListener('mouseenter', () => linkIcon.style.opacity = '1');
                     linkIcon.addEventListener('mouseleave', () => linkIcon.style.opacity = '0.7');
+                    linkIcon.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                    });
                     linkIcon.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        window.open(link, '_blank', 'noopener,noreferrer');
                     });
                     header.appendChild(linkIcon);
                 }
