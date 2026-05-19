@@ -4401,7 +4401,7 @@ function getNodeEdgePoint(node, targetNode) {
             }
             container.appendChild(header);
 
-            // Lane definitions
+            // Lane definitions - include ALL nodes based on their when data
             const laneDefs = [
                 { key: 'daily', label: '毎日', match: n => n.details?.when?.repeatType === 'daily' },
                 { key: 'weekly', label: '毎週', match: n => n.details?.when?.repeatType === 'weekly' },
@@ -4428,7 +4428,7 @@ function getNodeEdgePoint(node, targetNode) {
             lanesEl.className = 'timeline-lanes';
 
             laneDefs.forEach(laneDef => {
-                const laneNodes = state.nodes.filter(n => n.parentId === null && laneDef.match(n));
+                const laneNodes = state.nodes.filter(n => laneDef.match(n));
                 if (state.hideCompleted) {
                     laneNodes = laneNodes.filter(n => !n.completed);
                 }
@@ -4491,20 +4491,9 @@ function getNodeEdgePoint(node, targetNode) {
                         wrapper.style.top = (index * 70) + 'px';  // Stack vertically with 70px spacing
                         wrapper.dataset.id = node.id;
 
-                        // Render node using existing createNodeElement or inline
+                        // Render node element (timeline version, no children nesting)
                         const nodeEl = createTimelineNodeElement(node);
                         wrapper.appendChild(nodeEl);
-
-                        // Render children inside
-                        const children = state.nodes.filter(n => n.parentId === node.id);
-                        if (children.length > 0 && node.expanded) {
-                            const childrenContainer = document.createElement('div');
-                            childrenContainer.className = 'timeline-node-children';
-                            children.forEach(child => {
-                                childrenContainer.appendChild(createTimelineNodeElement(child, true));
-                            });
-                            wrapper.appendChild(childrenContainer);
-                        }
 
                         content.appendChild(wrapper);
                     });
