@@ -4618,6 +4618,7 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function renderConnections() {
+            connectionsSvg.innerHTML = '';
 
             // Collect all nodes that are hidden due to parent connection collapse (cascade)
             const hiddenNodeIds = new Set();
