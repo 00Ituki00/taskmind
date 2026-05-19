@@ -1749,9 +1749,6 @@
             // Free layout: wheel zooms
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
             setZoom(state.scale * zoomFactor, e.clientX, e.clientY);
-        });
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            setZoom(state.scale * delta, e.clientX, e.clientY);
         }, { passive: false });
 
         // ==================== Mode ====================
@@ -7596,6 +7593,10 @@ function getNodeEdgePoint(node, targetNode) {
 
         // 初期ロード時にも実行
         recalculateWhenDates();
+
+        // 初期描画
+        renderNodes();
+        renderConnections();
     </script>
 </body>
 </html>
