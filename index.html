@@ -3816,8 +3816,8 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 }
                 
-                // Mouse enter on entire node (not just header)
-                el.addEventListener('mouseenter', () => {
+                // Mouse enter on header only (same as drop target boundary)
+                header.addEventListener('mouseenter', () => {
                     if (state.dragNode) return;
                     cancelTooltipTimer();
                     tooltipTimer = setTimeout(() => {
@@ -3825,12 +3825,12 @@ function getNodeEdgePoint(node, targetNode) {
                     }, 120);
                 });
                 
-                el.addEventListener('mouseleave', () => {
+                header.addEventListener('mouseleave', () => {
                     cancelTooltipTimer();
                     if (tooltipVisible) hideTooltip();
                 });
                 
-                el.addEventListener('mousedown', () => {
+                header.addEventListener('mousedown', () => {
                     cancelTooltipTimer();
                     if (tooltipVisible) hideTooltip();
                 });
