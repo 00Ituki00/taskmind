@@ -3587,11 +3587,17 @@ function getNodeEdgePoint(node, targetNode) {
                         childLinkIcon.addEventListener('mouseleave', () => childLinkIcon.style.opacity = '0.7');
                         childLinkIcon.addEventListener('mousedown', (e) => {
                             e.stopPropagation();
+                            childLinkIcon.dataset.linkPending = 'true';
                         });
-                        childLinkIcon.addEventListener('click', (e) => {
+                        childLinkIcon.addEventListener('mouseup', (e) => {
                             e.stopPropagation();
-                            e.preventDefault();
-                            window.open(childLink, '_blank', 'noopener,noreferrer');
+                            if (childLinkIcon.dataset.linkPending === 'true') {
+                                window.open(childLink, '_blank', 'noopener,noreferrer');
+                            }
+                            childLinkIcon.dataset.linkPending = '';
+                        });
+                        childLinkIcon.addEventListener('mouseleave', () => {
+                            childLinkIcon.dataset.linkPending = '';
                         });
                         childEl.appendChild(childLinkIcon);
                     }
@@ -3878,11 +3884,17 @@ function getNodeEdgePoint(node, targetNode) {
                     linkIcon.addEventListener('mouseleave', () => linkIcon.style.opacity = '0.7');
                     linkIcon.addEventListener('mousedown', (e) => {
                         e.stopPropagation();
+                        linkIcon.dataset.linkPending = 'true';
                     });
-                    linkIcon.addEventListener('click', (e) => {
+                    linkIcon.addEventListener('mouseup', (e) => {
                         e.stopPropagation();
-                        e.preventDefault();
-                        window.open(link, '_blank', 'noopener,noreferrer');
+                        if (linkIcon.dataset.linkPending === 'true') {
+                            window.open(link, '_blank', 'noopener,noreferrer');
+                        }
+                        linkIcon.dataset.linkPending = '';
+                    });
+                    linkIcon.addEventListener('mouseleave', () => {
+                        linkIcon.dataset.linkPending = '';
                     });
                     header.appendChild(linkIcon);
                 }
