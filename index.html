@@ -2409,11 +2409,17 @@ function getNodeEdgePoint(node, targetNode) {
                 openWhenEditor(node);
                 return;
             } else {
-                const textarea = document.createElement('textarea');
-                textarea.style.cssText = 'width:100%;min-height:60px;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
-                textarea.value = node.details?.[type] || '';
-                content.appendChild(textarea);
-                popup.dataset.textareaRef = textarea;
+                const isLink = type === 'link';
+                const input = isLink ? document.createElement('input') : document.createElement('textarea');
+                if (isLink) {
+                    input.type = 'url';
+                    input.style.cssText = 'width:100%;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
+                } else {
+                    input.style.cssText = 'width:100%;min-height:60px;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
+                }
+                input.value = node.details?.[type] || '';
+                content.appendChild(input);
+                popup.dataset.textareaRef = input;
             }
 
             popup.appendChild(content);
@@ -2432,7 +2438,7 @@ function getNodeEdgePoint(node, targetNode) {
                     const sel = popup.querySelector('select');
                     node.priority = parseInt(sel.value);
                 } else {
-                    const ta = popup.querySelector('textarea');
+                    const ta = popup.querySelector('textarea, input[type="url"]');
                     if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '', link: '' };
                     node.details[type] = ta.value;
                 }
@@ -2564,7 +2570,7 @@ function getNodeEdgePoint(node, targetNode) {
                         node.details.when.nextDate = calculateNextDate(node.details.when);
                     }
                 }
-                modal.querySelectorAll('textarea[data-field-key]').forEach(ta => {
+                modal.querySelectorAll('textarea[data-field-key], input[data-field-key]').forEach(ta => {
                     node.details[ta.dataset.fieldKey] = ta.value;
                 });
                 overlay.remove();
@@ -3852,6 +3858,22 @@ function getNodeEdgePoint(node, targetNode) {
                 header.appendChild(indicatorsEl);
 
                 // Link icon (shown when link is set)
+                const link = node.details?.link?.trim();
+                if (link) {
+                    const linkIcon = document.createElement('a');
+                    linkIcon.textContent = '🔗';
+                    linkIcon.style.cssText = 'margin-left:4px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
+                    linkIcon.title = 'Open link: ' + link;
+                    linkIcon.addEventListener('mouseenter', () => linkIcon.style.opacity = '1');
+                    linkIcon.addEventListener('mouseleave', () => linkIcon.style.opacity = '0.7');
+                    linkIcon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        window.open(link, '_blank', 'noopener,noreferrer');
+                    });
+                    header.appendChild(linkIcon);
+                }
+
+            // Link icon (shown when link is set)
                 const link = node.details?.link?.trim();
                 if (link) {
                     const linkIcon = document.createElement('a');
