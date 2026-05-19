@@ -5492,6 +5492,10 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             if (state.mode === 'pan' || e.button === 1 || e.button === 2 || e.shiftKey) {
+                // Skip canvas pan if in timeline mode and clicking inside timeline container
+                if (state.layoutMode === 'timeline' && e.target.closest('.timeline-container')) {
+                    return;
+                }
                 state.isPanning = true;
                 state.lastMouseX = e.clientX;
                 state.lastMouseY = e.clientY;
@@ -5660,6 +5664,12 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             if (state.isPanning) {
+                // Skip canvas pan update if in timeline mode
+                if (state.layoutMode === 'timeline') {
+                    state.isPanning = false;
+                    container.classList.remove('panning');
+                    return;
+                }
                 if (state.rightClickPanning) {
                     const dist = Math.hypot(e.clientX - state.rightClickPanStartX, e.clientY - state.rightClickPanStartY);
                     if (dist > 3) {
