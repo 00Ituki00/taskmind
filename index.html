@@ -4528,7 +4528,7 @@ function getNodeEdgePoint(node, targetNode) {
                     ps.container.scrollTop = ps.scrollStartY + dy;
                 });
 
-                window.addEventListener('mouseup', () => {
+                window.addEventListener('mouseup', (e) => {
                     if (state.timelinePanState) {
                         state.timelinePanState.isPanning = false;
                         state.timelinePanState.container.classList.remove('panning');
@@ -4537,8 +4537,13 @@ function getNodeEdgePoint(node, targetNode) {
                 });
             }
 
+            container.addEventListener('contextmenu', (e) => {
+                if (e.target.closest('.timeline-node')) return;
+                e.preventDefault();
+            });
+
             container.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
+                if (e.button !== 2) return; // right-click only
                 if (e.target.closest('.timeline-node') || e.target.closest('.timeline-lane-header')) return;
                 state.timelinePanState = {
                     isPanning: true,
