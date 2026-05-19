@@ -3873,22 +3873,6 @@ function getNodeEdgePoint(node, targetNode) {
                     header.appendChild(linkIcon);
                 }
 
-            // Link icon (shown when link is set)
-                const link = node.details?.link?.trim();
-                if (link) {
-                    const linkIcon = document.createElement('a');
-                    linkIcon.textContent = '🔗';
-                    linkIcon.style.cssText = 'margin-left:4px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
-                    linkIcon.title = 'Open link: ' + link;
-                    linkIcon.addEventListener('mouseenter', () => linkIcon.style.opacity = '1');
-                    linkIcon.addEventListener('mouseleave', () => linkIcon.style.opacity = '0.7');
-                    linkIcon.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        window.open(link, '_blank', 'noopener,noreferrer');
-                    });
-                    header.appendChild(linkIcon);
-                }
-
                 header.appendChild(expandBtn);
 
                 // Hover tooltip for why/what info — singleton pattern, attached to entire node
