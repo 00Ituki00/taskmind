@@ -3612,6 +3612,15 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function renderNodes() {
+            // Save timeline scroll position before clearing
+            const oldTimelineContainer = document.querySelector('.timeline-container');
+            if (oldTimelineContainer && state.layoutMode === 'timeline') {
+                state._timelineScroll = {
+                    left: oldTimelineContainer.scrollLeft,
+                    top: oldTimelineContainer.scrollTop
+                };
+            }
+
             nodesEl.innerHTML = '';
 
             // Timeline layout mode
@@ -4515,6 +4524,13 @@ function getNodeEdgePoint(node, targetNode) {
             container.appendChild(lanesEl);
             nodesEl.appendChild(container);
 
+            // Restore previous scroll position if any
+            if (state._timelineScroll) {
+                container.scrollLeft = state._timelineScroll.left;
+                container.scrollTop = state._timelineScroll.top;
+                state._timelineScroll = null;
+            }
+
             // Timeline pan drag - only setup window listeners once
             if (!state._timelineWindowListenersSetup) {
                 state._timelineWindowListenersSetup = true;
@@ -4540,6 +4556,13 @@ function getNodeEdgePoint(node, targetNode) {
             container.addEventListener('contextmenu', (e) => {
                 if (e.target.closest('.timeline-node')) return;
                 e.preventDefault();
+            });
+
+            // Prevent contextmenu in timeline container (right-click is used for panning)
+            window.addEventListener('contextmenu', (e) => {
+                if (state.layoutMode === 'timeline' && e.target.closest('.timeline-container') && !e.target.closest('.timeline-node')) {
+                    e.preventDefault();
+                }
             });
 
             container.addEventListener('mousedown', (e) => {
