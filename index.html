@@ -986,10 +986,17 @@
 
         .timeline-node {
             position: absolute;
-            min-width: 100px;
-            max-width: 220px;
+            min-width: 80px;
+            max-width: none;
             transform: scale(0.85);
             transform-origin: left top;
+        }
+
+        .timeline-node .timeline-node-inner.node {
+            position: relative !important;
+            width: 100% !important;
+            min-width: auto !important;
+            max-width: none !important;
         }
 
         .timeline-node .node {
@@ -4539,14 +4546,46 @@ function getNodeEdgePoint(node, targetNode) {
                         return new Date(da) - new Date(db);
                     });
 
-                    laneNodes.forEach((node, index) => {
-                        const nodeDate = getNodeTimelineDate(node);
-                        const nodeX = nodeDate ? ((new Date(nodeDate) - viewStart) / (1000 * 60 * 60 * 24)) * dayWidth : 0;
+                    // Layout nodes with overlap detection - stack vertically when overlapping
+                    const rowHeight = 48; // Compact row height for timeline
+                    const rows = []; // Each row tracks the endX of the last placed node
+
+                    // Sort nodes by startX
+                    const sortedNodes = [...laneNodes].sort((a, b) => {
+                        const aStart = getNodeTimelineStartDate(a);
+                        const bStart = getNodeTimelineStartDate(b);
+                        return (aStart ? new Date(aStart) : 0) - (bStart ? new Date(bStart) : 0);
+                    });
+
+                    sortedNodes.forEach(node => {
+                        const startDate = getNodeTimelineStartDate(node);
+                        const endDate = getNodeTimelineEndDate(node, startDate);
+
+                        const startX = startDate ? ((new Date(startDate) - viewStart) / (1000 * 60 * 60 * 24)) * dayWidth : 0;
+                        const duration = startDate && endDate ? Math.max(0.5, (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) : 1;
+                        const nodeWidth = Math.max(80, duration * dayWidth - 16);
+                        const nodeEndX = startX + nodeWidth;
+
+                        // Find a row where this node doesn't overlap
+                        let rowIndex = 0;
+                        for (; rowIndex < rows.length; rowIndex++) {
+                            if (rows[rowIndex] <= startX + 8) {
+                                break; // Found non-overlapping row
+                            }
+                        }
+
+                        // Place in found row or create new row
+                        if (rowIndex >= rows.length) {
+                            rows.push(nodeEndX);
+                        } else {
+                            rows[rowIndex] = nodeEndX;
+                        }
 
                         const wrapper = document.createElement('div');
                         wrapper.className = 'timeline-node';
-                        wrapper.style.left = (nodeX + 8) + 'px';
-                        wrapper.style.top = (index * 56) + 'px';  // Stack vertically with 56px spacing (compact)
+                        wrapper.style.left = (startX + 8) + 'px';
+                        wrapper.style.top = (rowIndex * rowHeight) + 'px';
+                        wrapper.style.width = nodeWidth + 'px';
                         wrapper.dataset.id = node.id;
 
                         // Render node element (timeline version, no children nesting)
@@ -4555,6 +4594,10 @@ function getNodeEdgePoint(node, targetNode) {
 
                         content.appendChild(wrapper);
                     });
+
+                    // Set lane height based on number of rows
+                    const laneHeight = Math.max(rowHeight, rows.length * rowHeight + 8);
+                    content.style.minHeight = laneHeight + 'px';
                 }
 
                 laneEl.appendChild(content);
@@ -4625,7 +4668,37 @@ function getNodeEdgePoint(node, targetNode) {
             canvas.style.height = Math.max(lanesEl.offsetHeight + 100, window.innerHeight) + 'px';
         }
 
-        // Helper: Get the date to use for timeline placement
+        // Helper: Get the start date for timeline placement
+        function getNodeTimelineStartDate(node) {
+            const when = node.details?.when;
+            if (!when) return null;
+            // Priority: baseDateTime > nextDate > createdAt
+            if (when.baseDateTime) return when.baseDateTime;
+            if (when.nextDate) return when.nextDate;
+            return node.createdAt;
+        }
+
+        // Helper: Get the end date (deadline) for timeline placement
+        function getNodeTimelineEndDate(node, startDate) {
+            const when = node.details?.when;
+            if (!when) return null;
+            // Priority: deadlineDate > baseDateTime + deadlineDays
+            if (when.deadlineDate) return when.deadlineDate;
+            if (startDate && when.deadlineDays !== undefined && when.deadlineDays !== null) {
+                const end = new Date(startDate);
+                end.setDate(end.getDate() + when.deadlineDays);
+                return end.toISOString();
+            }
+            // Default: 1 day duration
+            if (startDate) {
+                const end = new Date(startDate);
+                end.setDate(end.getDate() + 1);
+                return end.toISOString();
+            }
+            return null;
+        }
+
+        // Helper: Get the date to use for timeline placement (legacy: uses deadline/nextDate)
         function getNodeTimelineDate(node) {
             const when = node.details?.when;
             if (!when) return null;
@@ -4639,10 +4712,10 @@ function getNodeEdgePoint(node, targetNode) {
         // Helper: Create a node element for timeline (reuses existing node styling)
         function createTimelineNodeElement(node, isChild = false) {
             const el = document.createElement('div');
-            el.className = 'node' + (node.completed ? ' completed' : '') + (isChild ? ' child-node' : '');
+            el.className = 'node timeline-node-inner' + (node.completed ? ' completed' : '') + (isChild ? ' child-node' : '');
             el.dataset.id = node.id;
-            el.style.width = (node.width || 160) + 'px';
-            if (node.width) el.style.width = node.width + 'px';
+            el.style.width = '100%';
+            el.style.minWidth = 'auto';
 
             // Header
             const header = document.createElement('div');
