@@ -894,7 +894,6 @@
         .timeline-header {
             position: sticky;
             top: 0;
-            left: 0;
             height: 40px;
             background: #f8f9fa;
             border-bottom: 2px solid #dee2e6;
@@ -902,6 +901,7 @@
             z-index: 100;
             font-size: 12px;
             color: #495057;
+            min-width: fit-content;
         }
 
         .timeline-day-header {
@@ -4405,6 +4405,7 @@ function getNodeEdgePoint(node, targetNode) {
             // Date header
             const header = document.createElement('div');
             header.className = 'timeline-header';
+            header.style.width = Math.max(totalWidth + 200, window.innerWidth) + 'px';
             for (let i = 0; i < days; i++) {
                 const d = new Date(viewStart);
                 d.setDate(d.getDate() + i);
