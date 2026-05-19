@@ -6340,11 +6340,49 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         // ==================== Keyboard Shortcuts ====================
-        // NOTE: All mode-switching keyboard shortcuts removed to prevent
+        // NOTE: Keyboard shortcuts with strict activeElement checks to prevent
         // accidental triggering during text input in editors.
-        // Only Escape for connection cancel is retained.
 
         document.addEventListener('keydown', (e) => {
+            // Strict check: skip ALL keyboard shortcuts when user is typing
+            const active = document.activeElement;
+            const isTyping = active && (
+                active.tagName === 'INPUT' ||
+                active.tagName === 'TEXTAREA' ||
+                active.isContentEditable ||
+                active.closest('input, textarea, [contenteditable]')
+            );
+
+            if (isTyping) {
+                // Only allow Escape within typing contexts
+                if (e.key === 'Escape') {
+                    e.target.blur?.();
+                }
+                return;
+            }
+
+            // Ctrl+S / Ctrl+Shift+S: file save
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.repeat) return;
+                saveToFile(!e.shiftKey);
+                return;
+            }
+
+            // Delete / Backspace: delete selected node(s)
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (state.selectedNodeIds.length > 0) {
+                    state.selectedNodeIds.forEach(id => deleteNode(id));
+                    clearSelection();
+                } else if (state.selectedNodeId) {
+                    deleteNode(state.selectedNodeId);
+                    state.selectedNodeId = null;
+                }
+                return;
+            }
+
+            // Escape: cancel pending connection
             if (e.key === 'Escape') {
                 state.connectingFrom = null;
                 const tempLine = document.getElementById('pending-connection');
