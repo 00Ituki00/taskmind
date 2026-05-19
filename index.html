@@ -948,8 +948,8 @@
 
         .timeline-lane-content {
             position: relative;
-            min-height: 80px;
-            padding: 8px 0;
+            min-height: 48px;
+            padding: 4px 0;
         }
 
         .timeline-lane.collapsed .timeline-lane-content {
@@ -986,8 +986,10 @@
 
         .timeline-node {
             position: absolute;
-            min-width: 120px;
-            max-width: 280px;
+            min-width: 100px;
+            max-width: 220px;
+            transform: scale(0.85);
+            transform-origin: left top;
         }
 
         .timeline-node .node {
@@ -1558,7 +1560,7 @@
                 viewStart: new Date().toISOString().split('T')[0],  // YYYY-MM-DD
                 viewRange: 'week',  // 'week' | 'month' | 'quarter'
                 dayWidth: 120,      // px per day
-                laneHeight: 200,    // px per lane (expanded)
+                laneHeight: 80,    // px per lane (expanded) - reduced for compact view
                 expandedLanes: {
                     daily: true,
                     weekly: true,
@@ -4544,7 +4546,7 @@ function getNodeEdgePoint(node, targetNode) {
                         const wrapper = document.createElement('div');
                         wrapper.className = 'timeline-node';
                         wrapper.style.left = (nodeX + 8) + 'px';
-                        wrapper.style.top = (index * 70) + 'px';  // Stack vertically with 70px spacing
+                        wrapper.style.top = (index * 56) + 'px';  // Stack vertically with 56px spacing (compact)
                         wrapper.dataset.id = node.id;
 
                         // Render node element (timeline version, no children nesting)
