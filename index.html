@@ -1606,6 +1606,63 @@
             btn.addEventListener('click', () => setMode(btn.dataset.mode));
         });
 
+        // Build tooltip HTML for any node (shared by root and child nodes)
+        function buildNodeTooltipHtml(node) {
+            const why = node.details?.why?.trim();
+            const what = node.details?.what?.trim();
+            const where = node.details?.where?.trim();
+            const who = node.details?.who?.trim();
+            const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
+            const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
+            
+            const hasDetails = why || what || where || who;
+            const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
+            if (!hasDetails && !hasConns) return '';
+            
+            let html = '';
+            
+            // From: incoming connections
+            if (incomingConns.length > 0) {
+                incomingConns.forEach(conn => {
+                    const source = state.nodes.find(n => n.id === conn.from);
+                    const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
+                    const sourceColor = source ? source.color : '#4a90d9';
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.label)}</div>`;
+                });
+            }
+            
+            // Detail fields
+            const fields = [];
+            if (why) fields.push({label:'why', value:why});
+            if (what) fields.push({label:'what', value:what});
+            if (where) fields.push({label:'where', value:where});
+            if (who) fields.push({label:'who', value:who});
+            
+            if (fields.length > 0) {
+                if (incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                fields.forEach((f, i) => {
+                    if (i > 0) html += '<div style="margin-top:6px;"></div>';
+                    html += `<div style="font-weight:600;color:#333;margin-bottom:2px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(f.label)}</div>`;
+                    html += `<div style="color:#555;white-space:pre-wrap;word-break:break-word;padding-left:8px;border-left:2px solid #888;">${escapeHtml(f.value)}</div>`;
+                });
+                if (incomingConns.length > 0) html += '</div>';
+            }
+            
+            // To: outgoing connections
+            if (outgoingConns.length > 0) {
+                if (hasDetails || incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                outgoingConns.forEach(conn => {
+                    const target = state.nodes.find(n => n.id === conn.to);
+                    const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
+                    const targetColor = target ? target.color : '#e67e22';
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
+                });
+                if (hasDetails || incomingConns.length > 0) html += '</div>';
+            }
+            
+            return html;
+        }
+
         // Escape HTML special characters to prevent XSS
         function escapeHtml(str) {
             if (!str) return '';
@@ -3510,6 +3567,75 @@ function getNodeEdgePoint(node, targetNode) {
                     // Use unified drag-and-drop handlers (same as root nodes)
                     childEl.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, childEl, child));
                     childEl.addEventListener('mouseleave', () => handleNodeMouseLeave(childEl, child));
+
+                    // Hover tooltip for child nodes — reuses global singleton
+                    const childTooltipEl = document.querySelector('.node-hover-tooltip-global');
+                    let childTooltipTimer = null;
+                    let childTooltipVisible = false;
+                    
+                    function cancelChildTooltipTimer() {
+                        if (childTooltipTimer) {
+                            clearTimeout(childTooltipTimer);
+                            childTooltipTimer = null;
+                        }
+                    }
+                    
+                    function showChildTooltip() {
+                        if (state.dragNode) return;
+                        const html = buildNodeTooltipHtml(child);
+                        if (!html) return;
+                        
+                        childTooltipEl.innerHTML = html;
+                        childTooltipEl.style.display = 'block';
+                        void childTooltipEl.offsetHeight;
+                        
+                        const rect = childEl.getBoundingClientRect();
+                        const ttRect = childTooltipEl.getBoundingClientRect();
+                        let left = rect.right + 8;
+                        let top = rect.top;
+                        
+                        if (left + ttRect.width > window.innerWidth - 8) {
+                            left = rect.left - ttRect.width - 8;
+                        }
+                        if (left < 8) left = 8;
+                        if (top + ttRect.height > window.innerHeight - 8) {
+                            top = window.innerHeight - ttRect.height - 8;
+                        }
+                        if (top < 8) top = 8;
+                        
+                        childTooltipEl.style.left = left + 'px';
+                        childTooltipEl.style.top = top + 'px';
+                        childTooltipEl.style.opacity = '1';
+                        childTooltipVisible = true;
+                    }
+                    
+                    function hideChildTooltip() {
+                        childTooltipEl.style.opacity = '0';
+                        childTooltipVisible = false;
+                        setTimeout(() => {
+                            if (!childTooltipVisible) childTooltipEl.style.display = 'none';
+                        }, 150);
+                    }
+                    
+                    // Header-equivalent hover area: checkbox + title + indicators (not nested children)
+                    const childHeaderTargets = [childCheckbox, childTitle, childIndicators, expandBtn, badge].filter(Boolean);
+                    childHeaderTargets.forEach(target => {
+                        target.addEventListener('mouseenter', () => {
+                            if (state.dragNode) return;
+                            cancelChildTooltipTimer();
+                            childTooltipTimer = setTimeout(() => {
+                                showChildTooltip();
+                            }, 120);
+                        });
+                        target.addEventListener('mouseleave', () => {
+                            cancelChildTooltipTimer();
+                            if (childTooltipVisible) hideChildTooltip();
+                        });
+                        target.addEventListener('mousedown', () => {
+                            cancelChildTooltipTimer();
+                            if (childTooltipVisible) hideChildTooltip();
+                        });
+                    });
 
                     childEl.addEventListener('dblclick', (e) => {
                         e.stopPropagation();
