@@ -1672,7 +1672,7 @@
         }
 
         // ==================== Node Operations ====================
-        function calculateNodeWidth(title) {
+        function calculateNodeWidth(title, hasLink = false) {
             // Measure actual text width using a temporary DOM element
             const temp = document.createElement('span');
             temp.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-weight:600;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;';
@@ -1684,7 +1684,9 @@
             // Overhead for non-text elements in node header:
             // left-padding(16) + checkbox(14) + gaps(~32) + title-margin-right(24)
             // + right-padding(16) + expand-btn(14) + badge(~20) + buffer(10)
-            const overhead = 146;
+            // + link-icon(18) when link is set
+            let overhead = 146;
+            if (hasLink) overhead += 18;
             return Math.max(160, Math.min(400, textWidth + overhead));
         }
 
@@ -1700,7 +1702,7 @@
                 completedAt: null,
                 createdAt: now,
                 expanded: false,
-                width: calculateNodeWidth(title),
+                width: calculateNodeWidth(title, !!link),
                 height: null,
                 parentId: null,
                 children: [],
@@ -3571,17 +3573,12 @@ function getNodeEdgePoint(node, targetNode) {
                     childEl.appendChild(childCheckbox);
                     childEl.appendChild(childTitle);
 
-                    // Add detail indicators for child nodes
-                    const childIndicators = createIndicatorMenu(child);
-                    childIndicators.style.cssText = 'position:relative;display:inline-flex;padding:0;gap:2px;font-size:11px;margin-left:4px;';
-                    childEl.appendChild(childIndicators);
-
-                    // Link icon for child nodes (shown when link is set)
+                    // Link icon for child nodes (shown when link is set) - placed right after title
                     const childLink = child.details?.link?.trim();
                     if (childLink) {
                         const childLinkIcon = document.createElement('span');
                         childLinkIcon.textContent = '🔗';
-                        childLinkIcon.style.cssText = 'margin-left:4px;font-size:11px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
+                        childLinkIcon.style.cssText = 'margin-left:2px;font-size:11px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
                         childLinkIcon.title = 'Open link: ' + childLink;
                         childLinkIcon.addEventListener('mouseenter', () => childLinkIcon.style.opacity = '1');
                         childLinkIcon.addEventListener('mouseleave', () => childLinkIcon.style.opacity = '0.7');
@@ -3601,6 +3598,11 @@ function getNodeEdgePoint(node, targetNode) {
                         });
                         childEl.appendChild(childLinkIcon);
                     }
+
+                    // Add detail indicators for child nodes
+                    const childIndicators = createIndicatorMenu(child);
+                    childIndicators.style.cssText = 'position:relative;display:inline-flex;padding:0;gap:2px;font-size:11px;margin-left:4px;';
+                    childEl.appendChild(childIndicators);
 
                     childEl.appendChild(expandBtn);
                     childEl.appendChild(badge);
@@ -3869,16 +3871,12 @@ function getNodeEdgePoint(node, targetNode) {
                 header.appendChild(color);
                 header.appendChild(title);
 
-                // Add detail indicators inside header
-                const indicatorsEl = createIndicatorMenu(node);
-                header.appendChild(indicatorsEl);
-
-                // Link icon (shown when link is set)
+                // Link icon (shown when link is set) - placed right after title
                 const link = node.details?.link?.trim();
                 if (link) {
                     const linkIcon = document.createElement('span');
                     linkIcon.textContent = '🔗';
-                    linkIcon.style.cssText = 'margin-left:4px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
+                    linkIcon.style.cssText = 'margin-left:2px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
                     linkIcon.title = 'Open link: ' + link;
                     linkIcon.addEventListener('mouseenter', () => linkIcon.style.opacity = '1');
                     linkIcon.addEventListener('mouseleave', () => linkIcon.style.opacity = '0.7');
@@ -3898,6 +3896,10 @@ function getNodeEdgePoint(node, targetNode) {
                     });
                     header.appendChild(linkIcon);
                 }
+
+                // Add detail indicators inside header
+                const indicatorsEl = createIndicatorMenu(node);
+                header.appendChild(indicatorsEl);
 
                 header.appendChild(expandBtn);
 
@@ -5829,7 +5831,7 @@ function getNodeEdgePoint(node, targetNode) {
                             state.dragNode.x = absPos.x;
                             state.dragNode.y = absPos.y;
                             state.dragNode.parentId = null;
-                            state.dragNode.width = calculateNodeWidth(state.dragNode.title);
+                            state.dragNode.width = calculateNodeWidth(state.dragNode.title, !!state.dragNode.details?.link);
 
                             // Position near target
                             let tx = targetNode.x, ty = targetNode.y;
@@ -5879,7 +5881,7 @@ function getNodeEdgePoint(node, targetNode) {
                         state.dragNode.x = absPos.x;
                         state.dragNode.y = absPos.y;
                         state.dragNode.parentId = null;
-                        state.dragNode.width = calculateNodeWidth(state.dragNode.title);
+                        state.dragNode.width = calculateNodeWidth(state.dragNode.title, !!state.dragNode.details?.link);
                         if (parent.children) {
                             parent.children = parent.children.filter(id => id !== state.dragNode.id);
                             if (parent.children.length === 0) parent.expanded = false;
@@ -6247,7 +6249,7 @@ function getNodeEdgePoint(node, targetNode) {
                             }
                         }
                         node.parentId = null;
-                        node.width = calculateNodeWidth(node.title);
+                        node.width = calculateNodeWidth(node.title, !!node.details?.link);
                         renderNodes();
                         showToast('親子関係を解除しました');
                     }});
