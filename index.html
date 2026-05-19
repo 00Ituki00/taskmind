@@ -4629,6 +4629,8 @@ function getNodeEdgePoint(node, targetNode) {
 
                 window.addEventListener('mouseup', (e) => {
                     if (state.timelinePanState) {
+                        // Mark that a right-click pan was used to suppress contextmenu
+                        state.timelineRightClickPanUsed = true;
                         state.timelinePanState.isPanning = false;
                         state.timelinePanState.container.classList.remove('panning');
                         state.timelinePanState = null;
@@ -4637,12 +4639,23 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             container.addEventListener('contextmenu', (e) => {
+                // Always suppress contextmenu after right-click pan in timeline
+                if (state.timelineRightClickPanUsed) {
+                    e.preventDefault();
+                    state.timelineRightClickPanUsed = false;
+                    return;
+                }
                 if (e.target.closest('.timeline-node')) return;
                 e.preventDefault();
             });
 
             // Prevent contextmenu in timeline container (right-click is used for panning)
             window.addEventListener('contextmenu', (e) => {
+                if (state.timelineRightClickPanUsed) {
+                    e.preventDefault();
+                    state.timelineRightClickPanUsed = false;
+                    return;
+                }
                 if (state.layoutMode === 'timeline' && e.target.closest('.timeline-container') && !e.target.closest('.timeline-node')) {
                     e.preventDefault();
                 }
