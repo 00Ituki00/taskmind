@@ -4500,7 +4500,7 @@ function getNodeEdgePoint(node, targetNode) {
                     const rt = n.details?.when?.repeatType;
                     return rt === 'yearly-date' || rt === 'yearly-week';
                 }},
-                { key: 'task', label: 'タスク', match: n => {
+                { key: 'task', label: '単発', match: n => {
                     const rt = n.details?.when?.repeatType;
                     return rt === 'none' && n.details?.when?.deadlineDate;
                 }},
