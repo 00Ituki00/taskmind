@@ -1612,10 +1612,11 @@
             const what = node.details?.what?.trim();
             const where = node.details?.where?.trim();
             const who = node.details?.who?.trim();
+            const link = node.details?.link?.trim();
             const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
             const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
             
-            const hasDetails = why || what || where || who;
+            const hasDetails = why || what || where || who || link;
             const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
             if (!hasDetails && !hasConns) return '';
             
@@ -1633,6 +1634,7 @@
             
             // Detail fields
             const fields = [];
+            if (link) fields.push({label:'link', value:link});
             if (why) fields.push({label:'why', value:why});
             if (what) fields.push({label:'what', value:what});
             if (where) fields.push({label:'where', value:where});
@@ -1707,7 +1709,8 @@
                     why: '',
                     what: '',
                     who: '',
-                    where: ''
+                    where: '',
+                    link: ''
                 }
             };
             state.nodes.push(node);
@@ -2167,6 +2170,7 @@ function getNodeEdgePoint(node, targetNode) {
             group.appendChild(createIndicator(node, 'what'));
             group.appendChild(createIndicator(node, 'who'));
             group.appendChild(createIndicator(node, 'where'));
+            group.appendChild(createIndicator(node, 'link'));
             container.appendChild(group);
 
             return container;
@@ -2203,6 +2207,10 @@ function getNodeEdgePoint(node, targetNode) {
             } else if (type === 'where') {
                 const hasValue = node.details?.where;
                 el.textContent = '📍';
+                if (hasValue) el.classList.add('active');
+            } else if (type === 'link') {
+                const hasValue = node.details?.link;
+                el.textContent = '🔗';
                 if (hasValue) el.classList.add('active');
             }
 
@@ -2377,7 +2385,8 @@ function getNodeEdgePoint(node, targetNode) {
                 type === 'when' ? 'When(日時)' :
                 type === 'what' ? 'What(詳細)' :
                 type === 'who' ? 'Who(担当)' :
-                type === 'where' ? 'Where(場所)' : type;
+                type === 'where' ? 'Where(場所)' :
+                type === 'link' ? 'Link(リンク)' : type;
             popup.appendChild(title);
 
             const content = document.createElement('div');
@@ -2424,7 +2433,7 @@ function getNodeEdgePoint(node, targetNode) {
                     node.priority = parseInt(sel.value);
                 } else {
                     const ta = popup.querySelector('textarea');
-                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '' };
+                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '', link: '' };
                     node.details[type] = ta.value;
                 }
                 popup.remove();
@@ -2495,7 +2504,7 @@ function getNodeEdgePoint(node, targetNode) {
             wSection.appendChild(wTitle);
 
             // Initialize when data
-            if (!node.details) node.details = { why: '', what: '', who: '', where: '' };
+            if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
 
             const whenEditor = createWhenEditorUI(node.details.when, (newWhen) => {
                 node.details.when = newWhen;
@@ -2503,11 +2512,12 @@ function getNodeEdgePoint(node, targetNode) {
             wSection.appendChild(whenEditor.el);
             modal.appendChild(wSection);
 
-            // What, Who, Where (Whyは接続線で示すため削除)
+            // What, Who, Where, Link
             const simpleFields = [
                 { key: 'what', label: '📝 What(詳細)', placeholder: '詳細情報を入力' },
                 { key: 'who', label: '👤 Who(担当)', placeholder: '担当者を入力' },
-                { key: 'where', label: '📍 Where(場所)', placeholder: '場所を入力' }
+                { key: 'where', label: '📍 Where(場所)', placeholder: '場所を入力' },
+                { key: 'link', label: '🔗 Link(URL)', placeholder: 'https://...', inputType: 'input' }
             ];
             simpleFields.forEach(f => {
                 const row = document.createElement('div');
@@ -2516,8 +2526,15 @@ function getNodeEdgePoint(node, targetNode) {
                 lbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
                 lbl.textContent = f.label;
                 row.appendChild(lbl);
-                const input = document.createElement('textarea');
-                input.style.cssText = 'width:100%;min-height:50px;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
+                
+                const isLink = f.inputType === 'input';
+                const input = isLink ? document.createElement('input') : document.createElement('textarea');
+                if (isLink) {
+                    input.type = 'url';
+                    input.style.cssText = 'width:100%;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
+                } else {
+                    input.style.cssText = 'width:100%;min-height:50px;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
+                }
                 input.placeholder = f.placeholder;
                 input.value = node.details?.[f.key] || '';
                 input.dataset.fieldKey = f.key;
@@ -2536,7 +2553,7 @@ function getNodeEdgePoint(node, targetNode) {
             saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
             saveBtn.addEventListener('click', () => {
                 node.priority = parseInt(pSelect.value);
-                if (!node.details) node.details = { why: '', what: '', who: '', where: '' };
+                if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
                 // Save when data from integrated editor
                 if (whenEditor) {
                     const newWhen = whenEditor.getValue();
@@ -3025,7 +3042,7 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.when-editor-popup');
             if (existing) existing.remove();
 
-            if (!node.details) node.details = { why: '', what: '', who: '', where: '' };
+            if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
 
             const popup = document.createElement('div');
             popup.className = 'when-editor-popup';
@@ -3547,6 +3564,22 @@ function getNodeEdgePoint(node, targetNode) {
                     childIndicators.style.cssText = 'position:relative;display:inline-flex;padding:0;gap:2px;font-size:11px;margin-left:4px;';
                     childEl.appendChild(childIndicators);
 
+                    // Link icon for child nodes (shown when link is set)
+                    const childLink = child.details?.link?.trim();
+                    if (childLink) {
+                        const childLinkIcon = document.createElement('a');
+                        childLinkIcon.textContent = '🔗';
+                        childLinkIcon.style.cssText = 'margin-left:4px;font-size:11px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
+                        childLinkIcon.title = 'Open link: ' + childLink;
+                        childLinkIcon.addEventListener('mouseenter', () => childLinkIcon.style.opacity = '1');
+                        childLinkIcon.addEventListener('mouseleave', () => childLinkIcon.style.opacity = '0.7');
+                        childLinkIcon.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            window.open(childLink, '_blank', 'noopener,noreferrer');
+                        });
+                        childEl.appendChild(childLinkIcon);
+                    }
+
                     childEl.appendChild(expandBtn);
                     childEl.appendChild(badge);
 
@@ -3817,6 +3850,22 @@ function getNodeEdgePoint(node, targetNode) {
                 // Add detail indicators inside header
                 const indicatorsEl = createIndicatorMenu(node);
                 header.appendChild(indicatorsEl);
+
+                // Link icon (shown when link is set)
+                const link = node.details?.link?.trim();
+                if (link) {
+                    const linkIcon = document.createElement('a');
+                    linkIcon.textContent = '🔗';
+                    linkIcon.style.cssText = 'margin-left:4px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
+                    linkIcon.title = 'Open link: ' + link;
+                    linkIcon.addEventListener('mouseenter', () => linkIcon.style.opacity = '1');
+                    linkIcon.addEventListener('mouseleave', () => linkIcon.style.opacity = '0.7');
+                    linkIcon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        window.open(link, '_blank', 'noopener,noreferrer');
+                    });
+                    header.appendChild(linkIcon);
+                }
 
                 header.appendChild(expandBtn);
 
@@ -6498,7 +6547,8 @@ function getNodeEdgePoint(node, targetNode) {
                                     when: { cycle: '', startDate: '', deadline: '' },
                                     what: '',
                                     who: '',
-                                    where: ''
+                                    where: '',
+                                    link: ''
                                 };
                             }
                             if (!node.details.when || typeof node.details.when !== 'object') {
