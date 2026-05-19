@@ -875,7 +875,134 @@
             display: block;
         }
 
-        /* Mobile adjustments */
+        /* Timeline Layout */
+        .timeline-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            min-width: 100%;
+            min-height: 100%;
+        }
+
+        .timeline-header {
+            position: sticky;
+            top: 0;
+            left: 0;
+            height: 40px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            display: flex;
+            z-index: 10;
+            font-size: 12px;
+            color: #495057;
+        }
+
+        .timeline-day-header {
+            flex-shrink: 0;
+            border-right: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+        }
+
+        .timeline-lanes {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .timeline-lane {
+            border-bottom: 1px solid #e9ecef;
+            position: relative;
+        }
+
+        .timeline-lane-header {
+            height: 32px;
+            background: #f1f3f5;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #495057;
+            cursor: pointer;
+            user-select: none;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+
+        .timeline-lane-header:hover {
+            background: #e9ecef;
+        }
+
+        .timeline-lane-content {
+            position: relative;
+            min-height: 80px;
+            padding: 8px 0;
+        }
+
+        .timeline-lane.collapsed .timeline-lane-content {
+            display: none;
+        }
+
+        .timeline-lane.collapsed .timeline-lane-header::after {
+            content: ' ▶';
+        }
+
+        .timeline-lane:not(.collapsed) .timeline-lane-header::after {
+            content: ' ▼';
+        }
+
+        .timeline-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            pointer-events: none;
+        }
+
+        .timeline-grid-line {
+            flex-shrink: 0;
+            border-right: 1px solid #e9ecef;
+            height: 100%;
+        }
+
+        .timeline-grid-line.weekend {
+            background: rgba(0,0,0,0.02);
+        }
+
+        .timeline-node {
+            position: absolute;
+            top: 8px;
+            min-width: 120px;
+            max-width: 280px;
+        }
+
+        .timeline-node .node {
+            position: relative;
+            margin-bottom: 4px;
+        }
+
+        .timeline-node-children {
+            padding-left: 16px;
+            margin-top: 4px;
+        }
+
+        .timeline-node-children .node {
+            transform: scale(0.92);
+            transform-origin: left top;
+        }
+
+        .timeline-empty-lane {
+            text-align: center;
+            color: #adb5bd;
+            font-size: 12px;
+            padding: 20px;
+            font-style: italic;
+        }
         .node-indicators {
             display: flex;
             align-items: center;
@@ -1335,6 +1462,8 @@
         <button class="tool-btn" id="btn-hide-completed" title="完了済みノードを非表示">👁️</button>
         <button class="tool-btn" id="btn-sort-all" title="全ノードをソート">📊</button>
         <button class="tool-btn" id="btn-recalc" title="When再計算">🔄</button>
+        <div class="tool-separator"></div>
+        <button class="tool-btn" id="btn-layout" title="レイアウト切替 (フリー↔タイムライン)">📅</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
         <span id="file-info" style="margin-left:8px; font-size:12px; color:#888;">🕐 2026/05/10 12:09</span>
@@ -1414,7 +1543,22 @@
             reorderTarget: null,
             lastFileHandle: null,
             lastFileName: null,
-            hideCompleted: false
+            hideCompleted: false,
+            layoutMode: 'free',  // 'free' | 'timeline'
+            timeline: {
+                viewStart: new Date().toISOString().split('T')[0],  // YYYY-MM-DD
+                viewRange: 'week',  // 'week' | 'month' | 'quarter'
+                dayWidth: 120,      // px per day
+                laneHeight: 200,    // px per lane (expanded)
+                expandedLanes: {
+                    daily: true,
+                    weekly: true,
+                    monthly: true,
+                    yearly: true,
+                    asap: true,
+                    unset: true
+                }
+            }
         };
 
         // ==================== DOM refs ====================
@@ -3461,6 +3605,21 @@ function getNodeEdgePoint(node, targetNode) {
         function renderNodes() {
             nodesEl.innerHTML = '';
 
+            // Timeline layout mode
+            if (state.layoutMode === 'timeline') {
+                renderTimeline();
+                return;
+            }
+
+            // Restore free layout pan position when switching back from timeline
+            if (state._freePanSaved) {
+                state.panX = state._freePanX;
+                state.panY = state._freePanY;
+                state.scale = state._freeScale;
+                state._freePanSaved = false;
+                updateTransform();
+            }
+
             // Collect all nodes hidden by cascade collapse
             const hiddenNodeIds = new Set();
             state.connections.forEach(conn => {
@@ -4185,8 +4344,280 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
+        function renderTimeline() {
+            const timeline = state.timeline;
+            const dayWidth = timeline.dayWidth;
+
+            // Save current free layout pan position before switching
+            if (!state._freePanSaved) {
+                state._freePanX = state.panX;
+                state._freePanY = state.panY;
+                state._freeScale = state.scale;
+                state._freePanSaved = true;
+            }
+
+            // Reset canvas transform for timeline view
+            state.panX = 0;
+            state.panY = 0;
+            state.scale = 1;
+            updateTransform();
+
+            // Calculate date range
+            const viewStart = new Date(timeline.viewStart);
+            let viewEnd;
+            if (timeline.viewRange === 'week') {
+                viewEnd = new Date(viewStart);
+                viewEnd.setDate(viewEnd.getDate() + 7);
+            } else if (timeline.viewRange === 'month') {
+                viewEnd = new Date(viewStart);
+                viewEnd.setMonth(viewEnd.getMonth() + 1);
+            } else {
+                viewEnd = new Date(viewStart);
+                viewEnd.setMonth(viewEnd.getMonth() + 3);
+            }
+
+            const days = Math.ceil((viewEnd - viewStart) / (1000 * 60 * 60 * 24));
+            const totalWidth = days * dayWidth;
+
+            // Container
+            const container = document.createElement('div');
+            container.className = 'timeline-container';
+            container.style.width = Math.max(totalWidth + 200, window.innerWidth) + 'px';
+
+            // Date header
+            const header = document.createElement('div');
+            header.className = 'timeline-header';
+            for (let i = 0; i < days; i++) {
+                const d = new Date(viewStart);
+                d.setDate(d.getDate() + i);
+                const dayEl = document.createElement('div');
+                dayEl.className = 'timeline-day-header';
+                dayEl.style.width = dayWidth + 'px';
+                const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                dayEl.innerHTML = `<div>${d.getMonth() + 1}/${d.getDate()}<br><small style="color:${isWeekend ? '#e74c3c' : '#666'}">${dayNames[d.getDay()]}</small></div>`;
+                if (isWeekend) dayEl.style.background = 'rgba(231,76,60,0.05)';
+                header.appendChild(dayEl);
+            }
+            container.appendChild(header);
+
+            // Lane definitions
+            const laneDefs = [
+                { key: 'daily', label: '毎日', match: n => n.details?.when?.repeatType === 'daily' },
+                { key: 'weekly', label: '毎週', match: n => n.details?.when?.repeatType === 'weekly' },
+                { key: 'monthly', label: '毎月', match: n => {
+                    const rt = n.details?.when?.repeatType;
+                    return rt === 'monthly-day' || rt === 'monthly-week';
+                }},
+                { key: 'yearly', label: '毎年', match: n => {
+                    const rt = n.details?.when?.repeatType;
+                    return rt === 'yearly-date' || rt === 'yearly-week';
+                }},
+                { key: 'asap', label: '随時', match: n => {
+                    const rt = n.details?.when?.repeatType;
+                    return rt === 'none' && n.details?.when?.deadlineDate;
+                }},
+                { key: 'unset', label: '未設定', match: n => {
+                    const rt = n.details?.when?.repeatType;
+                    return !rt || rt === 'none' && !n.details?.when?.deadlineDate;
+                }}
+            ];
+
+            // Build lanes
+            const lanesEl = document.createElement('div');
+            lanesEl.className = 'timeline-lanes';
+
+            laneDefs.forEach(laneDef => {
+                const laneNodes = state.nodes.filter(n => n.parentId === null && laneDef.match(n));
+                if (state.hideCompleted) {
+                    laneNodes = laneNodes.filter(n => !n.completed);
+                }
+
+                const laneEl = document.createElement('div');
+                laneEl.className = 'timeline-lane' + (timeline.expandedLanes[laneDef.key] ? '' : ' collapsed');
+
+                // Lane header
+                const laneHeader = document.createElement('div');
+                laneHeader.className = 'timeline-lane-header';
+                laneHeader.textContent = `${laneDef.label} (${laneNodes.length})`;
+                laneHeader.addEventListener('click', () => {
+                    timeline.expandedLanes[laneDef.key] = !timeline.expandedLanes[laneDef.key];
+                    renderNodes();
+                });
+                laneEl.appendChild(laneHeader);
+
+                // Lane content
+                const content = document.createElement('div');
+                content.className = 'timeline-lane-content';
+                content.style.minHeight = timeline.laneHeight + 'px';
+
+                // Grid lines
+                const grid = document.createElement('div');
+                grid.className = 'timeline-grid';
+                for (let i = 0; i < days; i++) {
+                    const d = new Date(viewStart);
+                    d.setDate(d.getDate() + i);
+                    const line = document.createElement('div');
+                    line.className = 'timeline-grid-line' + ((d.getDay() === 0 || d.getDay() === 6) ? ' weekend' : '');
+                    line.style.width = dayWidth + 'px';
+                    grid.appendChild(line);
+                }
+                content.appendChild(grid);
+
+                // Place nodes
+                if (laneNodes.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'timeline-empty-lane';
+                    empty.textContent = 'ノードがありません';
+                    content.appendChild(empty);
+                } else {
+                    // Sort by date
+                    laneNodes.sort((a, b) => {
+                        const da = getNodeTimelineDate(a);
+                        const db = getNodeTimelineDate(b);
+                        if (!da && !db) return 0;
+                        if (!da) return 1;
+                        if (!db) return -1;
+                        return new Date(da) - new Date(db);
+                    });
+
+                    laneNodes.forEach((node, index) => {
+                        const nodeDate = getNodeTimelineDate(node);
+                        const nodeX = nodeDate ? ((new Date(nodeDate) - viewStart) / (1000 * 60 * 60 * 24)) * dayWidth : 0;
+
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'timeline-node';
+                        wrapper.style.left = (nodeX + 8) + 'px';
+                        wrapper.style.top = (index * 70) + 'px';  // Stack vertically with 70px spacing
+                        wrapper.dataset.id = node.id;
+
+                        // Render node using existing createNodeElement or inline
+                        const nodeEl = createTimelineNodeElement(node);
+                        wrapper.appendChild(nodeEl);
+
+                        // Render children inside
+                        const children = state.nodes.filter(n => n.parentId === node.id);
+                        if (children.length > 0 && node.expanded) {
+                            const childrenContainer = document.createElement('div');
+                            childrenContainer.className = 'timeline-node-children';
+                            children.forEach(child => {
+                                childrenContainer.appendChild(createTimelineNodeElement(child, true));
+                            });
+                            wrapper.appendChild(childrenContainer);
+                        }
+
+                        content.appendChild(wrapper);
+                    });
+                }
+
+                laneEl.appendChild(content);
+                lanesEl.appendChild(laneEl);
+            });
+
+            container.appendChild(lanesEl);
+            nodesEl.appendChild(container);
+
+            // Update canvas size
+            canvas.style.width = Math.max(totalWidth + 200, window.innerWidth) + 'px';
+            canvas.style.height = Math.max(lanesEl.offsetHeight + 100, window.innerHeight) + 'px';
+        }
+
+        // Helper: Get the date to use for timeline placement
+        function getNodeTimelineDate(node) {
+            const when = node.details?.when;
+            if (!when) return null;
+            // Priority: deadlineDate > nextDate > baseDateTime > createdAt
+            if (when.deadlineDate) return when.deadlineDate;
+            if (when.nextDate) return when.nextDate;
+            if (when.baseDateTime) return when.baseDateTime;
+            return node.createdAt;
+        }
+
+        // Helper: Create a node element for timeline (reuses existing node styling)
+        function createTimelineNodeElement(node, isChild = false) {
+            const el = document.createElement('div');
+            el.className = 'node' + (node.completed ? ' completed' : '') + (isChild ? ' child-node' : '');
+            el.dataset.id = node.id;
+            el.style.width = (node.width || 160) + 'px';
+            if (node.width) el.style.width = node.width + 'px';
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'node-header';
+
+            const color = document.createElement('div');
+            color.className = 'node-color';
+            color.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${node.color};cursor:pointer;flex-shrink:0;`;
+            color.textContent = node.completed ? '✓' : '';
+
+            const title = document.createElement('span');
+            title.className = 'node-title' + (node.completed ? ' completed' : '');
+            title.textContent = node.title;
+
+            header.appendChild(color);
+            header.appendChild(title);
+
+            // Link icon
+            const link = node.details?.link?.trim();
+            if (link) {
+                const linkIcon = document.createElement('span');
+                linkIcon.textContent = '🔗';
+                linkIcon.style.cssText = 'margin-left:2px;font-size:12px;cursor:pointer;opacity:0.7;';
+                linkIcon.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    window.open(link, '_blank', 'noopener,noreferrer');
+                });
+                header.appendChild(linkIcon);
+            }
+
+            // Indicators
+            const indicatorsEl = createIndicatorMenu(node);
+            header.appendChild(indicatorsEl);
+
+            el.appendChild(header);
+
+            // When preview for timeline
+            if (!isChild && node.details?.when?.repeatType && node.details.when.repeatType !== 'none') {
+                const whenText = buildWhenText(node.details.when);
+                if (whenText) {
+                    const preview = document.createElement('div');
+                    preview.className = 'when-preview';
+                    preview.textContent = whenText;
+                    preview.style.cssText = 'font-size:11px;color:#666;padding:2px 8px;border-top:1px solid #eee;';
+                    el.appendChild(preview);
+                }
+            }
+
+            // Selection and click
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (e.target.closest('.node-color')) return;
+                selectNode(node, e.shiftKey);
+            });
+
+            return el;
+        }
+
+        // Helper: Build when text for display
+        function buildWhenText(when) {
+            if (!when || !when.repeatType || when.repeatType === 'none') return null;
+            const repeatLabels = {
+                'daily': '毎日',
+                'weekly': '毎週',
+                'monthly-day': '毎月(日付)',
+                'monthly-week': '毎月(曜日)',
+                'yearly-date': '毎年(日付)',
+                'yearly-week': '毎年(週)'
+            };
+            let text = repeatLabels[when.repeatType] || when.repeatType;
+            if (when.nextDate) {
+                const d = new Date(when.nextDate);
+                text += ' 次回:' + (d.getMonth() + 1) + '/' + d.getDate();
+            }
+            return text;
+        }
+
         function renderConnections() {
-            connectionsSvg.innerHTML = '';
 
             // Collect all nodes that are hidden due to parent connection collapse (cascade)
             const hiddenNodeIds = new Set();
@@ -6586,6 +7017,31 @@ function getNodeEdgePoint(node, targetNode) {
         document.getElementById('btn-recalc').addEventListener('click', () => {
             recalculateWhenDates();
             showToast('When再計算完了');
+        });
+
+        // Layout toggle button
+        document.getElementById('btn-layout').addEventListener('click', () => {
+            state.layoutMode = state.layoutMode === 'free' ? 'timeline' : 'free';
+            const btn = document.getElementById('btn-layout');
+            btn.title = state.layoutMode === 'free' ? 'レイアウト切替 (フリー↔タイムライン)' : 'タイムラインレイアウト中';
+            btn.classList.toggle('active', state.layoutMode === 'timeline');
+            btn.textContent = state.layoutMode === 'free' ? '📅' : '📊';
+
+            if (state.layoutMode === 'timeline') {
+                connectionsSvg.style.display = 'none';
+            } else {
+                connectionsSvg.style.display = '';
+            }
+
+            renderNodes();
+            renderConnections();
+
+            // Ensure connections are hidden in timeline mode after renderConnections
+            if (state.layoutMode === 'timeline') {
+                connectionsSvg.style.display = 'none';
+            }
+
+            showToast(state.layoutMode === 'timeline' ? 'タイムラインレイアウトに切り替えました' : 'フリーレイアウトに切り替えました');
         });
         document.getElementById('btn-sort-all').addEventListener('click', () => {
             let sortedCount = 0;
