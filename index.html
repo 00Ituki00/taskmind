@@ -2553,11 +2553,17 @@ function getNodeEdgePoint(node, targetNode) {
             const cancelBtn = document.createElement('button');
             cancelBtn.textContent = 'キャンセル';
             cancelBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:1px solid #ddd;border-radius:6px;background:#f5f5f5;cursor:pointer;';
-            cancelBtn.addEventListener('click', () => overlay.remove());
+            cancelBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                overlay.remove();
+            });
             const saveBtn = document.createElement('button');
             saveBtn.textContent = '保存';
             saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
-            saveBtn.addEventListener('click', () => {
+            saveBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
                 node.priority = parseInt(pSelect.value);
                 if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
                 // Save when data from integrated editor
@@ -3573,11 +3579,8 @@ function getNodeEdgePoint(node, targetNode) {
                     // Link icon for child nodes (shown when link is set)
                     const childLink = child.details?.link?.trim();
                     if (childLink) {
-                        const childLinkIcon = document.createElement('a');
+                        const childLinkIcon = document.createElement('span');
                         childLinkIcon.textContent = '🔗';
-                        childLinkIcon.href = childLink;
-                        childLinkIcon.target = '_blank';
-                        childLinkIcon.rel = 'noopener noreferrer';
                         childLinkIcon.style.cssText = 'margin-left:4px;font-size:11px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
                         childLinkIcon.title = 'Open link: ' + childLink;
                         childLinkIcon.addEventListener('mouseenter', () => childLinkIcon.style.opacity = '1');
@@ -3587,6 +3590,8 @@ function getNodeEdgePoint(node, targetNode) {
                         });
                         childLinkIcon.addEventListener('click', (e) => {
                             e.stopPropagation();
+                            e.preventDefault();
+                            window.open(childLink, '_blank', 'noopener,noreferrer');
                         });
                         childEl.appendChild(childLinkIcon);
                     }
@@ -3865,11 +3870,8 @@ function getNodeEdgePoint(node, targetNode) {
                 // Link icon (shown when link is set)
                 const link = node.details?.link?.trim();
                 if (link) {
-                    const linkIcon = document.createElement('a');
+                    const linkIcon = document.createElement('span');
                     linkIcon.textContent = '🔗';
-                    linkIcon.href = link;
-                    linkIcon.target = '_blank';
-                    linkIcon.rel = 'noopener noreferrer';
                     linkIcon.style.cssText = 'margin-left:4px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
                     linkIcon.title = 'Open link: ' + link;
                     linkIcon.addEventListener('mouseenter', () => linkIcon.style.opacity = '1');
@@ -3879,6 +3881,8 @@ function getNodeEdgePoint(node, targetNode) {
                     });
                     linkIcon.addEventListener('click', (e) => {
                         e.stopPropagation();
+                        e.preventDefault();
+                        window.open(link, '_blank', 'noopener,noreferrer');
                     });
                     header.appendChild(linkIcon);
                 }
