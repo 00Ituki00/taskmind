@@ -999,6 +999,20 @@
             max-width: none !important;
         }
 
+        .timeline-node .node-header {
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .timeline-node .node-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: clamp(10px, 2.5vw, 14px);
+            flex-shrink: 1;
+            min-width: 0;
+        }
+
         .timeline-node .node {
             position: relative;
             margin-bottom: 4px;
@@ -1998,6 +2012,14 @@
         }
 
         container.addEventListener('click', (e) => {
+            if (!e.target.closest('.context-menu')) {
+                const menu = document.querySelector('.context-menu');
+                if (menu) menu.remove();
+            }
+        });
+
+        // Clear context menu on mousedown (right-click down, blank click, other element click)
+        container.addEventListener('mousedown', (e) => {
             if (!e.target.closest('.context-menu')) {
                 const menu = document.querySelector('.context-menu');
                 if (menu) menu.remove();
@@ -4593,6 +4615,13 @@ function getNodeEdgePoint(node, targetNode) {
                         wrapper.appendChild(nodeEl);
 
                         content.appendChild(wrapper);
+
+                        // Adjust font size to fit node width after render
+                        requestAnimationFrame(() => {
+                            if (nodeEl.timelineTitleElement) {
+                                fitTextToWidth(nodeEl.timelineTitleElement, wrapper.clientWidth, 14, 9);
+                            }
+                        });
                     });
 
                     // Set lane height based on number of rows
@@ -4651,14 +4680,10 @@ function getNodeEdgePoint(node, targetNode) {
             container.addEventListener('mousedown', (e) => {
                 if (e.button !== 2) return; // right-click only
                 if (e.target.closest('.timeline-node') || e.target.closest('.timeline-lane-header')) return;
-                
-                // Capture the very next contextmenu event from this right-click and suppress it
-                const suppressContextMenu = (ce) => {
-                    ce.preventDefault();
-                    ce.stopPropagation();
-                };
-                document.addEventListener('contextmenu', suppressContextMenu, { capture: true, once: true });
-                
+
+                // Track if we actually panned (moved enough) before suppressing contextmenu
+                state.timelineRightClickStart = { x: e.clientX, y: e.clientY, moved: false };
+
                 state.timelinePanState = {
                     isPanning: true,
                     startX: e.clientX,
@@ -4670,6 +4695,23 @@ function getNodeEdgePoint(node, targetNode) {
                 container.classList.add('panning');
                 e.preventDefault();
             });
+
+            // Track movement to detect actual pan vs simple right-click
+            const trackPanMovement = (e) => {
+                if (!state.timelineRightClickStart || state.timelineRightClickStart.moved) return;
+                const dx = Math.abs(e.clientX - state.timelineRightClickStart.x);
+                const dy = Math.abs(e.clientY - state.timelineRightClickStart.y);
+                if (dx > 3 || dy > 3) {
+                    // Actual pan detected - suppress the upcoming contextmenu
+                    state.timelineRightClickStart.moved = true;
+                    const suppressContextMenu = (ce) => {
+                        ce.preventDefault();
+                        ce.stopPropagation();
+                    };
+                    document.addEventListener('contextmenu', suppressContextMenu, { capture: true, once: true });
+                }
+            };
+            container.addEventListener('mousemove', trackPanMovement);
 
             // Update canvas size
             canvas.style.width = Math.max(totalWidth + 200, window.innerWidth) + 'px';
@@ -4706,6 +4748,35 @@ function getNodeEdgePoint(node, targetNode) {
             return null;
         }
 
+        // Helper: Fit text to container width by scaling font size
+        function fitTextToWidth(textElement, containerWidth, maxFontSize, minFontSize) {
+            const text = textElement.textContent;
+            if (!text || !containerWidth) return;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            let low = minFontSize;
+            let high = maxFontSize;
+            let bestSize = minFontSize;
+
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                ctx.font = `${mid}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+                const metrics = ctx.measureText(text);
+                if (metrics.width <= containerWidth - 28) {
+                    bestSize = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            textElement.style.fontSize = bestSize + 'px';
+            textElement.style.whiteSpace = 'nowrap';
+            textElement.style.overflow = 'hidden';
+            textElement.style.textOverflow = 'ellipsis';
+        }
+
         // Helper: Get the date to use for timeline placement (legacy: uses deadline/nextDate)
         function getNodeTimelineDate(node) {
             const when = node.details?.when;
@@ -4737,8 +4808,14 @@ function getNodeEdgePoint(node, targetNode) {
             const title = document.createElement('span');
             title.className = 'node-title' + (node.completed ? ' completed' : '');
             title.textContent = node.title;
+            title.dataset.nodeTitle = node.title;
+
+            // Store reference for timeline font-size adjustment
+            el.dataset.timelineTitleRef = '';
+            Object.defineProperty(el, 'timelineTitleElement', { value: title, writable: false });
 
             header.appendChild(color);
+            header.appendChild(title);
             header.appendChild(title);
 
             // Link icon
