@@ -3694,24 +3694,34 @@ function getNodeEdgePoint(node, targetNode) {
 
                 header.appendChild(expandBtn);
 
-                // Hover tooltip for why/what info
-                const tooltip = document.createElement('div');
-                tooltip.className = 'node-hover-tooltip';
-                tooltip.style.cssText = 'position:fixed;display:none;z-index:10001;background:white;border:1px solid #ddd;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);font-size:12px;max-width:280px;pointer-events:none;';
+                // Hover tooltip for why/what info — singleton pattern, attached to entire node
+                // Reuse single tooltip element across all nodes
+                let tooltipEl = document.querySelector('.node-hover-tooltip-global');
+                if (!tooltipEl) {
+                    tooltipEl = document.createElement('div');
+                    tooltipEl.className = 'node-hover-tooltip-global';
+                    tooltipEl.style.cssText = 'position:fixed;display:none;z-index:10001;background:white;border:1px solid #ddd;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);font-size:12px;max-width:280px;pointer-events:none;opacity:0;transition:opacity 0.15s ease;will-change:transform,opacity;';
+                    document.body.appendChild(tooltipEl);
+                }
                 
-                function updateTooltipContent() {
+                let tooltipTimer = null;
+                let tooltipVisible = false;
+                
+                function buildTooltipHtml() {
                     const why = node.details?.why?.trim();
                     const what = node.details?.what?.trim();
+                    const where = node.details?.where?.trim();
+                    const who = node.details?.who?.trim();
                     const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
                     const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
                     
-                    const hasDetails = why || what;
+                    const hasDetails = why || what || where || who;
                     const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
-                    if (!hasDetails && !hasConns) return false;
+                    if (!hasDetails && !hasConns) return '';
                     
                     let html = '';
                     
-                    // From: 入力接続情報（接続元ノードのカラー）
+                    // From: incoming connections
                     if (incomingConns.length > 0) {
                         incomingConns.forEach(conn => {
                             const source = state.nodes.find(n => n.id === conn.from);
@@ -3721,70 +3731,108 @@ function getNodeEdgePoint(node, targetNode) {
                         });
                     }
                     
-                    // what: 詳細情報
-                    if (what) {
+                    // Detail fields
+                    const fields = [];
+                    if (why) fields.push({label:'why', value:why});
+                    if (what) fields.push({label:'what', value:what});
+                    if (where) fields.push({label:'where', value:where});
+                    if (who) fields.push({label:'who', value:who});
+                    
+                    if (fields.length > 0) {
                         if (incomingConns.length > 0) html += '<div style="margin-top:8px;">';
-                        html += '<div style="font-weight:600;color:#333;margin-bottom:4px;font-size:12px;">what:</div>';
-                        html += `<div style="color:#555;white-space:pre-wrap;word-break:break-word;padding-left:8px;border-left:2px solid #666;">${escapeHtml(what)}</div>`;
+                        fields.forEach((f, i) => {
+                            if (i > 0) html += '<div style="margin-top:6px;"></div>';
+                            html += `<div style="font-weight:600;color:#333;margin-bottom:2px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(f.label)}</div>`;
+                            html += `<div style="color:#555;white-space:pre-wrap;word-break:break-word;padding-left:8px;border-left:2px solid #888;">${escapeHtml(f.value)}</div>`;
+                        });
                         if (incomingConns.length > 0) html += '</div>';
                     }
                     
-                    // To: 出力接続情報（接続先ノードのカラー）
+                    // To: outgoing connections
                     if (outgoingConns.length > 0) {
-                        if (what || incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                        if (hasDetails || incomingConns.length > 0) html += '<div style="margin-top:8px;">';
                         outgoingConns.forEach(conn => {
                             const target = state.nodes.find(n => n.id === conn.to);
                             const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                             const targetColor = target ? target.color : '#e67e22';
                             html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
                         });
-                        if (what || incomingConns.length > 0) html += '</div>';
+                        if (hasDetails || incomingConns.length > 0) html += '</div>';
                     }
                     
-                    // whyフィールドが単独で存在する場合（接続と関係なく）
-                    if (why && !hasConns) {
-                        html += `<div style="margin-bottom:4px;"><div style="font-weight:600;color:#333;margin-bottom:2px;">💡 Why</div><div style="color:#555;white-space:pre-wrap;word-break:break-word;">${escapeHtml(why)}</div></div>`;
-                    }
-                    
-                    tooltip.innerHTML = html;
-                    return true;
+                    return html;
                 }
                 
-                let tooltipTimer = null;
-                let tooltipActive = false;
-                
-                header.addEventListener('mouseenter', (e) => {
-                    if (state.dragNode) return; // ドラッグ中は表示しない
+                function positionTooltip() {
+                    const rect = el.getBoundingClientRect();
+                    const ttRect = tooltipEl.getBoundingClientRect();
+                    let left = rect.right + 8;
+                    let top = rect.top;
                     
+                    // Right edge: flip to left side
+                    if (left + ttRect.width > window.innerWidth - 8) {
+                        left = rect.left - ttRect.width - 8;
+                    }
+                    // Left edge: clamp
+                    if (left < 8) left = 8;
+                    // Bottom edge: clamp
+                    if (top + ttRect.height > window.innerHeight - 8) {
+                        top = window.innerHeight - ttRect.height - 8;
+                    }
+                    // Top edge: clamp
+                    if (top < 8) top = 8;
+                    
+                    tooltipEl.style.left = left + 'px';
+                    tooltipEl.style.top = top + 'px';
+                }
+                
+                function showTooltip() {
+                    if (state.dragNode) return;
+                    const html = buildTooltipHtml();
+                    if (!html) return;
+                    
+                    tooltipEl.innerHTML = html;
+                    tooltipEl.style.display = 'block';
+                    // Force layout for position calc
+                    void tooltipEl.offsetHeight;
+                    positionTooltip();
+                    tooltipEl.style.opacity = '1';
+                    tooltipVisible = true;
+                }
+                
+                function hideTooltip() {
+                    tooltipEl.style.opacity = '0';
+                    tooltipVisible = false;
+                    // After transition, hide display
+                    setTimeout(() => {
+                        if (!tooltipVisible) tooltipEl.style.display = 'none';
+                    }, 150);
+                }
+                
+                function cancelTooltipTimer() {
+                    if (tooltipTimer) {
+                        clearTimeout(tooltipTimer);
+                        tooltipTimer = null;
+                    }
+                }
+                
+                // Mouse enter on entire node (not just header)
+                el.addEventListener('mouseenter', () => {
+                    if (state.dragNode) return;
+                    cancelTooltipTimer();
                     tooltipTimer = setTimeout(() => {
-                        if (!updateTooltipContent()) return;
-                        const rect = el.getBoundingClientRect();
-                        tooltip.style.display = 'block';
-                        tooltip.style.left = (rect.right + 8) + 'px';
-                        tooltip.style.top = rect.top + 'px';
-                        document.body.appendChild(tooltip);
-                        tooltipActive = true;
-                    }, 120); // 120ms遅延で誤クリックを防止
+                        showTooltip();
+                    }, 120);
                 });
                 
-                // mousedown で即座にキャンセル（ドラッグ開始時等）
-                header.addEventListener('mousedown', () => {
-                    if (tooltipTimer) {
-                        clearTimeout(tooltipTimer);
-                        tooltipTimer = null;
-                    }
+                el.addEventListener('mouseleave', () => {
+                    cancelTooltipTimer();
+                    if (tooltipVisible) hideTooltip();
                 });
                 
-                header.addEventListener('mouseleave', () => {
-                    if (tooltipTimer) {
-                        clearTimeout(tooltipTimer);
-                        tooltipTimer = null;
-                    }
-                    if (tooltipActive) {
-                        tooltip.style.display = 'none';
-                        if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
-                        tooltipActive = false;
-                    }
+                el.addEventListener('mousedown', () => {
+                    cancelTooltipTimer();
+                    if (tooltipVisible) hideTooltip();
                 });
 
                 el.appendChild(header);
