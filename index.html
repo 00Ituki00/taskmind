@@ -6340,103 +6340,16 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         // ==================== Keyboard Shortcuts ====================
+        // NOTE: All mode-switching keyboard shortcuts removed to prevent
+        // accidental triggering during text input in editors.
+        // Only Escape for connection cancel is retained.
+
         document.addEventListener('keydown', (e) => {
-            if (e.target.isContentEditable) {
-                if (e.key === 'Escape') e.target.blur();
-                return;
-            }
-
-            if (e.key === ' ' && !state.isPanning) {
-                e.preventDefault();
-                setMode('pan');
-                return;
-            }
-
-            if (e.key === 'v' || e.key === 'V') setMode('select');
-            if (e.key === 'n' || e.key === 'N') setMode('node');
-            if (e.key === 'c' || e.key === 'C') setMode('connect');
-            if (e.key === 'g' || e.key === 'G') {
-                if (state.selectedNodeIds.length > 1) {
-                    const name = prompt('グループ名:', 'グループ');
-                    if (name) {
-                        createGroup([...state.selectedNodeIds], name);
-                        clearSelection();
-                    }
-                } else {
-                    setMode('group');
-                }
-            }
-
-            if (e.key === 'u' || e.key === 'U') {
-                if (state.selectedNodeId) {
-                    const node = state.nodes.find(n => n.id === state.selectedNodeId);
-                    if (node && node.parentId !== null) {
-                        const oldParent = state.nodes.find(n => n.id === node.parentId);
-                        if (oldParent && oldParent.children) {
-                            oldParent.children = oldParent.children.filter(id => id !== node.id);
-                            if (oldParent.children.length === 0) {
-                                oldParent.expanded = false;
-                            }
-                        }
-                        node.parentId = null;
-                        node.width = calculateNodeWidth(node.title);
-                        renderNodes();
-                        showToast('親子関係を解除しました');
-                    }
-                }
-            }
-
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                // Skip if user is typing in an input, textarea, or contenteditable
-                const active = document.activeElement;
-                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
-                    return;
-                }
-                if (state.selectedNodeIds.length > 0) {
-                    state.selectedNodeIds.forEach(id => deleteNode(id));
-                    clearSelection();
-                } else if (state.selectedNodeId) {
-                    deleteNode(state.selectedNodeId);
-                    state.selectedNodeId = null;
-                }
-            }
-
             if (e.key === 'Escape') {
-                // Clear pending connection
                 state.connectingFrom = null;
                 const tempLine = document.getElementById('pending-connection');
                 if (tempLine) tempLine.remove();
                 modeIndicator.classList.remove('active');
-
-                setMode('select');
-                state.selectedNodeId = null;
-                renderNodes();
-            }
-
-            // Enter to edit selected node title
-            if (e.key === 'Enter') {
-                const active = document.activeElement;
-                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
-                    return;
-                }
-                if (state.selectedNodeId) {
-                    e.preventDefault();
-                    const node = state.nodes.find(n => n.id === state.selectedNodeId);
-                    const nodeEl = document.querySelector('.node[data-id="' + state.selectedNodeId + '"]');
-                    const titleEl = nodeEl ? (nodeEl.querySelector('.node-title') || nodeEl.querySelector('.task-text')) : null;
-                    if (node) {
-                        try {
-                            enableTitleEdit(titleEl, node);
-                        } catch (err) {
-                            console.error('Error in enableTitleEdit:', err);
-                        }
-                    }
-                }
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if (e.key === ' ' && state.mode === 'pan') {
                 setMode('select');
             }
         });
@@ -6646,28 +6559,6 @@ function getNodeEdgePoint(node, targetNode) {
         });
         fileInput.addEventListener('change', (e) => {
             if (e.target.files[0]) loadFromFile(e.target.files[0]);
-        });
-
-        // Ctrl+S: overwrite save, Ctrl+Shift+S: save as
-        let saveInProgress = false;
-        window.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-                if (e.repeat) return;
-                const active = document.activeElement;
-                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
-                    return;
-                }
-                e.preventDefault();
-                if (saveInProgress) {
-                    showToast('保存処理中です...');
-                    return;
-                }
-                saveInProgress = true;
-                const overwrite = !e.shiftKey;
-                saveToFile(overwrite).finally(() => {
-                    saveInProgress = false;
-                });
-            }
         });
 
         // ==================== Utils ====================
