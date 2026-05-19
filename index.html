@@ -1649,11 +1649,18 @@
 
         // ==================== Zoom ====================
         function setZoom(scale, cx, cy) {
+            if (state.layoutMode === 'timeline') {
+                const oldDayWidth = state.timeline.dayWidth;
+                state.timeline.dayWidth = Math.max(10, Math.min(1000, oldDayWidth * scale));
+                renderNodes();
+                zoomLevelEl.textContent = Math.round(state.timeline.dayWidth) + 'px/d';
+                return;
+            }
+
             const oldScale = state.scale;
             state.scale = Math.max(0.1, Math.min(3, scale));
 
             if (cx !== undefined && cy !== undefined) {
-                // Zoom towards cursor
                 const rect = container.getBoundingClientRect();
                 const x = cx - rect.left;
                 const y = cy - rect.top;
@@ -1699,12 +1706,50 @@
             zoomLevelEl.textContent = Math.round(state.scale * 100) + '%';
         }
 
-        document.getElementById('zoom-in').addEventListener('click', () => setZoom(state.scale * 1.2));
-        document.getElementById('zoom-out').addEventListener('click', () => setZoom(state.scale / 1.2));
-        document.getElementById('zoom-fit').addEventListener('click', fitToView);
+        document.getElementById('zoom-in').addEventListener('click', () => {
+            if (state.layoutMode === 'timeline') {
+                state.timeline.dayWidth = Math.min(1000, state.timeline.dayWidth * 1.5);
+                renderNodes();
+                zoomLevelEl.textContent = Math.round(state.timeline.dayWidth) + 'px/d';
+            } else {
+                setZoom(state.scale * 1.2);
+            }
+        });
+        document.getElementById('zoom-out').addEventListener('click', () => {
+            if (state.layoutMode === 'timeline') {
+                state.timeline.dayWidth = Math.max(10, state.timeline.dayWidth / 1.5);
+                renderNodes();
+                zoomLevelEl.textContent = Math.round(state.timeline.dayWidth) + 'px/d';
+            } else {
+                setZoom(state.scale / 1.2);
+            }
+        });
+        document.getElementById('zoom-fit').addEventListener('click', () => {
+            if (state.layoutMode === 'timeline') {
+                state.timeline.dayWidth = 120;
+                renderNodes();
+                zoomLevelEl.textContent = '120px/d';
+            } else {
+                fitToView();
+            }
+        });
 
         container.addEventListener('wheel', (e) => {
             e.preventDefault();
+
+            if (state.layoutMode === 'timeline') {
+                // Timeline: zoom changes dayWidth
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                state.timeline.dayWidth = Math.max(10, Math.min(1000, state.timeline.dayWidth * delta));
+                renderNodes();
+                zoomLevelEl.textContent = Math.round(state.timeline.dayWidth) + 'px/d';
+                return;
+            }
+
+            // Free layout: wheel zooms
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            setZoom(state.scale * zoomFactor, e.clientX, e.clientY);
+        });
             const delta = e.deltaY > 0 ? 0.9 : 1.1;
             setZoom(state.scale * delta, e.clientX, e.clientY);
         }, { passive: false });
@@ -4380,19 +4425,14 @@ function getNodeEdgePoint(node, targetNode) {
             state.scale = 1;
             updateTransform();
 
-            // Calculate date range
+            // Update zoom level display for timeline
+            zoomLevelEl.textContent = Math.round(dayWidth) + 'px/d';
+
+            // Calculate date range based on viewport width and dayWidth
             const viewStart = new Date(timeline.viewStart);
-            let viewEnd;
-            if (timeline.viewRange === 'week') {
-                viewEnd = new Date(viewStart);
-                viewEnd.setDate(viewEnd.getDate() + 7);
-            } else if (timeline.viewRange === 'month') {
-                viewEnd = new Date(viewStart);
-                viewEnd.setMonth(viewEnd.getMonth() + 1);
-            } else {
-                viewEnd = new Date(viewStart);
-                viewEnd.setMonth(viewEnd.getMonth() + 3);
-            }
+            const visibleDays = Math.max(7, Math.ceil(window.innerWidth / dayWidth) + 3); // +3 for padding
+            const viewEnd = new Date(viewStart);
+            viewEnd.setDate(viewEnd.getDate() + visibleDays);
 
             const days = Math.ceil((viewEnd - viewStart) / (1000 * 60 * 60 * 24));
             const totalWidth = days * dayWidth;
