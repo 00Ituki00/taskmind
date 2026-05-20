@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="c192233">
+    <meta name="commit-id" content="79721a1">
     <title>TaskMind</title>
     <style>
         * {
@@ -1799,27 +1799,28 @@
                         const finalMouseY = state.timeline.pendingMouseY;
 
                         // Calculate mouse-centered scroll for final render
+                        const oldDayWidthForCalc = state.timeline.dayWidth; // Use current before change
                         const newRect = timelineContainer.getBoundingClientRect();
-                        const mouseX = finalMouseX - newRect.left + timelineContainer.scrollLeft;
-                        const gridX = Math.max(0, mouseX - 120);
-                        const mouseDay = gridX / oldDayWidth;
+                        const mouseX = finalMouseX - newRect.left;
+                        const mouseAbsoluteX = mouseX + timelineContainer.scrollLeft;
+                        const gridX = Math.max(0, mouseAbsoluteX - 120);
+                        const mouseDay = gridX / oldDayWidthForCalc;
                         const newGridX = mouseDay * finalDayWidth;
-                        const targetScrollLeft = Math.max(0, newGridX + 120 - (finalMouseX - newRect.left));
+                        const targetScrollLeft = Math.max(0, newGridX + 120 - mouseX);
+                        const targetScrollTop = timelineContainer.scrollTop;
 
                         state.timeline.dayWidth = finalDayWidth;
                         renderNodes();
                         zoomLevelEl.textContent = Math.round(finalDayWidth) + 'px/d';
 
-                        // Restore scroll position
-                        requestAnimationFrame(() => {
-                            requestAnimationFrame(() => {
-                                const newContainer = document.querySelector('.timeline-container');
-                                if (newContainer) {
-                                    newContainer.scrollLeft = targetScrollLeft;
-                                    newContainer.scrollTop = state.timeline.pendingScrollTop || 0;
-                                }
-                            });
-                        });
+                        // Restore scroll position after DOM update
+                        setTimeout(() => {
+                            const newContainer = document.querySelector('.timeline-container');
+                            if (newContainer) {
+                                newContainer.scrollLeft = targetScrollLeft;
+                                newContainer.scrollTop = targetScrollTop;
+                            }
+                        }, 0);
                     }, 150);
                 }
 
