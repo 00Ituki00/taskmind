@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="6a8e33c">
+    <meta name="commit-id" content="b9315f5">
     <title>TaskMind</title>
     <style>
         * {
@@ -1763,11 +1763,26 @@
             e.preventDefault();
 
             if (state.layoutMode === 'timeline') {
-                // Timeline: zoom changes dayWidth
                 const delta = e.deltaY > 0 ? 0.9 : 1.1;
-                state.timeline.dayWidth = Math.max(10, Math.min(1000, state.timeline.dayWidth * delta));
+                const oldDayWidth = state.timeline.dayWidth;
+                const newDayWidth = Math.max(10, Math.min(1000, oldDayWidth * delta));
+
+                // Zoom centered on mouse position
+                const timelineContainer = document.querySelector('.timeline-container');
+                if (timelineContainer) {
+                    const rect = timelineContainer.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left + timelineContainer.scrollLeft;
+                    // Account for lane header offset (120px)
+                    const gridX = Math.max(0, mouseX - 120);
+                    const mouseDay = gridX / oldDayWidth;
+                    const newGridX = mouseDay * newDayWidth;
+                    const newScrollLeft = Math.max(0, newGridX + 120 - (e.clientX - rect.left));
+                    timelineContainer.scrollLeft = newScrollLeft;
+                }
+
+                state.timeline.dayWidth = newDayWidth;
                 renderNodes();
-                zoomLevelEl.textContent = Math.round(state.timeline.dayWidth) + 'px/d';
+                zoomLevelEl.textContent = Math.round(newDayWidth) + 'px/d';
                 return;
             }
 
