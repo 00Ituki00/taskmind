@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="51a0178">
+    <meta name="commit-id" content="fd1545f">
     <title>TaskMind</title>
     <style>
         * {
@@ -1895,7 +1895,8 @@
                     const source = state.nodes.find(n => n.id === conn.from);
                     const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                     const sourceColor = source ? source.color : '#4a90d9';
-                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.label)}</div>`;
+                    const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(conn.type)}</span>` : '';
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${typeTag}${sourceTitle} → ${escapeHtml(conn.label || conn.type || '')}</div>`;
                 });
             }
             
@@ -1924,7 +1925,8 @@
                     const target = state.nodes.find(n => n.id === conn.to);
                     const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                     const targetColor = target ? target.color : '#e67e22';
-                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
+                    const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(conn.type)}</span>` : '';
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${typeTag}${escapeHtml(conn.label || conn.type || '')} → ${targetTitle}</div>`;
                 });
                 if (hasDetails || incomingConns.length > 0) html += '</div>';
             }
@@ -2045,19 +2047,104 @@
             renderConnections();
         }
 
-        // ==================== Connection Operations ====================
-        function createConnection(from, to, label = '') {
-            // Prevent duplicate
+        // Connection type colors (global)
+        const typeColors = {
+            'Why': '#e74c3c',
+            'How': '#3498db',
+            'Problem': '#e67e22',
+            'Result': '#2ecc71',
+            'Alternative': '#9b59b6',
+            'Custom': '#888888'
+        };
+        function createConnection(from, to, label = '', type = '') {
             const exists = state.connections.some(c => c.from === from && c.to === to);
             if (exists) return;
 
-            state.connections.push({ from, to, label });
+            state.connections.push({ from, to, label, type });
             renderConnections();
         }
 
         function deleteConnection(from, to) {
             state.connections = state.connections.filter(c => !(c.from === from && c.to === to));
             renderConnections();
+        }
+
+        // Connection type selector popup
+        function showConnectionTypeSelector(from, to, x, y) {
+            // Remove existing popup
+            const existing = document.querySelector('.conn-type-selector');
+            if (existing) existing.remove();
+
+            const popup = document.createElement('div');
+            popup.className = 'conn-type-selector';
+            popup.style.cssText = `
+                position:fixed; left:${x}px; top:${y}px;
+                background:white; border:1px solid #ddd; border-radius:8px;
+                padding:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15);
+                z-index:10000; display:flex; flex-direction:column; gap:4px;
+                font-size:13px; min-width:120px;
+            `;
+
+            const types = [
+                { key: 'Why', label: 'なぜ？ (Why)', color: '#e74c3c' },
+                { key: 'How', label: 'どうやって？ (How)', color: '#3498db' },
+                { key: 'Problem', label: '問題・障害', color: '#e67e22' },
+                { key: 'Result', label: '結果・帰結', color: '#2ecc71' },
+                { key: 'Alternative', label: '別案・代替', color: '#9b59b6' },
+                { key: 'Custom', label: 'その他 (自由入力)', color: '#888888' }
+            ];
+
+            types.forEach(t => {
+                const btn = document.createElement('button');
+                btn.style.cssText = `
+                    border:none; background:none; padding:6px 8px; border-radius:4px;
+                    cursor:pointer; text-align:left; font-size:13px;
+                    display:flex; align-items:center; gap:6px;
+                `;
+                btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;"\u003e</span\u003e ${escapeHtml(t.label)}`;
+                btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
+                btn.addEventListener('mouseleave', () => btn.style.background = 'none');
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    let label = '';
+                    if (t.key === 'Custom') {
+                        label = prompt('接続ラベルを入力してください:', '') || '';
+                    }
+                    createConnection(from, to, label, t.key);
+                    state.connectingFrom = null;
+                    modeIndicator.textContent = '接続モード: 開始ノードを選択';
+                    setMode('select');
+                    popup.remove();
+                });
+                popup.appendChild(btn);
+            });
+
+            // Cancel button
+            const cancel = document.createElement('button');
+            cancel.textContent = 'キャンセル';
+            cancel.style.cssText = `
+                border:none; background:none; padding:6px 8px; border-radius:4px;
+                cursor:pointer; text-align:center; font-size:12px; color:#888;
+                border-top:1px solid #eee; margin-top:4px;
+            `;
+            cancel.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.connectingFrom = null;
+                modeIndicator.textContent = '接続モード: 開始ノードを選択';
+                popup.remove();
+            });
+            popup.appendChild(cancel);
+
+            document.body.appendChild(popup);
+
+            // Close on outside click
+            const closeHandler = (e) => {
+                if (!popup.contains(e.target)) {
+                    popup.remove();
+                    document.removeEventListener('mousedown', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
         }
 
         container.addEventListener('click', (e) => {
@@ -5176,11 +5263,21 @@ function getNodeEdgePoint(node, targetNode) {
                 hitPath.style.pointerEvents = 'all';
                 hitPath.style.cursor = 'pointer';
 
-                // Visible line with gradient
+                // Connection type colors
+                const typeColors = {
+                    'Why': '#e74c3c',
+                    'How': '#3498db',
+                    'Problem': '#e67e22',
+                    'Result': '#2ecc71',
+                    'Alternative': '#9b59b6'
+                };
+                const connColor = conn.type ? (typeColors[conn.type] || '#888888') : `url(#${gradId})`;
+
+                // Visible line with gradient or type color
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', pathD);
                 path.setAttribute('class', 'connection-line');
-                path.setAttribute('stroke', `url(#${gradId})`);
+                path.setAttribute('stroke', connColor);
                 path.setAttribute('pointer-events', 'none');
                 path.style.pointerEvents = 'none';
 
@@ -5418,7 +5515,7 @@ function getNodeEdgePoint(node, targetNode) {
                     text.setAttribute('class', 'connection-label');
                     text.setAttribute('x', (fromCx + toCx) / 2);
                     text.setAttribute('y', (fromCy + toCy) / 2 - 10);
-                    text.textContent = conn.label;
+                    text.textContent = (conn.type ? conn.type + ': ' : '') + conn.label;
                     text.style.pointerEvents = 'all';
                     text.style.cursor = 'pointer';
                     text.addEventListener('dblclick', (e) => {
@@ -5745,10 +5842,8 @@ function getNodeEdgePoint(node, targetNode) {
                     state.connectingFrom = node.id;
                     modeIndicator.textContent = '接続モード: 終了ノードを選択';
                 } else if (state.connectingFrom !== node.id) {
-                    createConnection(state.connectingFrom, node.id);
-                    state.connectingFrom = null;
-                    modeIndicator.textContent = '接続モード: 開始ノードを選択';
-                    setMode('select');
+                    // Show connection type selector popup
+                    showConnectionTypeSelector(state.connectingFrom, node.id, e.clientX, e.clientY);
                 }
                 return;
             }
