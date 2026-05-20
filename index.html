@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="fd1545f">
+    <meta name="commit-id" content="7003b0f">
     <title>TaskMind</title>
     <style>
         * {
@@ -1880,8 +1880,8 @@
             const where = node.details?.where?.trim();
             const who = node.details?.who?.trim();
             const link = node.details?.link?.trim();
-            const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
-            const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
+            const outgoingConns = state.connections.filter(c => c.from === node.id && (c.label || c.type));
+            const incomingConns = state.connections.filter(c => c.to === node.id && (c.label || c.type));
             
             const hasDetails = why || what || where || who || link;
             const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
@@ -1895,8 +1895,22 @@
                     const source = state.nodes.find(n => n.id === conn.from);
                     const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                     const sourceColor = source ? source.color : '#4a90d9';
-                    const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(conn.type)}</span>` : '';
-                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${typeTag}${sourceTitle} → ${escapeHtml(conn.label || conn.type || '')}</div>`;
+                    const typeLabels = {
+                        'Why': 'なぜ？',
+                        'How': 'どうやって？',
+                        'Problem': '問題・障害',
+                        'Result': '結果・帰結',
+                        'Alternative': '別案・代替'
+                    };
+                    const typeColors = {
+                        'Why': '#e74c3c',
+                        'How': '#3498db',
+                        'Problem': '#e67e22',
+                        'Result': '#2ecc71',
+                        'Alternative': '#9b59b6'
+                    };
+                    const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[conn.type] || conn.type)}</span>` : '';
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${typeTag}${sourceTitle}</div>`;
                 });
             }
             
@@ -1925,8 +1939,22 @@
                     const target = state.nodes.find(n => n.id === conn.to);
                     const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                     const targetColor = target ? target.color : '#e67e22';
-                    const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(conn.type)}</span>` : '';
-                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${typeTag}${escapeHtml(conn.label || conn.type || '')} → ${targetTitle}</div>`;
+                    const typeLabels = {
+                        'Why': 'なぜ？',
+                        'How': 'どうやって？',
+                        'Problem': '問題・障害',
+                        'Result': '結果・帰結',
+                        'Alternative': '別案・代替'
+                    };
+                    const typeColors = {
+                        'Why': '#e74c3c',
+                        'How': '#3498db',
+                        'Problem': '#e67e22',
+                        'Result': '#2ecc71',
+                        'Alternative': '#9b59b6'
+                    };
+                    const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[conn.type] || conn.type)}</span>` : '';
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${typeTag}${targetTitle}</div>`;
                 });
                 if (hasDetails || incomingConns.length > 0) html += '</div>';
             }
@@ -2086,12 +2114,11 @@
             `;
 
             const types = [
-                { key: 'Why', label: 'なぜ？ (Why)', color: '#e74c3c' },
-                { key: 'How', label: 'どうやって？ (How)', color: '#3498db' },
+                { key: 'Why', label: 'なぜ？', color: '#e74c3c' },
+                { key: 'How', label: 'どうやって？', color: '#3498db' },
                 { key: 'Problem', label: '問題・障害', color: '#e67e22' },
                 { key: 'Result', label: '結果・帰結', color: '#2ecc71' },
-                { key: 'Alternative', label: '別案・代替', color: '#9b59b6' },
-                { key: 'Custom', label: 'その他 (自由入力)', color: '#888888' }
+                { key: 'Alternative', label: '別案・代替', color: '#9b59b6' }
             ];
 
             types.forEach(t => {
@@ -2106,11 +2133,7 @@
                 btn.addEventListener('mouseleave', () => btn.style.background = 'none');
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    let label = '';
-                    if (t.key === 'Custom') {
-                        label = prompt('接続ラベルを入力してください:', '') || '';
-                    }
-                    createConnection(from, to, label, t.key);
+                    createConnection(from, to, '', t.key);
                     state.connectingFrom = null;
                     modeIndicator.textContent = '接続モード: 開始ノードを選択';
                     setMode('select');
@@ -5263,7 +5286,7 @@ function getNodeEdgePoint(node, targetNode) {
                 hitPath.style.pointerEvents = 'all';
                 hitPath.style.cursor = 'pointer';
 
-                // Connection type colors
+                // Connection type colors (for label decoration only, not line color)
                 const typeColors = {
                     'Why': '#e74c3c',
                     'How': '#3498db',
@@ -5271,13 +5294,15 @@ function getNodeEdgePoint(node, targetNode) {
                     'Result': '#2ecc71',
                     'Alternative': '#9b59b6'
                 };
-                const connColor = conn.type ? (typeColors[conn.type] || '#888888') : `url(#${gradId})`;
+
+                // Use original gradient for line color (unified)
+                const lineStroke = `url(#${gradId})`;
 
                 // Visible line with gradient or type color
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', pathD);
                 path.setAttribute('class', 'connection-line');
-                path.setAttribute('stroke', connColor);
+                path.setAttribute('stroke', lineStroke);
                 path.setAttribute('pointer-events', 'none');
                 path.style.pointerEvents = 'none';
 
@@ -5509,26 +5534,46 @@ function getNodeEdgePoint(node, targetNode) {
                     group.appendChild(plus);
                 }
 
-                // Label
-                if (conn.label && !conn.collapsed) {
-                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    text.setAttribute('class', 'connection-label');
-                    text.setAttribute('x', (fromCx + toCx) / 2);
-                    text.setAttribute('y', (fromCy + toCy) / 2 - 10);
-                    text.textContent = (conn.type ? conn.type + ': ' : '') + conn.label;
-                    text.style.pointerEvents = 'all';
-                    text.style.cursor = 'pointer';
-                    text.addEventListener('dblclick', (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        conn.collapsed = !conn.collapsed;
-                        if (conn.collapsed && !conn.originalToPos) {
-                            conn.originalToPos = { x: toNode.x, y: toNode.y };
-                        }
-                        renderNodes();
-                        renderConnections();
-                    });
-                    group.appendChild(text);
+                // Label with decoration
+                if ((conn.label || conn.type) && !conn.collapsed) {
+                    const typeLabels = {
+                        'Why': 'なぜ？',
+                        'How': 'どうやって？',
+                        'Problem': '問題・障害',
+                        'Result': '結果・帰結',
+                        'Alternative': '別案・代替'
+                    };
+                    const typeColors = {
+                        'Why': '#e74c3c',
+                        'How': '#3498db',
+                        'Problem': '#e67e22',
+                        'Result': '#2ecc71',
+                        'Alternative': '#9b59b6'
+                    };
+                    const labelText = conn.type ? (typeLabels[conn.type] || conn.type) : conn.label;
+                    const labelColor = conn.type ? (typeColors[conn.type] || '#888') : '#555';
+
+                    if (labelText) {
+                        const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+                        fo.setAttribute('x', ((fromCx + toCx) / 2) - 50);
+                        fo.setAttribute('y', ((fromCy + toCy) / 2) - 25);
+                        fo.setAttribute('width', '100');
+                        fo.setAttribute('height', '30');
+                        fo.style.pointerEvents = 'none';
+
+                        const div = document.createElement('div');
+                        div.style.cssText = `
+                            display:inline-block; padding:2px 8px; border-radius:4px;
+                            font-size:11px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+                            color:${labelColor}; border:1.5px solid ${labelColor};
+                            background:rgba(255,255,255,0.95); text-align:center; white-space:nowrap;
+                            box-shadow:0 1px 4px rgba(0,0,0,0.1);
+                        `;
+                        div.textContent = labelText;
+
+                        fo.appendChild(div);
+                        group.appendChild(fo);
+                    }
                 }
 
                 // Connection point on "from" node (draggable to change source)
