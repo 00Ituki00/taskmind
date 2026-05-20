@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="7a8ad77">
+    <meta name="commit-id" content="4d60dc2">
     <title>TaskMind</title>
     <style>
         * {
@@ -1769,6 +1769,8 @@
 
                 // Zoom centered on mouse position
                 const timelineContainer = document.querySelector('.timeline-container');
+                let targetScrollLeft = null;
+                let targetScrollTop = null;
                 if (timelineContainer) {
                     const rect = timelineContainer.getBoundingClientRect();
                     const mouseX = e.clientX - rect.left + timelineContainer.scrollLeft;
@@ -1776,15 +1778,24 @@
                     const gridX = Math.max(0, mouseX - 120);
                     const mouseDay = gridX / oldDayWidth;
                     const newGridX = mouseDay * newDayWidth;
-                    const newScrollLeft = Math.max(0, newGridX + 120 - (e.clientX - rect.left));
-                    // Save scroll position for renderNodes to restore
-                    state.timeline.scrollLeft = newScrollLeft;
-                    state.timeline.scrollTop = timelineContainer.scrollTop;
+                    targetScrollLeft = Math.max(0, newGridX + 120 - (e.clientX - rect.left));
+                    targetScrollTop = timelineContainer.scrollTop;
                 }
 
                 state.timeline.dayWidth = newDayWidth;
                 renderNodes();
                 zoomLevelEl.textContent = Math.round(newDayWidth) + 'px/d';
+
+                // Restore scroll position after DOM is fully rendered
+                if (targetScrollLeft !== null) {
+                    setTimeout(() => {
+                        const newContainer = document.querySelector('.timeline-container');
+                        if (newContainer) {
+                            newContainer.scrollLeft = targetScrollLeft;
+                            if (targetScrollTop !== null) newContainer.scrollTop = targetScrollTop;
+                        }
+                    }, 0);
+                }
                 return;
             }
 
@@ -4663,15 +4674,6 @@ function getNodeEdgePoint(node, targetNode) {
                 container.scrollLeft = state._timelineScroll.left;
                 container.scrollTop = state._timelineScroll.top;
                 state._timelineScroll = null;
-            } else if (state.timeline.scrollLeft !== undefined) {
-                const targetScrollLeft = state.timeline.scrollLeft;
-                const targetScrollTop = state.timeline.scrollTop || 0;
-                requestAnimationFrame(() => {
-                    container.scrollLeft = targetScrollLeft;
-                    container.scrollTop = targetScrollTop;
-                });
-                state.timeline.scrollLeft = undefined;
-                state.timeline.scrollTop = undefined;
             }
 
             // Timeline pan drag - only setup window listeners once
