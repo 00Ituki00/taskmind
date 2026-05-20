@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="3bb0219">
+    <meta name="commit-id" content="7a8ad77">
     <title>TaskMind</title>
     <style>
         * {
@@ -4664,8 +4664,12 @@ function getNodeEdgePoint(node, targetNode) {
                 container.scrollTop = state._timelineScroll.top;
                 state._timelineScroll = null;
             } else if (state.timeline.scrollLeft !== undefined) {
-                container.scrollLeft = state.timeline.scrollLeft;
-                container.scrollTop = state.timeline.scrollTop || 0;
+                const targetScrollLeft = state.timeline.scrollLeft;
+                const targetScrollTop = state.timeline.scrollTop || 0;
+                requestAnimationFrame(() => {
+                    container.scrollLeft = targetScrollLeft;
+                    container.scrollTop = targetScrollTop;
+                });
                 state.timeline.scrollLeft = undefined;
                 state.timeline.scrollTop = undefined;
             }
