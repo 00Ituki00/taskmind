@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="4d60dc2">
+    <meta name="commit-id" content="1769c57">
     <title>TaskMind</title>
     <style>
         * {
@@ -1788,13 +1788,15 @@
 
                 // Restore scroll position after DOM is fully rendered
                 if (targetScrollLeft !== null) {
-                    setTimeout(() => {
-                        const newContainer = document.querySelector('.timeline-container');
-                        if (newContainer) {
-                            newContainer.scrollLeft = targetScrollLeft;
-                            if (targetScrollTop !== null) newContainer.scrollTop = targetScrollTop;
-                        }
-                    }, 0);
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            const newContainer = document.querySelector('.timeline-container');
+                            if (newContainer) {
+                                newContainer.scrollLeft = targetScrollLeft;
+                                if (targetScrollTop !== null) newContainer.scrollTop = targetScrollTop;
+                            }
+                        });
+                    });
                 }
                 return;
             }
