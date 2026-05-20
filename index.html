@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="4020f79">
+    <meta name="commit-id" content="c192233">
     <title>TaskMind</title>
     <style>
         * {
@@ -1767,38 +1767,62 @@
                 const oldDayWidth = state.timeline.dayWidth;
                 const newDayWidth = Math.max(10, Math.min(1000, oldDayWidth * delta));
 
-                // Calculate mouse-centered zoom position
+                // Virtual zoom: use CSS transform for smooth zooming without DOM recreation
                 const timelineContainer = document.querySelector('.timeline-container');
-                let targetScrollLeft = null;
-                let targetScrollTop = null;
-                let mouseViewportX = null;
                 if (timelineContainer) {
                     const rect = timelineContainer.getBoundingClientRect();
-                    const mouseX = e.clientX - rect.left + timelineContainer.scrollLeft;
-                    const gridX = Math.max(0, mouseX - 120);
-                    const mouseDay = gridX / oldDayWidth;
-                    const newGridX = mouseDay * newDayWidth;
-                    targetScrollLeft = Math.max(0, newGridX + 120 - (e.clientX - rect.left));
-                    targetScrollTop = timelineContainer.scrollTop;
-                    mouseViewportX = e.clientX - rect.left;
-                }
+                    const mouseViewportX = e.clientX - rect.left;
+                    const mouseViewportY = e.clientY - rect.top;
 
-                state.timeline.dayWidth = newDayWidth;
-                renderNodes();
-                zoomLevelEl.textContent = Math.round(newDayWidth) + 'px/d';
+                    // Calculate visual scale ratio
+                    const visualScale = newDayWidth / oldDayWidth;
 
-                // Restore scroll position after DOM is fully rendered
-                if (targetScrollLeft !== null) {
-                    requestAnimationFrame(() => {
+                    // Set transform origin to mouse position for centered zoom
+                    timelineContainer.style.transformOrigin = `${mouseViewportX + timelineContainer.scrollLeft}px ${mouseViewportY}px`;
+                    timelineContainer.style.transform = `scale(${visualScale})`;
+                    timelineContainer.style.transition = 'none';
+
+                    // Store pending dayWidth and mouse position for final render
+                    state.timeline.pendingDayWidth = newDayWidth;
+                    state.timeline.pendingMouseX = e.clientX;
+                    state.timeline.pendingMouseY = e.clientY;
+
+                    // Debounced final render: remove transform and re-render with new dayWidth
+                    clearTimeout(state.timeline.zoomDebounceTimer);
+                    state.timeline.zoomDebounceTimer = setTimeout(() => {
+                        timelineContainer.style.transform = '';
+                        timelineContainer.style.transformOrigin = '';
+                        timelineContainer.style.transition = '';
+
+                        const finalDayWidth = state.timeline.pendingDayWidth;
+                        const finalMouseX = state.timeline.pendingMouseX;
+                        const finalMouseY = state.timeline.pendingMouseY;
+
+                        // Calculate mouse-centered scroll for final render
+                        const newRect = timelineContainer.getBoundingClientRect();
+                        const mouseX = finalMouseX - newRect.left + timelineContainer.scrollLeft;
+                        const gridX = Math.max(0, mouseX - 120);
+                        const mouseDay = gridX / oldDayWidth;
+                        const newGridX = mouseDay * finalDayWidth;
+                        const targetScrollLeft = Math.max(0, newGridX + 120 - (finalMouseX - newRect.left));
+
+                        state.timeline.dayWidth = finalDayWidth;
+                        renderNodes();
+                        zoomLevelEl.textContent = Math.round(finalDayWidth) + 'px/d';
+
+                        // Restore scroll position
                         requestAnimationFrame(() => {
-                            const newContainer = document.querySelector('.timeline-container');
-                            if (newContainer) {
-                                newContainer.scrollLeft = targetScrollLeft;
-                                if (targetScrollTop !== null) newContainer.scrollTop = targetScrollTop;
-                            }
+                            requestAnimationFrame(() => {
+                                const newContainer = document.querySelector('.timeline-container');
+                                if (newContainer) {
+                                    newContainer.scrollLeft = targetScrollLeft;
+                                    newContainer.scrollTop = state.timeline.pendingScrollTop || 0;
+                                }
+                            });
                         });
-                    });
+                    }, 150);
                 }
+
                 return;
             }
 
