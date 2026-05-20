@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="7003b0f">
+    <meta name="commit-id" content="6dfd61d">
     <title>TaskMind</title>
     <style>
         * {
@@ -1560,6 +1560,7 @@
             selectionStartX: 0,
             selectionStartY: 0,
             connectingFrom: null,
+            pendingConnectionType: null,
             dragNode: null,
             dragOffsetX: 0,
             dragOffsetY: 0,
@@ -2098,7 +2099,7 @@
         }
 
         // Connection type selector popup
-        function showConnectionTypeSelector(from, to, x, y) {
+        function showConnectionTypeSelectorAtStart(fromNodeId, x, y) {
             // Remove existing popup
             const existing = document.querySelector('.conn-type-selector');
             if (existing) existing.remove();
@@ -2133,10 +2134,9 @@
                 btn.addEventListener('mouseleave', () => btn.style.background = 'none');
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    createConnection(from, to, '', t.key);
-                    state.connectingFrom = null;
-                    modeIndicator.textContent = '接続モード: 開始ノードを選択';
-                    setMode('select');
+                    state.pendingConnectionType = t.key;
+                    state.connectingFrom = fromNodeId;
+                    modeIndicator.textContent = '接続モード: 終了ノードを選択';
                     popup.remove();
                 });
                 popup.appendChild(btn);
@@ -2153,7 +2153,9 @@
             cancel.addEventListener('click', (e) => {
                 e.stopPropagation();
                 state.connectingFrom = null;
+                state.pendingConnectionType = null;
                 modeIndicator.textContent = '接続モード: 開始ノードを選択';
+                setMode('select');
                 popup.remove();
             });
             popup.appendChild(cancel);
@@ -2161,6 +2163,75 @@
             document.body.appendChild(popup);
 
             // Close on outside click
+            const closeHandler = (e) => {
+                if (!popup.contains(e.target)) {
+                    popup.remove();
+                    document.removeEventListener('mousedown', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
+        }
+
+        // Connection type selector popup (shown when editing existing connection)
+        function showConnectionTypeSelectorForEdit(conn, x, y) {
+            const existing = document.querySelector('.conn-type-selector');
+            if (existing) existing.remove();
+
+            const popup = document.createElement('div');
+            popup.className = 'conn-type-selector';
+            popup.style.cssText = `
+                position:fixed; left:${x}px; top:${y}px;
+                background:white; border:1px solid #ddd; border-radius:8px;
+                padding:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15);
+                z-index:10000; display:flex; flex-direction:column; gap:4px;
+                font-size:13px; min-width:120px;
+            `;
+
+            const types = [
+                { key: 'Why', label: 'なぜ？', color: '#e74c3c' },
+                { key: 'How', label: 'どうやって？', color: '#3498db' },
+                { key: 'Problem', label: '問題・障害', color: '#e67e22' },
+                { key: 'Result', label: '結果・帰結', color: '#2ecc71' },
+                { key: 'Alternative', label: '別案・代替', color: '#9b59b6' }
+            ];
+
+            types.forEach(t => {
+                const btn = document.createElement('button');
+                const isCurrent = conn.type === t.key;
+                btn.style.cssText = `
+                    border:none; background:${isCurrent ? '#f0f0f0' : 'none'}; padding:6px 8px; border-radius:4px;
+                    cursor:pointer; text-align:left; font-size:13px;
+                    display:flex; align-items:center; gap:6px;
+                    font-weight:${isCurrent ? '600' : 'normal'};
+                `;
+                btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;"></span> ${escapeHtml(t.label)} ${isCurrent ? '✓' : ''}`;
+                btn.addEventListener('mouseenter', () => { if (!isCurrent) btn.style.background = '#f5f5f5'; });
+                btn.addEventListener('mouseleave', () => { if (!isCurrent) btn.style.background = 'none'; });
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    conn.type = t.key;
+                    conn.label = '';
+                    renderConnections();
+                    popup.remove();
+                });
+                popup.appendChild(btn);
+            });
+
+            const cancel = document.createElement('button');
+            cancel.textContent = 'キャンセル';
+            cancel.style.cssText = `
+                border:none; background:none; padding:6px 8px; border-radius:4px;
+                cursor:pointer; text-align:center; font-size:12px; color:#888;
+                border-top:1px solid #eee; margin-top:4px;
+            `;
+            cancel.addEventListener('click', (e) => {
+                e.stopPropagation();
+                popup.remove();
+            });
+            popup.appendChild(cancel);
+
+            document.body.appendChild(popup);
+
             const closeHandler = (e) => {
                 if (!popup.contains(e.target)) {
                     popup.remove();
@@ -5571,6 +5642,12 @@ function getNodeEdgePoint(node, targetNode) {
                         `;
                         div.textContent = labelText;
 
+                        div.addEventListener('dblclick', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            showConnectionTypeSelectorForEdit(conn, e.clientX, e.clientY);
+                        });
+
                         fo.appendChild(div);
                         group.appendChild(fo);
                     }
@@ -5884,11 +5961,16 @@ function getNodeEdgePoint(node, targetNode) {
 
             if (state.mode === 'connect') {
                 if (!state.connectingFrom) {
-                    state.connectingFrom = node.id;
-                    modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                    // First node clicked - show type selector immediately
+                    showConnectionTypeSelectorAtStart(node.id, e.clientX, e.clientY);
                 } else if (state.connectingFrom !== node.id) {
-                    // Show connection type selector popup
-                    showConnectionTypeSelector(state.connectingFrom, node.id, e.clientX, e.clientY);
+                    // Second node clicked - create connection with pre-selected type
+                    const type = state.pendingConnectionType || 'Related';
+                    createConnection(state.connectingFrom, node.id, '', type);
+                    state.connectingFrom = null;
+                    state.pendingConnectionType = null;
+                    modeIndicator.textContent = '接続モード: 開始ノードを選択';
+                    setMode('select');
                 }
                 return;
             }
@@ -5932,11 +6014,13 @@ function getNodeEdgePoint(node, targetNode) {
 
             if (state.mode === 'connect') {
                 if (!state.connectingFrom) {
-                    state.connectingFrom = node.id;
-                    modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                    showConnectionTypeSelectorAtStart(node.id, touch.clientX, touch.clientY);
+                    return;
                 } else if (state.connectingFrom !== node.id) {
-                    createConnection(state.connectingFrom, node.id);
+                    const type = state.pendingConnectionType || 'Related';
+                    createConnection(state.connectingFrom, node.id, '', type);
                     state.connectingFrom = null;
+                    state.pendingConnectionType = null;
                     setMode('select');
                 }
                 return;
@@ -7063,8 +7147,8 @@ function getNodeEdgePoint(node, targetNode) {
                     renderNodes();
                     renderConnections();
                 }},
-                { text: 'ラベル編集', icon: '🏷️', action: () => {
-                    enableConnectionLabelEdit(conn);
+                { text: 'タイプ変更', icon: '🏷️', action: () => {
+                    showConnectionTypeSelectorForEdit(conn, x, y);
                 }},
                 { text: '削除', icon: '🗑️', class: 'delete', action: () => {
                     if (confirm('この接続を削除しますか?')) {
