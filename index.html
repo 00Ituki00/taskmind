@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="d08bda7">
+    <meta name="commit-id" content="bb3f0ed">
     <title>TaskMind</title>
     <style>
         * {
@@ -1897,12 +1897,13 @@
                     const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                     const sourceColor = source ? source.color : '#4a90d9';
                     const typeLabels = {
-                        'Why': 'なぜ？',
-                        'How': 'どうやって？',
-                        'Problem': 'しかし',
-                        'Result': 'つまり',
-                        'Alternative': '代わりに',
-                        'Caution': 'ただし'
+                        'Why': '🔍 なぜ？',
+                        'How': '🔧 どうやって？',
+                        'Problem': '⚠️ しかし',
+                        'Result': '✅ つまり',
+                        'Alternative': '🔀 代わりに',
+                        'Caution': '❗ ただし',
+                        'Therefore': '➡️ だから'
                     };
                     const typeColors = {
                         'Why': '#e74c3c',
@@ -1910,7 +1911,8 @@
                         'Problem': '#e67e22',
                         'Result': '#2ecc71',
                         'Alternative': '#9b59b6',
-                        'Caution': '#f39c12'
+                        'Caution': '#f39c12',
+                        'Therefore': '#e91e63'
                     };
                     const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[conn.type] || conn.type)}</span>` : '';
                     html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${typeTag}${sourceTitle}</div>`;
@@ -1943,12 +1945,13 @@
                     const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                     const targetColor = target ? target.color : '#e67e22';
                     const typeLabels = {
-                        'Why': 'なぜ？',
-                        'How': 'どうやって？',
-                        'Problem': 'しかし',
-                        'Result': 'つまり',
-                        'Alternative': '代わりに',
-                        'Caution': 'ただし'
+                        'Why': '🔍 なぜ？',
+                        'How': '🔧 どうやって？',
+                        'Problem': '⚠️ しかし',
+                        'Result': '✅ つまり',
+                        'Alternative': '🔀 代わりに',
+                        'Caution': '❗ ただし',
+                        'Therefore': '➡️ だから'
                     };
                     const typeColors = {
                         'Why': '#e74c3c',
@@ -1956,7 +1959,8 @@
                         'Problem': '#e67e22',
                         'Result': '#2ecc71',
                         'Alternative': '#9b59b6',
-                        'Caution': '#f39c12'
+                        'Caution': '#f39c12',
+                        'Therefore': '#e91e63'
                     };
                     const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[conn.type] || conn.type)}</span>` : '';
                     html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${typeTag}${targetTitle}</div>`;
@@ -2088,6 +2092,7 @@
             'Result': '#2ecc71',
             'Alternative': '#9b59b6',
                         'Caution': '#f39c12',
+                        'Therefore': '#e91e63',
             'Custom': '#888888'
         };
         function createConnection(from, to, label = '', type = '') {
@@ -2120,12 +2125,13 @@
             `;
 
             const types = [
-                { key: 'Why', label: 'なぜ？', color: '#e74c3c' },
-                { key: 'How', label: 'どうやって？', color: '#3498db' },
-                { key: 'Problem', label: 'しかし', color: '#e67e22' },
-                { key: 'Result', label: 'つまり', color: '#2ecc71' },
-                { key: 'Alternative', label: '代わりに', color: '#9b59b6' },
-                { key: 'Caution', label: 'ただし', color: '#f39c12' }
+                { key: 'Why', label: '🔍 なぜ？', color: '#e74c3c' },
+                { key: 'How', label: '🔧 どうやって？', color: '#3498db' },
+                { key: 'Problem', label: '⚠️ しかし', color: '#e67e22' },
+                { key: 'Result', label: '✅ つまり', color: '#2ecc71' },
+                { key: 'Alternative', label: '🔀 代わりに', color: '#9b59b6' },
+                { key: 'Caution', label: '❗ ただし', color: '#f39c12' },
+                { key: 'Therefore', label: '➡️ だから', color: '#e91e63' },
             ];
 
             types.forEach(t => {
@@ -2196,12 +2202,13 @@
             `;
 
             const types = [
-                { key: 'Why', label: 'なぜ？', color: '#e74c3c' },
-                { key: 'How', label: 'どうやって？', color: '#3498db' },
-                { key: 'Problem', label: 'しかし', color: '#e67e22' },
-                { key: 'Result', label: 'つまり', color: '#2ecc71' },
-                { key: 'Alternative', label: '代わりに', color: '#9b59b6' },
-                { key: 'Caution', label: 'ただし', color: '#f39c12' }
+                { key: 'Why', label: '🔍 なぜ？', color: '#e74c3c' },
+                { key: 'How', label: '🔧 どうやって？', color: '#3498db' },
+                { key: 'Problem', label: '⚠️ しかし', color: '#e67e22' },
+                { key: 'Result', label: '✅ つまり', color: '#2ecc71' },
+                { key: 'Alternative', label: '🔀 代わりに', color: '#9b59b6' },
+                { key: 'Caution', label: '❗ ただし', color: '#f39c12' },
+                { key: 'Therefore', label: '➡️ だから', color: '#e91e63' },
             ];
 
             types.forEach(t => {
@@ -5373,7 +5380,8 @@ function getNodeEdgePoint(node, targetNode) {
                     'Problem': '#e67e22',
                     'Result': '#2ecc71',
                     'Alternative': '#9b59b6',
-                        'Caution': '#f39c12'
+                        'Caution': '#f39c12',
+                        'Therefore': '#e91e63'
                 };
 
                 // Use original gradient for line color (unified)
@@ -5618,12 +5626,13 @@ function getNodeEdgePoint(node, targetNode) {
                 // Label with decoration
                 if ((conn.label || conn.type) && !conn.collapsed) {
                     const typeLabels = {
-                        'Why': 'なぜ？',
-                        'How': 'どうやって？',
-                        'Problem': 'しかし',
-                        'Result': 'つまり',
-                        'Alternative': '代わりに',
-                        'Caution': 'ただし'
+                        'Why': '🔍 なぜ？',
+                        'How': '🔧 どうやって？',
+                        'Problem': '⚠️ しかし',
+                        'Result': '✅ つまり',
+                        'Alternative': '🔀 代わりに',
+                        'Caution': '❗ ただし',
+                        'Therefore': '➡️ だから'
                     };
                     const typeColors = {
                         'Why': '#e74c3c',
@@ -5631,7 +5640,8 @@ function getNodeEdgePoint(node, targetNode) {
                         'Problem': '#e67e22',
                         'Result': '#2ecc71',
                         'Alternative': '#9b59b6',
-                        'Caution': '#f39c12'
+                        'Caution': '#f39c12',
+                        'Therefore': '#e91e63'
                     };
                     const labelText = conn.type ? (typeLabels[conn.type] || conn.type) : conn.label;
                     const labelColor = conn.type ? (typeColors[conn.type] || '#888') : '#555';
