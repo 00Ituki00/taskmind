@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="6dfd61d">
+    <meta name="commit-id" content="022c5f3">
     <title>TaskMind</title>
     <style>
         * {
@@ -2136,7 +2136,9 @@
                     e.stopPropagation();
                     state.pendingConnectionType = t.key;
                     state.connectingFrom = fromNodeId;
+                    state.mode = 'connect';
                     modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                    modeIndicator.classList.add('active');
                     popup.remove();
                 });
                 popup.appendChild(btn);
@@ -6131,8 +6133,9 @@ function getNodeEdgePoint(node, targetNode) {
                 const x = (e.clientX - state.panX) / state.scale;
                 const y = (e.clientY - state.panY) / state.scale;
                 const newNode = createNode(x, y);
-                createConnection(state.connectingFrom, newNode.id);
+                createConnection(state.connectingFrom, newNode.id, '', state.pendingConnectionType || '');
                 state.connectingFrom = null;
+                state.pendingConnectionType = null;
                 const tempLine = document.getElementById('pending-connection');
                 if (tempLine) tempLine.remove();
                 modeIndicator.classList.remove('active');
@@ -6214,8 +6217,9 @@ function getNodeEdgePoint(node, targetNode) {
                     const x = (touch.clientX - state.panX) / state.scale;
                     const y = (touch.clientY - state.panY) / state.scale;
                     const newNode = createNode(x, y);
-                    createConnection(state.connectingFrom, newNode.id);
+                    createConnection(state.connectingFrom, newNode.id, '', state.pendingConnectionType || '');
                     state.connectingFrom = null;
+                    state.pendingConnectionType = null;
                     const tempLine = document.getElementById('pending-connection');
                     if (tempLine) tempLine.remove();
                     modeIndicator.classList.remove('active');
@@ -7269,10 +7273,8 @@ function getNodeEdgePoint(node, targetNode) {
                         }
                     }});
                     items.push({ text: '接続作成', icon: '🔗', action: () => {
-                        state.connectingFrom = childId;
-                        modeIndicator.textContent = '接続モード: 終了ノードを選択(右クリックでキャンセル)';
-                        modeIndicator.classList.add('active');
-                        setMode('connect');
+                        menu.remove();
+                        showConnectionTypeSelectorAtStart(childId, x, y);
                     }});
                     items.push({ text: '子ノードを削除', icon: '🗑️', class: 'delete', action: () => {
                         if (confirm('この子ノードを削除しますか?')) {
@@ -7312,10 +7314,8 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 }});
                 items.push({ text: '接続作成', icon: '🔗', action: () => {
-                    state.connectingFrom = nodeId;
-                    modeIndicator.textContent = '接続モード: 終了ノードを選択(右クリックでキャンセル)';
-                    modeIndicator.classList.add('active');
-                    setMode('connect');
+                    menu.remove();
+                    showConnectionTypeSelectorAtStart(nodeId, x, y);
                 }});
                 items.push({ text: node?.expanded ? '子ノードを折りたたむ' : '子ノードを展開', icon: '📂', action: () => {
                     node.expanded = !node.expanded;
@@ -7386,6 +7386,7 @@ function getNodeEdgePoint(node, targetNode) {
                 if (!targetConnGroup && state.connectingFrom) {
                     items.push({ text: '接続モードをキャンセル', icon: '❌', action: () => {
                         state.connectingFrom = null;
+                        state.pendingConnectionType = null;
                         const tempLine = document.getElementById('pending-connection');
                         if (tempLine) tempLine.remove();
                         modeIndicator.classList.remove('active');
@@ -7500,6 +7501,7 @@ function getNodeEdgePoint(node, targetNode) {
             // Escape: cancel pending connection
             if (e.key === 'Escape') {
                 state.connectingFrom = null;
+                state.pendingConnectionType = null;
                 const tempLine = document.getElementById('pending-connection');
                 if (tempLine) tempLine.remove();
                 modeIndicator.classList.remove('active');
