@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="372fa64">
+    <meta name="commit-id" content="43412a3">
     <title>TaskMind</title>
     <style>
         * {
@@ -7894,6 +7894,233 @@ function getNodeEdgePoint(node, targetNode) {
         createConnection(nCenter.id, nTherefore.id, '', 'Therefore');
         createConnection(nTherefore.id, nTherefore1.id, '', 'Therefore');
         createConnection(nTherefore.id, nTherefore2.id, '', 'Therefore');
+
+        // ==================== Task Management Nodes ====================
+        // Root: プロジェクト管理
+        const nProject = createNode(100, 700, 'プロジェクト管理');
+        nProject.color = '#4a90d9';
+        nProject.priority = 5;
+        nProject.details.why = 'チーム全体のタスクを統合管理する';
+        nProject.details.what = 'プロジェクト進捗管理・MTG開催・レポート作成';
+        nProject.details.who = 'PM';
+        nProject.details.where = 'オフィス';
+        nProject.expanded = true;
+
+        // Child: 週次MTG
+        const nWeekly = createNode(0, 0, '週次MTG');
+        nWeekly.color = '#64b5f6';
+        nWeekly.priority = 3;
+        nWeekly.parentId = nProject.id;
+        nProject.children.push(nWeekly.id);
+        nWeekly.details.when = {
+            repeatType: 'weekly',
+            daysOfWeek: [1],
+            baseDateTime: '2026-05-19T01:00:00.000Z',
+            baseTime: '10:00',
+            deadlineType: 'relative',
+            deadlineDays: 0,
+            deadlineTime: '11:00',
+            deadlineDate: null,
+            nextDate: '2026-05-26T01:00:00.000Z',
+            lastCompleted: null
+        };
+        nWeekly.details.what = '週次進捗確認と次週計画';
+        nWeekly.details.who = '全員';
+        nWeekly.details.where = '会議室A';
+
+        // Child: 月次レポート
+        const nMonthly = createNode(0, 0, '月次レポート');
+        nMonthly.color = '#7986cb';
+        nMonthly.priority = 4;
+        nMonthly.parentId = nProject.id;
+        nProject.children.push(nMonthly.id);
+        nMonthly.details.when = {
+            repeatType: 'monthly-day',
+            daysOfWeek: [],
+            baseDateTime: '2026-05-01T05:00:00.000Z',
+            baseTime: '14:00',
+            deadlineType: 'relative',
+            deadlineDays: 0,
+            deadlineTime: '17:00',
+            deadlineDate: null,
+            nextDate: '2026-06-01T05:00:00.000Z',
+            lastCompleted: null
+        };
+        nMonthly.details.what = '月次業務レポート作成・提出';
+
+        // Child: 日次確認
+        const nDaily = createNode(0, 0, '日次確認');
+        nDaily.color = '#4dd0e1';
+        nDaily.priority = 2;
+        nDaily.parentId = nProject.id;
+        nProject.children.push(nDaily.id);
+        nDaily.details.when = {
+            repeatType: 'daily',
+            daysOfWeek: [1,2,3,4,5],
+            baseDateTime: '2026-05-19T00:00:00.000Z',
+            baseTime: '09:00',
+            deadlineType: 'relative',
+            deadlineDays: 0,
+            deadlineTime: '09:30',
+            deadlineDate: null,
+            nextDate: '2026-05-20T00:00:00.000Z',
+            lastCompleted: null
+        };
+        nDaily.details.what = '前日実績確認と本日予定の見直し';
+
+        // Root: 開発タスク
+        const nDev = createNode(500, 700, '開発タスク');
+        nDev.color = '#81c784';
+        nDev.priority = 5;
+        nDev.details.link = 'https://github.com/00Ituki00/taskmind';
+        nDev.details.what = 'TaskMindアプリの機能開発';
+        nDev.expanded = true;
+
+        // Child: フロントエンド実装
+        const nFront = createNode(0, 0, 'フロントエンド実装');
+        nFront.color = '#aed581';
+        nFront.priority = 4;
+        nFront.parentId = nDev.id;
+        nDev.children.push(nFront.id);
+        nFront.details.when = {
+            repeatType: 'none',
+            daysOfWeek: [],
+            baseDateTime: '2026-05-25T09:00:00.000Z',
+            baseTime: '09:00',
+            deadlineType: 'absolute',
+            deadlineDays: 0,
+            deadlineTime: '18:00',
+            deadlineDate: '2026-05-25T09:00:00.000Z',
+            nextDate: null,
+            lastCompleted: null
+        };
+        nFront.details.link = 'https://developer.mozilla.org';
+        nFront.details.what = 'UIコンポーネント実装・スタイル調整';
+
+        // Child: バックエンドAPI
+        const nBack = createNode(0, 0, 'バックエンドAPI');
+        nBack.color = '#dce775';
+        nBack.priority = 4;
+        nBack.parentId = nDev.id;
+        nDev.children.push(nBack.id);
+        nBack.details.when = {
+            repeatType: 'none',
+            daysOfWeek: [],
+            baseDateTime: '2026-05-28T09:00:00.000Z',
+            baseTime: '09:00',
+            deadlineType: 'absolute',
+            deadlineDays: 0,
+            deadlineTime: '18:00',
+            deadlineDate: '2026-05-28T09:00:00.000Z',
+            nextDate: null,
+            lastCompleted: null
+        };
+        nBack.details.what = 'REST API設計・実装・テスト';
+
+        // Child: テスト作成
+        const nTest = createNode(0, 0, 'テスト作成');
+        nTest.color = '#fff176';
+        nTest.priority = 3;
+        nTest.parentId = nDev.id;
+        nDev.children.push(nTest.id);
+        nTest.details.what = '単体テスト・結合テスト作成';
+
+        // Root: リマインダー
+        const nRemind = createNode(900, 700, 'リマインダー');
+        nRemind.color = '#ffd54f';
+        nRemind.priority = 3;
+        nRemind.expanded = true;
+
+        // Child: 健康診断
+        const nHealth = createNode(0, 0, '健康診断');
+        nHealth.color = '#ffb74d';
+        nHealth.priority = 5;
+        nHealth.parentId = nRemind.id;
+        nRemind.children.push(nHealth.id);
+        nHealth.details.when = {
+            repeatType: 'yearly-date',
+            daysOfWeek: [],
+            baseDateTime: '2026-10-15T00:00:00.000Z',
+            baseTime: '09:00',
+            deadlineType: 'relative',
+            deadlineDays: 0,
+            deadlineTime: '12:00',
+            deadlineDate: null,
+            nextDate: '2026-10-15T00:00:00.000Z',
+            lastCompleted: null
+        };
+        nHealth.details.what = '年1回定期健康診断';
+
+        // Child: 備品発注
+        const nSupply = createNode(0, 0, '備品発注');
+        nSupply.color = '#ff8a65';
+        nSupply.priority = 2;
+        nSupply.parentId = nRemind.id;
+        nRemind.children.push(nSupply.id);
+        nSupply.details.when = {
+            repeatType: 'monthly-day',
+            daysOfWeek: [],
+            baseDateTime: '2026-05-20T00:00:00.000Z',
+            baseTime: '10:00',
+            deadlineType: 'relative',
+            deadlineDays: 0,
+            deadlineTime: '15:00',
+            deadlineDate: null,
+            nextDate: '2026-06-20T00:00:00.000Z',
+            lastCompleted: null
+        };
+        nSupply.details.what = '消耗品・文具の発注';
+
+        // Root: 随時対応
+        const nAsap = createNode(100, 950, '随時対応');
+        nAsap.color = '#e57373';
+        nAsap.priority = 4;
+        nAsap.expanded = true;
+
+        // Child: 問い合わせ対応
+        const nInquiry = createNode(0, 0, '問い合わせ対応');
+        nInquiry.color = '#f06292';
+        nInquiry.priority = 3;
+        nInquiry.parentId = nAsap.id;
+        nAsap.children.push(nInquiry.id);
+        nInquiry.details.what = '顧客からの問い合わせ対応';
+
+        // Child: バグ修正
+        const nBug = createNode(0, 0, 'バグ修正 #123');
+        nBug.color = '#ba68c8';
+        nBug.priority = 5;
+        nBug.parentId = nAsap.id;
+        nAsap.children.push(nBug.id);
+        nBug.details.when = {
+            repeatType: 'none',
+            daysOfWeek: [],
+            baseDateTime: '2026-05-20T03:00:00.000Z',
+            baseTime: '09:00',
+            deadlineType: 'absolute',
+            deadlineDays: 0,
+            deadlineTime: '12:00',
+            deadlineDate: '2026-05-20T03:00:00.000Z',
+            nextDate: null,
+            lastCompleted: null
+        };
+        nBug.details.link = 'https://github.com/00Ituki00/taskmind/issues/123';
+        nBug.details.what = '接続線が重複表示されるバグの修正';
+
+        // Child: ドキュメント更新
+        const nDoc = createNode(0, 0, 'ドキュメント更新');
+        nDoc.color = '#9575cd';
+        nDoc.priority = 2;
+        nDoc.parentId = nAsap.id;
+        nAsap.children.push(nDoc.id);
+        nDoc.completed = true;
+        nDoc.completedAt = '2026-05-18T10:00:00.000Z';
+        nDoc.details.what = 'READMEと設計書の更新';
+
+        // Root: 未設定タスク
+        const nUnset = createNode(900, 950, '未設定タスク');
+        nUnset.color = '#a1887f';
+        nUnset.priority = 1;
+        nUnset.details.what = 'アイデア置き場';
 
         fitToView();
         // fetch Last-Modified header to show file update time and commit id
