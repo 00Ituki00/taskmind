@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="bef0af8">
+    <meta name="commit-id" content="52f3c31">
     <title>TaskMind</title>
     <style>
         * {
@@ -3786,6 +3786,7 @@ function getNodeEdgePoint(node, targetNode) {
                         if (e.button === 2) return;
                         child.completed = !child.completed;
                         child.completedAt = child.completed ? new Date().toISOString() : null;
+                        if (child.completed) updateWhenOnComplete(child);
                         renderNodes();
                     });
                     childCheckbox.addEventListener('contextmenu', (e) => {
@@ -4045,6 +4046,7 @@ function getNodeEdgePoint(node, targetNode) {
                         if (e.button === 2) return;
                         node.completed = !node.completed;
                         node.completedAt = node.completed ? new Date().toISOString() : null;
+                        if (node.completed) updateWhenOnComplete(node);
                     });
                     checkbox.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
@@ -4090,6 +4092,7 @@ function getNodeEdgePoint(node, targetNode) {
                     if (e.button === 2) return;
                     node.completed = !node.completed;
                     node.completedAt = node.completed ? new Date().toISOString() : null;
+                    if (node.completed) updateWhenOnComplete(node);
                     renderNodes();
                 });
                 color.addEventListener('contextmenu', (e) => {
@@ -7693,6 +7696,29 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             return activatedCount + startedCount;
+        }
+
+        // When周期タスク完了時にbaseDateTimeとnextDateを更新
+        function updateWhenOnComplete(node) {
+            const w = node.details?.when;
+            if (!w || w.repeatType === 'none' || w.repeatType === 'once' || !w.nextDate) return;
+            const now = new Date();
+            const nextDate = new Date(w.nextDate);
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const nextDateStart = new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
+            // 現在日付が開始日（nextDate）以降なら更新
+            if (todayStart >= nextDateStart) {
+                // baseDateTimeを現在日時に更新（時刻は維持）
+                const hours = nextDate.getHours();
+                const minutes = nextDate.getMinutes();
+                const newBase = new Date(now);
+                newBase.setHours(hours, minutes, 0, 0);
+                w.baseDateTime = newBase.toISOString();
+                // nextDateを再計算
+                const next = calculateNextDate(w);
+                w.nextDate = next ? next.toISOString() : null;
+                console.log(`[When] 「${node.title}」完了更新: baseDateTime=${w.baseDateTime}, nextDate=${w.nextDate}`);
+            }
         }
 
         // デスクトップ通知送信ヘルパー
