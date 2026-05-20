@@ -5484,3 +5484,4 @@ function getNodeEdgePoint(node, targetNode) {
         // 初期ロード時にも実行
         recalculateWhenDates();
     
+// test hook
