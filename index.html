@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="022c5f3">
+    <meta name="commit-id" content="d08bda7">
     <title>TaskMind</title>
     <style>
         * {
@@ -1899,16 +1899,18 @@
                     const typeLabels = {
                         'Why': 'なぜ？',
                         'How': 'どうやって？',
-                        'Problem': '問題・障害',
-                        'Result': '結果・帰結',
-                        'Alternative': '別案・代替'
+                        'Problem': 'しかし',
+                        'Result': 'つまり',
+                        'Alternative': '代わりに',
+                        'Caution': 'ただし'
                     };
                     const typeColors = {
                         'Why': '#e74c3c',
                         'How': '#3498db',
                         'Problem': '#e67e22',
                         'Result': '#2ecc71',
-                        'Alternative': '#9b59b6'
+                        'Alternative': '#9b59b6',
+                        'Caution': '#f39c12'
                     };
                     const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[conn.type] || conn.type)}</span>` : '';
                     html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${typeTag}${sourceTitle}</div>`;
@@ -1943,16 +1945,18 @@
                     const typeLabels = {
                         'Why': 'なぜ？',
                         'How': 'どうやって？',
-                        'Problem': '問題・障害',
-                        'Result': '結果・帰結',
-                        'Alternative': '別案・代替'
+                        'Problem': 'しかし',
+                        'Result': 'つまり',
+                        'Alternative': '代わりに',
+                        'Caution': 'ただし'
                     };
                     const typeColors = {
                         'Why': '#e74c3c',
                         'How': '#3498db',
                         'Problem': '#e67e22',
                         'Result': '#2ecc71',
-                        'Alternative': '#9b59b6'
+                        'Alternative': '#9b59b6',
+                        'Caution': '#f39c12'
                     };
                     const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[conn.type] || conn.type)}</span>` : '';
                     html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${typeTag}${targetTitle}</div>`;
@@ -2083,6 +2087,7 @@
             'Problem': '#e67e22',
             'Result': '#2ecc71',
             'Alternative': '#9b59b6',
+                        'Caution': '#f39c12',
             'Custom': '#888888'
         };
         function createConnection(from, to, label = '', type = '') {
@@ -2117,9 +2122,10 @@
             const types = [
                 { key: 'Why', label: 'なぜ？', color: '#e74c3c' },
                 { key: 'How', label: 'どうやって？', color: '#3498db' },
-                { key: 'Problem', label: '問題・障害', color: '#e67e22' },
-                { key: 'Result', label: '結果・帰結', color: '#2ecc71' },
-                { key: 'Alternative', label: '別案・代替', color: '#9b59b6' }
+                { key: 'Problem', label: 'しかし', color: '#e67e22' },
+                { key: 'Result', label: 'つまり', color: '#2ecc71' },
+                { key: 'Alternative', label: '代わりに', color: '#9b59b6' },
+                { key: 'Caution', label: 'ただし', color: '#f39c12' }
             ];
 
             types.forEach(t => {
@@ -2192,9 +2198,10 @@
             const types = [
                 { key: 'Why', label: 'なぜ？', color: '#e74c3c' },
                 { key: 'How', label: 'どうやって？', color: '#3498db' },
-                { key: 'Problem', label: '問題・障害', color: '#e67e22' },
-                { key: 'Result', label: '結果・帰結', color: '#2ecc71' },
-                { key: 'Alternative', label: '別案・代替', color: '#9b59b6' }
+                { key: 'Problem', label: 'しかし', color: '#e67e22' },
+                { key: 'Result', label: 'つまり', color: '#2ecc71' },
+                { key: 'Alternative', label: '代わりに', color: '#9b59b6' },
+                { key: 'Caution', label: 'ただし', color: '#f39c12' }
             ];
 
             types.forEach(t => {
@@ -5365,7 +5372,8 @@ function getNodeEdgePoint(node, targetNode) {
                     'How': '#3498db',
                     'Problem': '#e67e22',
                     'Result': '#2ecc71',
-                    'Alternative': '#9b59b6'
+                    'Alternative': '#9b59b6',
+                        'Caution': '#f39c12'
                 };
 
                 // Use original gradient for line color (unified)
@@ -5612,16 +5620,18 @@ function getNodeEdgePoint(node, targetNode) {
                     const typeLabels = {
                         'Why': 'なぜ？',
                         'How': 'どうやって？',
-                        'Problem': '問題・障害',
-                        'Result': '結果・帰結',
-                        'Alternative': '別案・代替'
+                        'Problem': 'しかし',
+                        'Result': 'つまり',
+                        'Alternative': '代わりに',
+                        'Caution': 'ただし'
                     };
                     const typeColors = {
                         'Why': '#e74c3c',
                         'How': '#3498db',
                         'Problem': '#e67e22',
                         'Result': '#2ecc71',
-                        'Alternative': '#9b59b6'
+                        'Alternative': '#9b59b6',
+                        'Caution': '#f39c12'
                     };
                     const labelText = conn.type ? (typeLabels[conn.type] || conn.type) : conn.label;
                     const labelColor = conn.type ? (typeColors[conn.type] || '#888') : '#555';
