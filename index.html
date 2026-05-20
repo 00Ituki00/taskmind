@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="79721a1">
+    <meta name="commit-id" content="ef3397e">
     <title>TaskMind</title>
     <style>
         * {
@@ -1764,66 +1764,57 @@
 
             if (state.layoutMode === 'timeline') {
                 const delta = e.deltaY > 0 ? 0.9 : 1.1;
-                const oldDayWidth = state.timeline.dayWidth;
-                const newDayWidth = Math.max(10, Math.min(1000, oldDayWidth * delta));
 
-                // Virtual zoom: use CSS transform for smooth zooming without DOM recreation
-                const timelineContainer = document.querySelector('.timeline-container');
-                if (timelineContainer) {
-                    const rect = timelineContainer.getBoundingClientRect();
-                    const mouseViewportX = e.clientX - rect.left;
-                    const mouseViewportY = e.clientY - rect.top;
-
-                    // Calculate visual scale ratio
-                    const visualScale = newDayWidth / oldDayWidth;
-
-                    // Set transform origin to mouse position for centered zoom
-                    timelineContainer.style.transformOrigin = `${mouseViewportX + timelineContainer.scrollLeft}px ${mouseViewportY}px`;
-                    timelineContainer.style.transform = `scale(${visualScale})`;
-                    timelineContainer.style.transition = 'none';
-
-                    // Store pending dayWidth and mouse position for final render
-                    state.timeline.pendingDayWidth = newDayWidth;
-                    state.timeline.pendingMouseX = e.clientX;
-                    state.timeline.pendingMouseY = e.clientY;
-
-                    // Debounced final render: remove transform and re-render with new dayWidth
-                    clearTimeout(state.timeline.zoomDebounceTimer);
-                    state.timeline.zoomDebounceTimer = setTimeout(() => {
-                        timelineContainer.style.transform = '';
-                        timelineContainer.style.transformOrigin = '';
-                        timelineContainer.style.transition = '';
-
-                        const finalDayWidth = state.timeline.pendingDayWidth;
-                        const finalMouseX = state.timeline.pendingMouseX;
-                        const finalMouseY = state.timeline.pendingMouseY;
-
-                        // Calculate mouse-centered scroll for final render
-                        const oldDayWidthForCalc = state.timeline.dayWidth; // Use current before change
-                        const newRect = timelineContainer.getBoundingClientRect();
-                        const mouseX = finalMouseX - newRect.left;
-                        const mouseAbsoluteX = mouseX + timelineContainer.scrollLeft;
-                        const gridX = Math.max(0, mouseAbsoluteX - 120);
-                        const mouseDay = gridX / oldDayWidthForCalc;
-                        const newGridX = mouseDay * finalDayWidth;
-                        const targetScrollLeft = Math.max(0, newGridX + 120 - mouseX);
-                        const targetScrollTop = timelineContainer.scrollTop;
-
-                        state.timeline.dayWidth = finalDayWidth;
-                        renderNodes();
-                        zoomLevelEl.textContent = Math.round(finalDayWidth) + 'px/d';
-
-                        // Restore scroll position after DOM update
-                        setTimeout(() => {
-                            const newContainer = document.querySelector('.timeline-container');
-                            if (newContainer) {
-                                newContainer.scrollLeft = targetScrollLeft;
-                                newContainer.scrollTop = targetScrollTop;
-                            }
-                        }, 0);
-                    }, 150);
+                // Initialize pending zoom state on first wheel event in a sequence
+                if (!state._timelineZoomPending) {
+                    state._timelineZoomPending = {
+                        oldDayWidth: state.timeline.dayWidth,
+                        mouseClientX: e.clientX,
+                        mouseClientY: e.clientY,
+                        scrollTop: 0
+                    };
+                    const tc = document.querySelector('.timeline-container');
+                    if (tc) state._timelineZoomPending.scrollTop = tc.scrollTop;
                 }
 
+                // Update dayWidth immediately (accumulates across wheel events)
+                state.timeline.dayWidth = Math.max(10, Math.min(1000, state.timeline.dayWidth * delta));
+
+                // Schedule single render + scroll adjustment per animation frame
+                if (!state._timelineZoomRaf) {
+                    state._timelineZoomRaf = requestAnimationFrame(() => {
+                        const pending = state._timelineZoomPending;
+                        state._timelineZoomPending = null;
+                        state._timelineZoomRaf = null;
+
+                        const { oldDayWidth, mouseClientX, scrollTop } = pending;
+                        const newDayWidth = state.timeline.dayWidth;
+
+                        // Calculate mouse-centered scroll position
+                        const tc = document.querySelector('.timeline-container');
+                        let targetScrollLeft = 0;
+                        if (tc) {
+                            const rect = tc.getBoundingClientRect();
+                            const mouseAbsX = mouseClientX - rect.left + tc.scrollLeft;
+                            const gridX = Math.max(0, mouseAbsX - 120);
+                            const mouseDay = gridX / oldDayWidth;
+                            const newGridX = mouseDay * newDayWidth;
+                            targetScrollLeft = Math.max(0, newGridX + 120 - (mouseClientX - rect.left));
+                        }
+
+                        renderNodes();
+                        zoomLevelEl.textContent = Math.round(newDayWidth) + 'px/d';
+
+                        // Apply scroll in next frame after DOM update
+                        requestAnimationFrame(() => {
+                            const newTc = document.querySelector('.timeline-container');
+                            if (newTc) {
+                                newTc.scrollLeft = targetScrollLeft;
+                                newTc.scrollTop = scrollTop;
+                            }
+                        });
+                    });
+                }
                 return;
             }
 
