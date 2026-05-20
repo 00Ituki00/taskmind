@@ -1,0 +1,5486 @@
+
+        // Create drag tooltip element
+        (function() {
+            const tooltip = document.createElement('div');
+            tooltip.id = 'drag-tooltip';
+            document.body.appendChild(tooltip);
+        })();
+
+        // ==================== State ====================
+        const state = {
+            mode: 'select',
+            nodes: [],
+            connections: [],
+            groups: [],
+            nextId: 1,
+            scale: 1,
+            panX: 0,
+            panY: 0,
+            isPanning: false,
+            lastMouseX: 0,
+            lastMouseY: 0,
+            rightClickPanning: false,
+            rightClickPanStartX: 0,
+            rightClickPanStartY: 0,
+            suppressContextMenu: false,
+            selectedNodeId: null,
+            selectedNodeIds: [],
+            isSelecting: false,
+            selectionStartX: 0,
+            selectionStartY: 0,
+            connectingFrom: null,
+            dragNode: null,
+            dragOffsetX: 0,
+            dragOffsetY: 0,
+            lastPinchDist: 0,
+            lastPinchScale: 1,
+            draggingConn: null,
+            connDragTarget: null,
+            pendingConnectionFrom: null,
+            resizingNode: null,
+            resizeStartX: 0,
+            resizeStartY: 0,
+            resizeStartWidth: 0,
+            resizeStartHeight: 0,
+            colors: ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4dd0e1', '#4db6ac', '#81c784', '#aed581', '#dce775', '#fff176', '#ffd54f', '#ffb74d', '#ff8a65', '#a1887f', '#e0e0e0'],
+            reorderTarget: null,
+            lastFileHandle: null,
+            lastFileName: null,
+            hideCompleted: false
+        };
+
+        // ==================== DOM refs ====================
+        const container = document.getElementById('canvas-container');
+        const canvas = document.getElementById('canvas');
+        const nodesEl = document.getElementById('nodes');
+        const connectionsSvg = document.getElementById('connections');
+        const toastEl = document.getElementById('toast');
+        const modeIndicator = document.getElementById('mode-indicator');
+        const zoomLevelEl = document.getElementById('zoom-level');
+        const fileInput = document.getElementById('file-input');
+
+        // Connection line double-click via event delegation with distance-based priority
+        let svgConnLastMouseDown = 0;
+        let svgConnMouseDownPos = { x: 0, y: 0 };
+        connectionsSvg.addEventListener('mousedown', (e) => {
+            // Find closest connection path to mouse position (distance-based priority)
+            const mouseX = (e.clientX - state.panX) / state.scale;
+            const mouseY = (e.clientY - state.panY) / state.scale;
+
+            let closestConn = null;
+            let closestGroup = null;
+            let minDist = Infinity;
+
+            const groups = connectionsSvg.querySelectorAll('.conn-group');
+            for (const group of groups) {
+                const hitPath = group.querySelector('path[stroke-width="10"]');
+                if (!hitPath) continue;
+                const from = parseInt(group.getAttribute('data-from'));
+                const to = parseInt(group.getAttribute('data-to'));
+                const conn = state.connections.find(c => c.from === from && c.to === to);
+                if (!conn) continue;
+
+                // Calculate distance from mouse to path
+                const pathLen = hitPath.getTotalLength();
+                if (pathLen === 0) continue;
+
+                let bestDist = Infinity;
+                const step = Math.max(pathLen / 20, 5);
+                for (let i = 0; i <= pathLen; i += step) {
+                    const pt = hitPath.getPointAtLength(Math.min(i, pathLen));
+                    const d = Math.hypot(pt.x - mouseX, pt.y - mouseY);
+                    if (d < bestDist) bestDist = d;
+                }
+
+                // Convert hit threshold to canvas scale
+                const threshold = 15 / state.scale;
+                if (bestDist < threshold && bestDist < minDist) {
+                    minDist = bestDist;
+                    closestConn = conn;
+                    closestGroup = group;
+                }
+            }
+
+            if (!closestConn || !closestGroup) return;
+
+            const from = closestConn.from;
+            const to = closestConn.to;
+            const now = Date.now();
+            const dx = e.clientX - svgConnMouseDownPos.x;
+            const dy = e.clientY - svgConnMouseDownPos.y;
+            const dist = Math.hypot(dx, dy);
+            if (now - svgConnLastMouseDown < 300 && dist < 10) {
+                svgConnLastMouseDown = 0;
+                e.stopPropagation();
+                e.preventDefault();
+                closestConn.collapsed = !closestConn.collapsed;
+                if (closestConn.collapsed && !closestConn.originalToPos) {
+                    const toNode = state.nodes.find(n => n.id === to);
+                    if (toNode) closestConn.originalToPos = { x: toNode.x, y: toNode.y };
+                }
+                renderNodes();
+                renderConnections();
+            } else {
+                svgConnLastMouseDown = now;
+                svgConnMouseDownPos = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        // ==================== Zoom ====================
+        function setZoom(scale, cx, cy) {
+            const oldScale = state.scale;
+            state.scale = Math.max(0.1, Math.min(3, scale));
+
+            if (cx !== undefined && cy !== undefined) {
+                // Zoom towards cursor
+                const rect = container.getBoundingClientRect();
+                const x = cx - rect.left;
+                const y = cy - rect.top;
+                state.panX = x - (x - state.panX) * (state.scale / oldScale);
+                state.panY = y - (y - state.panY) * (state.scale / oldScale);
+            }
+
+            updateTransform();
+            zoomLevelEl.textContent = Math.round(state.scale * 100) + '%';
+        }
+
+        function updateTransform() {
+            canvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale})`;
+        }
+
+        function fitToView() {
+            if (state.nodes.length === 0) {
+                state.scale = 1;
+                state.panX = 0;
+                state.panY = 0;
+                updateTransform();
+                return;
+            }
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.nodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + (n.width || 200));
+                maxY = Math.max(maxY, n.y + (n.height || 100));
+            });
+
+            const padding = 60;
+            const viewW = container.clientWidth;
+            const viewH = container.clientHeight;
+            const contentW = maxX - minX + padding * 2;
+            const contentH = maxY - minY + padding * 2;
+
+            state.scale = Math.min(viewW / contentW, viewH / contentH, 1.5);
+            state.panX = (viewW - contentW * state.scale) / 2 - (minX - padding) * state.scale;
+            state.panY = (viewH - contentH * state.scale) / 2 - (minY - padding) * state.scale;
+            updateTransform();
+            zoomLevelEl.textContent = Math.round(state.scale * 100) + '%';
+        }
+
+        document.getElementById('zoom-in').addEventListener('click', () => setZoom(state.scale * 1.2));
+        document.getElementById('zoom-out').addEventListener('click', () => setZoom(state.scale / 1.2));
+        document.getElementById('zoom-fit').addEventListener('click', fitToView);
+
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            setZoom(state.scale * delta, e.clientX, e.clientY);
+        }, { passive: false });
+
+        // ==================== Mode ====================
+        function setMode(mode) {
+            state.mode = mode;
+            document.querySelectorAll('.tool-btn[data-mode]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+
+            if (mode === 'connect') {
+                modeIndicator.textContent = '接続モード: 開始ノードを選択';
+                modeIndicator.classList.add('active');
+            } else {
+                modeIndicator.classList.remove('active');
+                state.connectingFrom = null;
+            }
+
+            if (mode !== 'select') {
+                clearSelection();
+            }
+            if (mode !== 'select') {
+                state.selectedNodeId = null;
+            }
+            renderNodes();
+        }
+
+        function clearSelection() {
+            state.selectedNodeIds = [];
+            state.selectedNodeId = null;
+            renderNodes();
+        }
+
+        function toggleNodeSelection(nodeId, append = false) {
+            if (!append) {
+                state.selectedNodeIds = [];
+                state.selectedNodeId = null;
+            }
+            const idx = state.selectedNodeIds.indexOf(nodeId);
+            if (idx >= 0) {
+                state.selectedNodeIds.splice(idx, 1);
+                if (state.selectedNodeId === nodeId) state.selectedNodeId = null;
+            } else {
+                state.selectedNodeIds.push(nodeId);
+                state.selectedNodeId = nodeId;
+            }
+            renderNodes();
+        }
+
+        document.querySelectorAll('.tool-btn[data-mode]').forEach(btn => {
+            btn.addEventListener('click', () => setMode(btn.dataset.mode));
+        });
+
+        // Build tooltip HTML for any node (shared by root and child nodes)
+        function buildNodeTooltipHtml(node) {
+            const why = node.details?.why?.trim();
+            const what = node.details?.what?.trim();
+            const where = node.details?.where?.trim();
+            const who = node.details?.who?.trim();
+            const link = node.details?.link?.trim();
+            const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
+            const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
+            
+            const hasDetails = why || what || where || who || link;
+            const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
+            if (!hasDetails && !hasConns) return '';
+            
+            let html = '';
+            
+            // From: incoming connections
+            if (incomingConns.length > 0) {
+                incomingConns.forEach(conn => {
+                    const source = state.nodes.find(n => n.id === conn.from);
+                    const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
+                    const sourceColor = source ? source.color : '#4a90d9';
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.label)}</div>`;
+                });
+            }
+            
+            // Detail fields
+            const fields = [];
+            if (link) fields.push({label:'link', value:link});
+            if (why) fields.push({label:'why', value:why});
+            if (what) fields.push({label:'what', value:what});
+            if (where) fields.push({label:'where', value:where});
+            if (who) fields.push({label:'who', value:who});
+            
+            if (fields.length > 0) {
+                if (incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                fields.forEach((f, i) => {
+                    if (i > 0) html += '<div style="margin-top:6px;"></div>';
+                    html += `<div style="font-weight:600;color:#333;margin-bottom:2px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(f.label)}</div>`;
+                    html += `<div style="color:#555;white-space:pre-wrap;word-break:break-word;padding-left:8px;border-left:2px solid #888;">${escapeHtml(f.value)}</div>`;
+                });
+                if (incomingConns.length > 0) html += '</div>';
+            }
+            
+            // To: outgoing connections
+            if (outgoingConns.length > 0) {
+                if (hasDetails || incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                outgoingConns.forEach(conn => {
+                    const target = state.nodes.find(n => n.id === conn.to);
+                    const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
+                    const targetColor = target ? target.color : '#e67e22';
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
+                });
+                if (hasDetails || incomingConns.length > 0) html += '</div>';
+            }
+            
+            return html;
+        }
+
+        // Escape HTML special characters to prevent XSS
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // ==================== Node Operations ====================
+        function calculateNodeWidth(title) {
+            // Measure actual text width using a temporary DOM element
+            const temp = document.createElement('span');
+            temp.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-weight:600;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;';
+            temp.textContent = title;
+            document.body.appendChild(temp);
+            const textWidth = temp.offsetWidth;
+            document.body.removeChild(temp);
+
+            // Overhead for non-text elements in node header:
+            // left-padding(16) + checkbox(14) + gaps(~32) + title-margin-right(24)
+            // + right-padding(16) + expand-btn(14) + badge(~20) + buffer(10)
+            const overhead = 146;
+            return Math.max(160, Math.min(400, textWidth + overhead));
+        }
+
+        function createNode(x, y, title = '新規ノード') {
+            const now = new Date().toISOString();
+            const node = {
+                id: state.nextId++,
+                x: x,
+                y: y,
+                title: title,
+                color: state.colors[Math.floor(Math.random() * state.colors.length)],
+                completed: false,
+                completedAt: null,
+                createdAt: now,
+                expanded: false,
+                width: calculateNodeWidth(title),
+                height: null,
+                parentId: null,
+                children: [],
+                priority: 0,
+                details: {
+                    why: '',
+                    what: '',
+                    who: '',
+                    where: '',
+                    link: ''
+                }
+            };
+            state.nodes.push(node);
+            renderNodes();
+            return node;
+        }
+
+        // Sort children of a node recursively: incomplete first, then by priority desc, then by createdAt asc
+        function sortNodeChildren(node) {
+            if (!node.children || node.children.length < 2) return;
+            node.children.sort((aId, bId) => {
+                const a = state.nodes.find(n => n.id === aId);
+                const b = state.nodes.find(n => n.id === bId);
+                if (!a || !b) return 0;
+                // Completed nodes go to bottom
+                if (a.completed !== b.completed) {
+                    return a.completed ? 1 : -1;
+                }
+                // Same completion status: higher priority first
+                const ap = a.priority || 0;
+                const bp = b.priority || 0;
+                if (ap !== bp) {
+                    return bp - ap;
+                }
+                // Same priority: earlier created first
+                const ad = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                const bd = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                return ad - bd;
+            });
+            // Recursively sort nested children
+            node.children.forEach(childId => {
+                const child = state.nodes.find(n => n.id === childId);
+                if (child) sortNodeChildren(child);
+            });
+        }
+
+        function deleteNode(nodeId) {
+            const deletedNode = state.nodes.find(n => n.id === nodeId);
+
+            // Remove from parent's children array if it's a child node
+            if (deletedNode && deletedNode.parentId !== null) {
+                const parent = state.nodes.find(n => n.id === deletedNode.parentId);
+                if (parent && parent.children) {
+                    parent.children = parent.children.filter(id => id !== nodeId);
+                    // Auto-collapse parent when no children remain
+                    if (parent.children.length === 0) {
+                        parent.expanded = false;
+                    }
+                }
+            }
+
+            state.nodes = state.nodes.filter(n => n.id !== nodeId);
+            state.connections = state.connections.filter(c => c.from !== nodeId && c.to !== nodeId);
+
+            // Clear parentId of child nodes if this node was their parent
+            state.nodes.forEach(n => {
+                if (n.parentId === nodeId) {
+                    n.parentId = null;
+                }
+            });
+
+            renderNodes();
+            renderConnections();
+        }
+
+        // ==================== Connection Operations ====================
+        function createConnection(from, to, label = '') {
+            // Prevent duplicate
+            const exists = state.connections.some(c => c.from === from && c.to === to);
+            if (exists) return;
+
+            state.connections.push({ from, to, label });
+            renderConnections();
+        }
+
+        function deleteConnection(from, to) {
+            state.connections = state.connections.filter(c => !(c.from === from && c.to === to));
+            renderConnections();
+        }
+
+        container.addEventListener('click', (e) => {
+            if (!e.target.closest('.context-menu')) {
+                const menu = document.querySelector('.context-menu');
+                if (menu) menu.remove();
+            }
+        });
+
+        // ==================== Helpers ====================
+        function darkenColor(color, factor = 0.75) {
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            const dr = Math.round(r * factor);
+            const dg = Math.round(g * factor);
+            const db = Math.round(b * factor);
+            return `#${dr.toString(16).padStart(2,'0')}${dg.toString(16).padStart(2,'0')}${db.toString(16).padStart(2,'0')}`;
+        }
+
+        function getNodeConnectionSidePoint(node, otherNode, isSource) {
+    // Get accurate position from DOM when available
+    let nx, ny, nodeWidth, nodeHeight;
+    const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+    if (domEl) {
+        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+        const rect = domEl.getBoundingClientRect();
+        nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+        ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+        nodeWidth = rect.width / state.scale;
+        nodeHeight = rect.height / state.scale;
+    } else {
+        nx = node.x; ny = node.y;
+        if (node.parentId !== null) {
+            const abs = getNodeAbsolutePosition(node);
+            nx = abs.x; ny = abs.y;
+        }
+        nodeWidth = node.width || 200;
+        nodeHeight = node.height || 50;
+    }
+
+    let otherWidth = otherNode.width || 200;
+    const otherDomEl = document.querySelector(`.node[data-id="${otherNode.id}"]`);
+    if (otherDomEl) {
+        otherWidth = otherDomEl.offsetWidth / state.scale;
+    }
+
+    let ox = otherNode.x, oy = otherNode.y;
+    if (otherNode.parentId !== null) {
+        const abs = getNodeAbsolutePosition(otherNode);
+        ox = abs.x; oy = abs.y;
+    }
+
+    const ncx = nx + nodeWidth / 2;
+    const ocx = ox + otherWidth / 2;
+
+    // 相手が右にいるなら右端、左にいるなら左端（接続元/先関係なく同じ判定）
+    const otherOnRight = ocx >= ncx;
+
+    // 子ノードの場合は親ノードの外に接続点を出すため、オフセットを大きくする
+    const isChildNode = node.parentId !== null;
+    const offset = isChildNode ? 12 : 0;
+
+    if (otherOnRight) {
+        return { x: nx + nodeWidth + offset, y: ny + nodeHeight / 2 };
+    } else {
+        return { x: nx - offset, y: ny + nodeHeight / 2 };
+    }
+}
+
+function getNodeEdgePoint(node, targetNode) {
+            // Use actual DOM dimensions and position when available for accurate edge calculation
+            let nodeWidth, nodeHeight, cx, cy;
+            const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+            if (domEl) {
+                const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                const rect = domEl.getBoundingClientRect();
+                nodeWidth = rect.width / state.scale;
+                nodeHeight = rect.height / state.scale;
+                const nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+                const ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+                cx = nx + nodeWidth / 2;
+                cy = ny + nodeHeight / 2;
+            } else {
+                nodeWidth = node.width || 200;
+                nodeHeight = node.height || 50;
+                cx = node.x + nodeWidth / 2;
+                cy = node.y + nodeHeight / 2;
+            }
+            const halfW = nodeWidth / 2;
+            const halfH = nodeHeight / 2;
+
+            let targetWidth = targetNode.width || 200;
+            let targetHeight = targetNode.height || 50;
+            let tx, ty;
+            const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
+            if (targetDomEl) {
+                const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                const rect = targetDomEl.getBoundingClientRect();
+                targetWidth = rect.width / state.scale;
+                targetHeight = rect.height / state.scale;
+                const tox = (rect.left - canvasRect.left - state.panX) / state.scale;
+                const toy = (rect.top - canvasRect.top - state.panY) / state.scale;
+                tx = tox + targetWidth / 2;
+                ty = toy + targetHeight / 2;
+            } else {
+                tx = targetNode.x + targetWidth / 2;
+                ty = targetNode.y + targetHeight / 2;
+                if (targetNode.parentId !== null) {
+                    const abs = getNodeAbsolutePosition(targetNode);
+                    tx = abs.x + targetWidth / 2;
+                    ty = abs.y + targetHeight / 2;
+                }
+            }
+
+            const dx = tx - cx;
+            const dy = ty - cy;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+
+            if (absDx < 0.001 && absDy < 0.001) {
+                return { x: cx + halfW, y: cy };
+            }
+
+            const t = Math.min(halfW / absDx, halfH / absDy);
+            return {
+                x: cx + dx * t,
+                y: cy + dy * t
+            };
+        }
+
+        function enableTitleEdit(titleEl, node) {
+            console.log('enableTitleEdit called', titleEl, node);
+
+            // DOM要素から正確な位置を取得
+            // 優先順位: 1)タイトル要素のrect 2)ノード要素から計算 3)座標から計算
+            let rect;
+            const nodeEl = document.querySelector(`.node[data-id="${node.id}"]`);
+            const headerEl = nodeEl ? nodeEl.querySelector('.node-header') : null;
+            
+            if (titleEl && document.contains(titleEl)) {
+                // 最も正確: 実際のタイトル要素のrect
+                rect = titleEl.getBoundingClientRect();
+            } else if (headerEl && document.contains(headerEl)) {
+                // フォールバック: ヘッダー要素から推定
+                const headerRect = headerEl.getBoundingClientRect();
+                // ヘッダー内でタイトルが占める領域を推定
+                // color(16px) + gap(8px) + title + gap(8px) + expand-btn(~14px)
+                const leftOffset = 16 + 16 + 8; // padding + checkbox + gap
+                const rightOffset = 16 + 14 + 8; // padding + expand-btn + gap
+                rect = {
+                    left: headerRect.left + leftOffset,
+                    top: headerRect.top + (headerRect.height - 24) / 2,
+                    width: Math.max(headerRect.width - leftOffset - rightOffset, 100),
+                    height: 24
+                };
+            } else if (nodeEl && document.contains(nodeEl)) {
+                // フォールバック2: ノード全体から推定
+                const nodeRect = nodeEl.getBoundingClientRect();
+                rect = {
+                    left: nodeRect.left + 40,
+                    top: nodeRect.top + 12,
+                    width: Math.max(nodeRect.width - 80, 100),
+                    height: 24
+                };
+            } else {
+                // 最終フォールバック: canvas座標から計算
+                const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
+                rect = {
+                    left: containerRect.left + node.x * state.scale + state.panX,
+                    top: containerRect.top + node.y * state.scale + state.panY,
+                    width: 200,
+                    height: 30
+                };
+            }
+
+            const originalText = node.title || '無題';
+
+            // Create overlay input positioned over the title element
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = originalText;
+            input.style.cssText = `
+                position: fixed;
+                left: ${rect.left}px;
+                top: ${rect.top}px;
+                width: ${Math.max(rect.width + 20, 150)}px;
+                height: ${Math.max(rect.height + 8, 30)}px;
+                font-size: 14px;
+                font-weight: 500;
+                color: #333;
+                border: 2px solid #4a90d9;
+                border-radius: 4px;
+                background: #fff;
+                padding: 2px 6px;
+                outline: none;
+                z-index: 10000;
+                box-sizing: border-box;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            `;
+
+            document.body.appendChild(input);
+            input.focus();
+            input.select();
+            console.log('Overlay input created and focused');
+
+            const cleanup = () => {
+                if (input.parentNode) {
+                    input.parentNode.removeChild(input);
+                }
+                document.removeEventListener('mousedown', onDocMouseDown);
+            };
+
+            const save = () => {
+                if (!input.parentNode) return; // Already cleaned up
+                node.title = input.value || '無題';
+                cleanup();
+                renderNodes();
+            };
+
+            input.addEventListener('blur', () => {
+                save();
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    save();
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cleanup();
+                    renderNodes();
+                    clearSelection();
+                }
+            });
+
+            // 入力ボックス以外のクリックで確定（blurが発火しない場合のフォールバック）
+            const onDocMouseDown = (e) => {
+                if (!input.parentNode) {
+                    document.removeEventListener('mousedown', onDocMouseDown);
+                    return;
+                }
+                if (e.target === input || input.contains(e.target)) return;
+                save();
+                document.removeEventListener('mousedown', onDocMouseDown);
+            };
+            document.addEventListener('mousedown', onDocMouseDown);
+        }
+
+        function enableConnectionLabelEdit(conn) {
+            const fromNode = state.nodes.find(n => n.id === conn.from);
+            const toNode = state.nodes.find(n => n.id === conn.to);
+            if (!fromNode || !toNode) return;
+
+            // Calculate label position (midpoint of connection)
+            const fromCx = fromNode.x;
+            const fromCy = fromNode.y + 18;
+            const toCx = toNode.x;
+            const toCy = toNode.y + 18;
+            const labelX = (fromCx + toCx) / 2;
+            const labelY = (fromCy + toCy) / 2 - 10;
+
+            // Convert canvas coordinates to screen coordinates
+            const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
+            const screenX = containerRect.left + labelX * state.scale + state.panX;
+            const screenY = containerRect.top + labelY * state.scale + state.panY;
+
+            // Create overlay input
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = conn.label || '';
+            input.placeholder = 'ラベル';
+            input.style.cssText = `
+                position: fixed;
+                left: ${screenX - 75}px;
+                top: ${screenY - 15}px;
+                width: 150px;
+                height: 30px;
+                font-size: 14px;
+                color: #333;
+                border: 2px solid #4a90d9;
+                border-radius: 4px;
+                background: #fff;
+                padding: 2px 6px;
+                outline: none;
+                z-index: 10000;
+                box-sizing: border-box;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                text-align: center;
+            `;
+
+            document.body.appendChild(input);
+            input.focus();
+            input.select();
+
+            const cleanup = () => {
+                if (input.parentNode) {
+                    input.parentNode.removeChild(input);
+                }
+            };
+
+            const save = () => {
+                if (!input.parentNode) return;
+                conn.label = input.value || '';
+                cleanup();
+                renderConnections();
+            };
+
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    save();
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cleanup();
+                    renderConnections();
+                }
+            });
+        }
+
+        // Helper: show/hide insert guide lines for drag-and-drop visual feedback
+        function hideInsertGuides() {
+            document.querySelectorAll('.insert-guide').forEach(el => el.remove());
+        }
+
+        function showInsertGuide(nodeId, position) {
+            hideInsertGuides();
+            const nodeEl = document.querySelector(`.node[data-id="${nodeId}"]`);
+            if (!nodeEl) return;
+            const rect = nodeEl.getBoundingClientRect();
+            const cRect = document.getElementById('canvas-container').getBoundingClientRect();
+            const guide = document.createElement('div');
+            guide.className = 'insert-guide';
+            guide.style.position = 'absolute';
+            guide.style.left = (rect.left - cRect.left) + 'px';
+            guide.style.width = rect.width + 'px';
+            guide.style.height = '3px';
+            guide.style.background = '#4a90d9';
+            guide.style.borderRadius = '2px';
+            guide.style.pointerEvents = 'none';
+            guide.style.zIndex = '9999';
+            guide.style.transition = 'none';
+            if (position === 'before') {
+                guide.style.top = (rect.top - cRect.top - 4) + 'px';
+            } else {
+                guide.style.top = (rect.bottom - cRect.top + 1) + 'px';
+            }
+            document.getElementById('canvas-container').appendChild(guide);
+        }
+
+        // Helper: get absolute position of any node (handles nested depths)
+        function getNodeAbsolutePosition(node) {
+            let absX = node.x;
+            let absY = node.y;
+            let current = node;
+            while (current.parentId !== null) {
+                const parent = state.nodes.find(n => n.id === current.parentId);
+                if (!parent) break;
+                absX += parent.x;
+                absY += parent.y;
+                current = parent;
+            }
+            return { x: absX, y: absY };
+        }
+
+        // ==================== Detail Indicators ====================
+
+        function createIndicatorMenu(node) {
+            const container = document.createElement('div');
+            container.className = 'node-indicators';
+
+            const group = document.createElement('div');
+            group.className = 'indicator-group';
+            group.appendChild(createIndicator(node, 'priority'));
+            group.appendChild(createIndicator(node, 'when'));
+            group.appendChild(createIndicator(node, 'what'));
+            group.appendChild(createIndicator(node, 'who'));
+            group.appendChild(createIndicator(node, 'where'));
+            group.appendChild(createIndicator(node, 'link'));
+            container.appendChild(group);
+
+            return container;
+        }
+
+        function createIndicator(node, type) {
+            const el = document.createElement('span');
+            el.className = 'node-indicator';
+            el.dataset.type = type;
+            el.dataset.nodeId = node.id;
+
+            if (type === 'priority') {
+                el.classList.add('priority');
+                const p = node.priority || 0;
+                if (p === 0) {
+                    el.textContent = '☆';
+                } else {
+                    el.textContent = '★';
+                    el.classList.add('active');
+                }
+            } else if (type === 'when') {
+                const w = node.details?.when;
+                const hasValue = w && w.repeatType !== 'none';
+                el.textContent = '🕐';
+                if (hasValue) el.classList.add('active');
+            } else if (type === 'what') {
+                const hasValue = node.details?.what;
+                el.textContent = '📝';
+                if (hasValue) el.classList.add('active');
+            } else if (type === 'who') {
+                const hasValue = node.details?.who;
+                el.textContent = '👤';
+                if (hasValue) el.classList.add('active');
+            } else if (type === 'where') {
+                const hasValue = node.details?.where;
+                el.textContent = '📍';
+                if (hasValue) el.classList.add('active');
+            } else if (type === 'link') {
+                const hasValue = node.details?.link;
+                el.textContent = '🔗';
+                if (hasValue) el.classList.add('active');
+            }
+
+            if (type === 'priority') {
+                let _lastMouseX = 0, _lastMouseY = 0;
+                el.addEventListener('mousedown', (e) => {
+                    console.log('[DEBUG] priority mousedown fired. target=', e.target.outerHTML.substring(0, 50));
+                    _lastMouseX = e.clientX; _lastMouseY = e.clientY;
+                    // ピッカー用クリック候補を記録(mouseupで判定)
+                    state.pendingPriorityClick = {
+                        nodeId: node.id,
+                        element: el,
+                        x: e.clientX,
+                        y: e.clientY,
+                        handled: false
+                    };
+                });
+                el.addEventListener('mouseup', (e) => {
+                    console.log('[DEBUG] priority mouseup fired. target=', e.target.outerHTML.substring(0, 50), 'same element?', e.target === el);
+                    // mousedownで記録した要素と同じ要素でmouseupしたか確認
+                    const pending = state.pendingPriorityClick;
+                    if (pending && pending.element === el && !pending.handled && !state.isDragging) {
+                        pending.handled = true;
+                        console.log('[DEBUG] priority click detected via mouseup!');
+                        // ピッカー作成処理を実行
+                        createPriorityPicker(node, el, _lastMouseX || e.clientX, _lastMouseY || e.clientY);
+                    }
+                    state.pendingPriorityClick = null;
+                });
+                // clickイベントはフォールバックとして残す(ブラウザがclickを発火する場合)
+                el.addEventListener('click', (e) => {
+                    console.log('[DEBUG] priority click fired! target=', e.target.outerHTML.substring(0, 50));
+                    e.stopPropagation();
+                    // mouseupで既に処理済みなら無視
+                    if (state.pendingPriorityClick && state.pendingPriorityClick.handled) {
+                        state.pendingPriorityClick = null;
+                        return;
+                    }
+                    createPriorityPicker(node, el, _lastMouseX || e.clientX, _lastMouseY || e.clientY);
+                });
+            } else {
+                // priorityと同じくmousedown+mouseupでクリック検出(clickイベントが発火しない問題対策)
+                let _lastMouseX = 0, _lastMouseY = 0;
+                el.addEventListener('mousedown', (e) => {
+                    console.log('[DEBUG] indicator mousedown fired. type=' + type);
+                    e.stopPropagation();
+                    _lastMouseX = e.clientX;
+                    _lastMouseY = e.clientY;
+                    state.pendingIndicatorClick = {
+                        nodeId: node.id,
+                        type: type,
+                        element: el,
+                        x: e.clientX,
+                        y: e.clientY,
+                        handled: false
+                    };
+                });
+                el.addEventListener('mouseup', (e) => {
+                    console.log('[DEBUG] indicator mouseup fired. type=' + type);
+                    e.stopPropagation();
+                    const pending = state.pendingIndicatorClick;
+                    if (pending && pending.element === el && !pending.handled && !state.isDragging) {
+                        pending.handled = true;
+                        console.log('[DEBUG] indicator click detected via mouseup! type=' + type);
+                        if (type === 'when') {
+                            openWhenEditor(node);
+                        } else {
+                            openDetailEditor(node, type);
+                        }
+                    }
+                    state.pendingIndicatorClick = null;
+                });
+                // clickイベントはフォールバックとして残す
+                el.addEventListener('click', (e) => {
+                    console.log('[DEBUG] indicator click fired. type=' + type);
+                    e.stopPropagation();
+                    if (state.pendingIndicatorClick && state.pendingIndicatorClick.handled) {
+                        state.pendingIndicatorClick = null;
+                        return;
+                    }
+                    if (type === 'when') {
+                        openWhenEditor(node);
+                    } else {
+                        openDetailEditor(node, type);
+                    }
+                });
+            }
+
+            return el;
+        }
+
+        function createPriorityPicker(node, el, clientX, clientY) {
+            // 既存ピッカーがあれば閉じる
+            const existingPicker = document.querySelector('.priority-picker');
+            if (existingPicker) { console.log('[DEBUG] removing existing picker'); existingPicker.remove(); return; }
+
+            console.log('[DEBUG] creating new priority picker');
+
+            const picker = document.createElement('div');
+            picker.className = 'priority-picker';
+
+            // bodyに fixed配置してノードの overflowに影響されないようにする
+            picker.style.cssText = 'position:fixed;display:flex;gap:4px;align-items:center;background:white;border:1px solid #ddd;border-radius:8px;padding:6px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;';
+            document.body.appendChild(picker);
+
+            for (let i = 1; i <= 5; i++) {
+                const star = document.createElement('span');
+                star.textContent = i <= (node.priority || 0) ? '★' : '☆';
+                star.style.cssText = 'cursor:pointer;font-size:16px;color:#f0a500;line-height:1;user-select:none;pointer-events:auto;';
+                star.dataset.value = i;
+                star.addEventListener('mouseenter', () => {
+                    picker.querySelectorAll('span').forEach((s, idx) => {
+                        s.textContent = idx < i ? '★' : '☆';
+                    });
+                });
+                star.addEventListener('mouseleave', () => {
+                    picker.querySelectorAll('span').forEach((s, idx) => {
+                        s.textContent = idx < (node.priority || 0) ? '★' : '☆';
+                    });
+                });
+                star.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    // 同じ値をクリックしたら0にリセット
+                    node.priority = (node.priority === i) ? 0 : i;
+                    picker.remove();
+                    renderNodes();
+                });
+                picker.appendChild(star);
+            }
+
+            // mousedown座標でピッカー配置(clickイベントのclientXが0になる場合への対策)
+            const pickerRect = picker.getBoundingClientRect();
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            let px = clientX;
+            let py = clientY + 20;
+            if (px + pickerRect.width > vw) px = vw - pickerRect.width - 8;
+            if (py + pickerRect.height > vh) py = clientY - pickerRect.height - 4;
+            picker.style.left = px + 'px';
+            picker.style.top = py + 'px';
+
+            // ピッカー外クリックで閉じる(ピッカー内クリックは除外)
+            setTimeout(() => {
+                document.addEventListener('click', function closePicker(ev) {
+                    if (picker.contains(ev.target)) return;
+                    picker.remove();
+                    document.removeEventListener('click', closePicker);
+                });
+            }, 0);
+        }
+
+        function openDetailEditor(node, type) {
+            const existing = document.querySelector('.detail-editor-popup');
+            if (existing) existing.remove();
+
+            const popup = document.createElement('div');
+            popup.className = 'detail-editor-popup';
+            popup.style.cssText = `
+                position: fixed;
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 12px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+                z-index: 10000;
+                min-width: 220px;
+            `;
+
+            const title = document.createElement('div');
+            title.style.cssText = 'font-weight:600;margin-bottom:8px;font-size:14px;color:#333;';
+            title.textContent = type === 'priority' ? '重要度' :
+                type === 'when' ? 'When(日時)' :
+                type === 'what' ? 'What(詳細)' :
+                type === 'who' ? 'Who(担当)' :
+                type === 'where' ? 'Where(場所)' :
+                type === 'link' ? 'Link(リンク)' : type;
+            popup.appendChild(title);
+
+            const content = document.createElement('div');
+
+            if (type === 'priority') {
+                const select = document.createElement('select');
+                select.style.cssText = 'width:100%;padding:4px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;';
+                for (let i = 0; i <= 5; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = i === 0 ? '0(未設定)' : '★'.repeat(i) + ' (' + i + ')';
+                    if ((node.priority || 0) === i) opt.selected = true;
+                    select.appendChild(opt);
+                }
+                content.appendChild(select);
+                popup.dataset.input = 'priority-select';
+                popup.dataset.selectRef = select;
+            } else if (type === 'when') {
+                popup.remove();
+                openWhenEditor(node);
+                return;
+            } else {
+                const isLink = type === 'link';
+                const input = isLink ? document.createElement('input') : document.createElement('textarea');
+                if (isLink) {
+                    input.type = 'url';
+                    input.style.cssText = 'width:100%;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
+                } else {
+                    input.style.cssText = 'width:100%;min-height:60px;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
+                }
+                input.value = node.details?.[type] || '';
+                content.appendChild(input);
+                popup.dataset.textareaRef = input;
+            }
+
+            popup.appendChild(content);
+
+            const btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:10px;';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.style.cssText = 'padding:4px 12px;font-size:13px;border:1px solid #ddd;border-radius:4px;background:#f5f5f5;cursor:pointer;';
+            cancelBtn.addEventListener('click', () => popup.remove());
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = '保存';
+            saveBtn.style.cssText = 'padding:4px 12px;font-size:13px;border:none;border-radius:4px;background:#4a90d9;color:white;cursor:pointer;';
+            saveBtn.addEventListener('click', () => {
+                if (type === 'priority') {
+                    const sel = popup.querySelector('select');
+                    node.priority = parseInt(sel.value);
+                } else {
+                    const ta = popup.querySelector('textarea, input[type="url"]');
+                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '', link: '' };
+                    node.details[type] = ta.value;
+                }
+                popup.remove();
+                renderNodes();
+            });
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(saveBtn);
+            popup.appendChild(btnRow);
+
+            // Position near the clicked indicator
+            document.body.appendChild(popup);
+            const rect = popup.getBoundingClientRect();
+            const x = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2)));
+            const y = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2)));
+            popup.style.left = x + 'px';
+            popup.style.top = y + 'px';
+        }
+
+        function openBulkDetailEditor(node) {
+            const existing = document.querySelector('.bulk-detail-modal-overlay');
+            if (existing) existing.remove();
+
+            const overlay = document.createElement('div');
+            overlay.className = 'bulk-detail-modal-overlay';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.3); z-index: 10000;
+                display: flex; align-items: center; justify-content: center;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white; border-radius: 12px; padding: 20px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+                max-width: 420px; width: 90vw; max-height: 80vh; overflow-y: auto;
+            `;
+
+            const title = document.createElement('h3');
+            title.style.cssText = 'margin:0 0 16px 0;font-size:16px;color:#333;';
+            title.textContent = '詳細情報の編集';
+            modal.appendChild(title);
+
+            // Priority
+            const pRow = document.createElement('div');
+            pRow.style.cssText = 'margin-bottom:12px;';
+            const pLbl = document.createElement('label');
+            pLbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
+            pLbl.textContent = '重要度 ☆';
+            pRow.appendChild(pLbl);
+            const pSelect = document.createElement('select');
+            pSelect.style.cssText = 'width:100%;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;';
+            for (let i = 0; i <= 5; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = i === 0 ? '0(未設定)' : '★'.repeat(i) + ' (' + i + ')';
+                if ((node.priority || 0) === i) opt.selected = true;
+                pSelect.appendChild(opt);
+            }
+            pRow.appendChild(pSelect);
+            modal.appendChild(pRow);
+
+            // When (統合エディタ)
+            const wSection = document.createElement('div');
+            wSection.style.cssText = 'margin-bottom:12px;border:1px solid #e0e0e0;border-radius:8px;padding:12px;';
+            const wTitle = document.createElement('div');
+            wTitle.style.cssText = 'font-size:13px;font-weight:600;color:#333;margin-bottom:10px;';
+            wTitle.textContent = '🕐 When(周期・期限)';
+            wSection.appendChild(wTitle);
+
+            // Initialize when data
+            if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
+
+            const whenEditor = createWhenEditorUI(node.details.when, (newWhen) => {
+                node.details.when = newWhen;
+            });
+            wSection.appendChild(whenEditor.el);
+            modal.appendChild(wSection);
+
+            // What, Who, Where, Link
+            const simpleFields = [
+                { key: 'what', label: '📝 What(詳細)', placeholder: '詳細情報を入力' },
+                { key: 'who', label: '👤 Who(担当)', placeholder: '担当者を入力' },
+                { key: 'where', label: '📍 Where(場所)', placeholder: '場所を入力' },
+                { key: 'link', label: '🔗 Link(URL)', placeholder: 'https://...', inputType: 'input' }
+            ];
+            simpleFields.forEach(f => {
+                const row = document.createElement('div');
+                row.style.cssText = 'margin-bottom:12px;';
+                const lbl = document.createElement('label');
+                lbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
+                lbl.textContent = f.label;
+                row.appendChild(lbl);
+                
+                const isLink = f.inputType === 'input';
+                const input = isLink ? document.createElement('input') : document.createElement('textarea');
+                if (isLink) {
+                    input.type = 'url';
+                    input.style.cssText = 'width:100%;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
+                } else {
+                    input.style.cssText = 'width:100%;min-height:50px;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
+                }
+                input.placeholder = f.placeholder;
+                input.value = node.details?.[f.key] || '';
+                input.dataset.fieldKey = f.key;
+                row.appendChild(input);
+                modal.appendChild(row);
+            });
+
+            const btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;margin-top:16px;';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:1px solid #ddd;border-radius:6px;background:#f5f5f5;cursor:pointer;';
+            cancelBtn.addEventListener('click', () => overlay.remove());
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = '保存';
+            saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
+            saveBtn.addEventListener('click', () => {
+                node.priority = parseInt(pSelect.value);
+                if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
+                // Save when data from integrated editor
+                if (whenEditor) {
+                    const newWhen = whenEditor.getValue();
+                    if (newWhen === null) {
+                        if (node.details) delete node.details.when;
+                    } else {
+                        node.details.when = newWhen;
+                        node.details.when.nextDate = calculateNextDate(node.details.when);
+                    }
+                }
+                modal.querySelectorAll('textarea[data-field-key], input[data-field-key]').forEach(ta => {
+                    node.details[ta.dataset.fieldKey] = ta.value;
+                });
+                overlay.remove();
+                renderNodes();
+            });
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(saveBtn);
+            modal.appendChild(btnRow);
+
+            overlay.appendChild(modal);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+            document.body.appendChild(overlay);
+        }
+
+        // Unified When Editor UI Generator
+        // Returns { el, getValue, updatePreview }
+        // UI types: none | daily | weekly | monthly-day | monthly-week | yearly-date | yearly-week
+        function createWhenEditorUI(whenData, onChange) {
+            const w = whenData || {};
+            const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
+            const weekOptions = [
+                { key: 'all', label: '毎週' },
+                { key: '1', label: '第1' },
+                { key: '2', label: '第2' },
+                { key: '3', label: '第3' },
+                { key: '4', label: '第4' },
+                { key: 'last', label: '最終' }
+            ];
+
+            // データ→UIタイプ変換
+            let uiType = w.repeatType || 'disabled';
+            if (uiType === 'monthly') uiType = (w.monthlyMode === 'week') ? 'monthly-week' : 'monthly-day';
+            if (uiType === 'yearly') uiType = (w.yearlyMode === 'week') ? 'yearly-week' : 'yearly-date';
+
+            let currentDaysOfWeek = w.daysOfWeek || (w.dayOfWeek !== undefined ? [w.dayOfWeek] : [0]);
+            let currentWeekOfMonth = w.weekOfMonth || 'all';
+            let currentYearMonth = w.yearMonth !== undefined ? w.yearMonth : 1;
+            let currentYearDay = w.yearDay !== undefined ? w.yearDay : 1;
+            let currentMonthDay = w.monthDay !== undefined ? w.monthDay : 1;
+
+            const container = document.createElement('div');
+            container.className = 'when-editor-content';
+
+            // --- 周期タイプ(7種類、モード切替なし) ---
+            const typeSection = document.createElement('div');
+            typeSection.className = 'when-section';
+            const typeLabel = document.createElement('div');
+            typeLabel.className = 'when-section-label';
+            typeLabel.textContent = '周期';
+            typeSection.appendChild(typeLabel);
+
+            const typeGrid = document.createElement('div');
+            typeGrid.className = 'when-type-grid';
+            const types = [
+                { key: 'disabled', label: 'なし' },
+                { key: 'none', label: '一度だけ' },
+                { key: 'daily', label: '毎日' },
+                { key: 'weekly', label: '毎週' },
+                { key: 'monthly-day', label: '毎月(日付)' },
+                { key: 'monthly-week', label: '毎月(曜日)' },
+                { key: 'yearly-date', label: '毎年(日付)' },
+                { key: 'yearly-week', label: '毎年(曜日)' }
+            ];
+
+            types.forEach(t => {
+                const btn = document.createElement('div');
+                btn.className = 'when-type-btn' + (uiType === t.key ? ' active' : '');
+                btn.textContent = t.label;
+                btn.dataset.type = t.key;
+                btn.addEventListener('click', () => {
+                    uiType = t.key;
+                    typeGrid.querySelectorAll('.when-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === t.key));
+                    updateConditionalSections();
+                    updatePreview();
+                    if (onChange) onChange(getValue());
+                });
+                typeGrid.appendChild(btn);
+            });
+            typeSection.appendChild(typeGrid);
+            container.appendChild(typeSection);
+
+            // --- 週設定(毎週 / 毎月(曜日)/ 毎年(曜日)) ---
+            const weekSection = document.createElement('div');
+            weekSection.className = 'when-section';
+            weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
+
+            const weekRow1 = document.createElement('div');
+            weekRow1.className = 'when-row';
+            weekRow1.innerHTML = '<span>第</span>';
+            const weekSelect = document.createElement('select');
+            weekSelect.style.cssText = 'padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;';
+            const weekOptsForType = weekOptions;
+            weekOptsForType.forEach(opt => {
+                const o = document.createElement('option');
+                o.value = opt.key;
+                o.textContent = opt.label;
+                if (opt.key === currentWeekOfMonth) o.selected = true;
+                weekSelect.appendChild(o);
+            });
+            // 初期選択値を変数と同期(オプションにない場合、ブラウザが自動選択した値に合わせる)
+            currentWeekOfMonth = weekSelect.value;
+            weekSelect.addEventListener('change', () => {
+                currentWeekOfMonth = weekSelect.value;
+                updatePreview();
+                if (onChange) onChange(getValue());
+            });
+            weekRow1.appendChild(weekSelect);
+            weekRow1.appendChild(document.createTextNode(' 曜日'));
+            weekSection.appendChild(weekRow1);
+
+            const weekRow2 = document.createElement('div');
+            weekRow2.className = 'when-days-grid';
+            dayNames.forEach((name, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'when-day-btn' + (currentDaysOfWeek.includes(idx) ? ' active' : '');
+                btn.textContent = name;
+                btn.dataset.day = idx;
+                btn.addEventListener('click', () => {
+                    const dayIdx = parseInt(btn.dataset.day);
+                    if (currentDaysOfWeek.includes(dayIdx)) {
+                        currentDaysOfWeek = currentDaysOfWeek.filter(d => d !== dayIdx);
+                        btn.classList.remove('active');
+                    } else {
+                        currentDaysOfWeek.push(dayIdx);
+                        btn.classList.add('active');
+                    }
+                    currentDaysOfWeek.sort();
+                    updatePreview();
+                    if (onChange) onChange(getValue());
+                });
+                weekRow2.appendChild(btn);
+            });
+            weekSection.appendChild(weekRow2);
+            container.appendChild(weekSection);
+
+            // --- 月-日付指定(毎月(日付)) ---
+            const monthlyDaySection = document.createElement('div');
+            monthlyDaySection.className = 'when-section';
+            monthlyDaySection.style.display = (uiType === 'monthly-day') ? 'block' : 'none';
+            const monthlyDayRow = document.createElement('div');
+            monthlyDayRow.className = 'when-row';
+            monthlyDayRow.innerHTML = '<span>毎月</span>';
+            const monthDayInput = document.createElement('input');
+            monthDayInput.type = 'number';
+            monthDayInput.min = '1';
+            monthDayInput.max = '31';
+            monthDayInput.value = currentMonthDay;
+            monthDayInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
+            monthDayInput.addEventListener('input', () => {
+                currentMonthDay = parseInt(monthDayInput.value) || 1;
+                updatePreview();
+                if (onChange) onChange(getValue());
+            });
+            monthlyDayRow.appendChild(monthDayInput);
+            monthlyDayRow.appendChild(document.createTextNode(' 日'));
+            monthlyDaySection.appendChild(monthlyDayRow);
+            container.appendChild(monthlyDaySection);
+
+            // --- 年-日付指定(毎年(日付)) ---
+            const yearlyDateSection = document.createElement('div');
+            yearlyDateSection.className = 'when-section';
+            yearlyDateSection.style.display = (uiType === 'yearly-date') ? 'block' : 'none';
+            const yearlyDateRow = document.createElement('div');
+            yearlyDateRow.className = 'when-row';
+            yearlyDateRow.innerHTML = '<span>毎年</span>';
+            const yearMonthInput = document.createElement('input');
+            yearMonthInput.type = 'number';
+            yearMonthInput.min = '1';
+            yearMonthInput.max = '12';
+            yearMonthInput.value = currentYearMonth;
+            yearMonthInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
+            yearMonthInput.addEventListener('input', () => {
+                currentYearMonth = parseInt(yearMonthInput.value) || 1;
+                updatePreview();
+                if (onChange) onChange(getValue());
+            });
+            const yearDayInput = document.createElement('input');
+            yearDayInput.type = 'number';
+            yearDayInput.min = '1';
+            yearDayInput.max = '31';
+            yearDayInput.value = currentYearDay;
+            yearDayInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
+            yearDayInput.addEventListener('input', () => {
+                currentYearDay = parseInt(yearDayInput.value) || 1;
+                updatePreview();
+                if (onChange) onChange(getValue());
+            });
+            yearlyDateRow.appendChild(yearMonthInput);
+            yearlyDateRow.appendChild(document.createTextNode(' 月 '));
+            yearlyDateRow.appendChild(yearDayInput);
+            yearlyDateRow.appendChild(document.createTextNode(' 日'));
+            yearlyDateSection.appendChild(yearlyDateRow);
+            container.appendChild(yearlyDateSection);
+
+            // --- 年-月指定(毎年(曜日)) ---
+            const yearlyMonthSection = document.createElement('div');
+            yearlyMonthSection.className = 'when-section';
+            yearlyMonthSection.style.display = (uiType === 'yearly-week') ? 'block' : 'none';
+            const yearlyMonthRow = document.createElement('div');
+            yearlyMonthRow.className = 'when-row';
+            yearlyMonthRow.innerHTML = '<span>毎年</span>';
+            const yearWeekMonthInput = document.createElement('input');
+            yearWeekMonthInput.type = 'number';
+            yearWeekMonthInput.min = '1';
+            yearWeekMonthInput.max = '12';
+            yearWeekMonthInput.value = currentYearMonth;
+            yearWeekMonthInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
+            yearWeekMonthInput.addEventListener('input', () => {
+                currentYearMonth = parseInt(yearWeekMonthInput.value) || 1;
+                updatePreview();
+                if (onChange) onChange(getValue());
+            });
+            yearlyMonthRow.appendChild(yearWeekMonthInput);
+            yearlyMonthRow.appendChild(document.createTextNode(' 月'));
+            yearlyMonthSection.appendChild(yearlyMonthRow);
+            container.appendChild(yearlyMonthSection);
+
+            // --- 開始日時 ---
+            const timeSection = document.createElement('div');
+            timeSection.className = 'when-section';
+            const timeRow = document.createElement('div');
+            timeRow.className = 'when-row';
+            timeRow.innerHTML = '<span>開始日時</span>';
+            const timeInput = document.createElement('input');
+            timeInput.type = 'datetime-local';
+            // デフォルト値: 今日の09:00
+            const defaultBase = new Date();
+            defaultBase.setHours(9, 0, 0, 0);
+            const toLocalISO = d => {
+                const pad = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            };
+            // baseDateTime優先、なければbaseTimeから生成、それもなければデフォルト
+            // ISO文字列をローカルのdatetime-local形式(YYYY-MM-DDTHH:mm)に変換
+            const isoToLocalISO = isoStr => {
+                const d = new Date(isoStr);
+                const pad = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            };
+            if (w.baseDateTime) {
+                timeInput.value = isoToLocalISO(w.baseDateTime);
+            } else if (w.baseTime) {
+                const today = new Date();
+                const [h, m] = w.baseTime.split(':');
+                today.setHours(parseInt(h), parseInt(m), 0, 0);
+                timeInput.value = toLocalISO(today);
+            } else {
+                timeInput.value = toLocalISO(defaultBase);
+            }
+            timeInput.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
+            timeInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
+            timeRow.appendChild(timeInput);
+            timeSection.appendChild(timeRow);
+            container.appendChild(timeSection);
+
+            // --- 期限 ---
+            const deadlineSection = document.createElement('div');
+            deadlineSection.className = 'when-section';
+            const deadlineLabel = document.createElement('div');
+            deadlineLabel.className = 'when-section-label';
+            deadlineLabel.textContent = '期限設定';
+            deadlineSection.appendChild(deadlineLabel);
+
+            // 期限タイプ選択
+            const deadlineTypeRow = document.createElement('div');
+            deadlineTypeRow.className = 'when-row';
+            deadlineTypeRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;';
+            const dlTypeRelative = document.createElement('div');
+            dlTypeRelative.className = 'when-type-btn' + ((w.deadlineType || 'relative') === 'relative' ? ' active' : '');
+            dlTypeRelative.textContent = '相対(開始から)';
+            dlTypeRelative.style.cssText = 'flex:1;font-size:11px;padding:5px 2px;';
+            const dlTypeAbsolute = document.createElement('div');
+            dlTypeAbsolute.className = 'when-type-btn' + (w.deadlineType === 'absolute' ? ' active' : '');
+            dlTypeAbsolute.textContent = '絶対(特定日時)';
+            dlTypeAbsolute.style.cssText = 'flex:1;font-size:11px;padding:5px 2px;';
+
+            let currentDeadlineType = w.deadlineType || 'relative';
+
+            function updateDeadlineUI() {
+                relativeRow.style.display = currentDeadlineType === 'relative' ? 'flex' : 'none';
+                absoluteRow.style.display = currentDeadlineType === 'absolute' ? 'flex' : 'none';
+                dlTypeRelative.classList.toggle('active', currentDeadlineType === 'relative');
+                dlTypeAbsolute.classList.toggle('active', currentDeadlineType === 'absolute');
+                updatePreview();
+            }
+
+            dlTypeRelative.addEventListener('click', () => {
+                currentDeadlineType = 'relative';
+                updateDeadlineUI();
+                if (onChange) onChange(getValue());
+            });
+            dlTypeAbsolute.addEventListener('click', () => {
+                currentDeadlineType = 'absolute';
+                updateDeadlineUI();
+                if (onChange) onChange(getValue());
+            });
+            deadlineTypeRow.appendChild(dlTypeRelative);
+            deadlineTypeRow.appendChild(dlTypeAbsolute);
+            deadlineSection.appendChild(deadlineTypeRow);
+
+            // 相対期限
+            const relativeRow = document.createElement('div');
+            relativeRow.className = 'when-row';
+            const deadlineDays = document.createElement('input');
+            deadlineDays.type = 'number';
+            deadlineDays.min = '0';
+            deadlineDays.value = (w.deadlineDays !== undefined ? w.deadlineDays : 0).toString();
+            deadlineDays.addEventListener('input', () => { updatePreview(); if (onChange) onChange(getValue()); });
+            const deadlineTime = document.createElement('input');
+            deadlineTime.type = 'time';
+            deadlineTime.value = w.deadlineTime || '18:00';
+            deadlineTime.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
+            relativeRow.appendChild(deadlineDays);
+            relativeRow.appendChild(document.createTextNode(' 日後 '));
+            relativeRow.appendChild(deadlineTime);
+            relativeRow.appendChild(document.createTextNode(' まで'));
+            deadlineSection.appendChild(relativeRow);
+
+            // 絶対期限
+            const absoluteRow = document.createElement('div');
+            absoluteRow.className = 'when-row';
+            const deadlineDateInput = document.createElement('input');
+            deadlineDateInput.type = 'datetime-local';
+            // デフォルト値: 現在時刻+1日の18:00
+            const defaultDl = new Date();
+            defaultDl.setDate(defaultDl.getDate() + 1);
+            defaultDl.setHours(18, 0, 0, 0);
+            deadlineDateInput.value = w.deadlineDate ? isoToLocalISO(w.deadlineDate) : toLocalISO(defaultDl);
+            deadlineDateInput.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
+            deadlineDateInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
+            absoluteRow.appendChild(deadlineDateInput);
+            absoluteRow.appendChild(document.createTextNode(' まで'));
+            deadlineSection.appendChild(absoluteRow);
+
+            container.appendChild(deadlineSection);
+
+            // --- プレビュー ---
+            const previewSection = document.createElement('div');
+            previewSection.className = 'when-section';
+            const preview = document.createElement('div');
+            preview.className = 'when-preview';
+            previewSection.appendChild(preview);
+            container.appendChild(previewSection);
+
+            function updateConditionalSections() {
+                const isDisabled = (uiType === 'disabled');
+                timeSection.style.display = isDisabled ? 'none' : 'block';
+                deadlineSection.style.display = isDisabled ? 'none' : 'block';
+                weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
+                // 毎週・毎月(曜日)・毎年(曜日)共通で「毎週」〜「最終」オプション表示
+                const needAllOption = (uiType === 'weekly');
+                const currentVal = weekSelect.value;
+                weekSelect.innerHTML = '';
+                (needAllOption ? weekOptions : weekOptions.filter(o => o.key !== 'all')).forEach(opt => {
+                    const o = document.createElement('option');
+                    o.value = opt.key;
+                    o.textContent = opt.label;
+                    weekSelect.appendChild(o);
+                });
+                // 選択値を復元(無効な場合は毎週に)
+                if (Array.from(weekSelect.options).some(o => o.value === currentVal)) {
+                    weekSelect.value = currentVal;
+                } else {
+                    weekSelect.value = 'all';
+                }
+                currentWeekOfMonth = weekSelect.value;
+                monthlyDaySection.style.display = (uiType === 'monthly-day') ? 'block' : 'none';
+                yearlyDateSection.style.display = (uiType === 'yearly-date') ? 'block' : 'none';
+                yearlyMonthSection.style.display = (uiType === 'yearly-week') ? 'block' : 'none';
+            }
+
+            function getValue() {
+                // UIタイプ→データ変換
+                let repeatType = uiType;
+                let monthlyMode = 'day';
+                let yearlyMode = 'date';
+                if (uiType === 'monthly-day') { repeatType = 'monthly'; monthlyMode = 'day'; }
+                if (uiType === 'monthly-week') { repeatType = 'monthly'; monthlyMode = 'week'; }
+                if (uiType === 'yearly-date') { repeatType = 'yearly'; yearlyMode = 'date'; }
+                if (uiType === 'yearly-week') { repeatType = 'yearly'; yearlyMode = 'week'; }
+
+                if (repeatType === 'disabled') return null;
+
+                return {
+                    repeatType: repeatType,
+                    baseDateTime: timeInput.value ? new Date(timeInput.value).toISOString() : null,
+                    baseTime: timeInput.value ? timeInput.value.substring(11, 16) : '09:00',
+                    deadlineType: currentDeadlineType,
+                    deadlineDays: parseInt(deadlineDays.value) || 0,
+                    deadlineTime: deadlineTime.value || '18:00',
+                    deadlineDate: deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null,
+                    daysOfWeek: currentDaysOfWeek.slice(),
+                    weekOfMonth: currentWeekOfMonth,
+                    yearMonth: currentYearMonth,
+                    yearDay: currentYearDay,
+                    monthDay: currentMonthDay,
+                    monthlyMode: monthlyMode,
+                    yearlyMode: yearlyMode,
+                    nextDate: null,
+                    lastCompleted: w.lastCompleted || null
+                };
+            }
+
+            function formatDaysOfWeek(days) {
+                if (!days || days.length === 0) return '未選択';
+                if (days.length === 7) return '毎日';
+                return days.sort().map(d => dayNames[d]).join('・') + '曜日';
+            }
+
+            function updatePreview() {
+                const baseDt = timeInput.value;
+                const baseDate = baseDt ? new Date(baseDt) : null;
+                const baseStr = baseDate ? baseDate.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '09:00';
+                const baseTimeStr = baseDt ? baseDt.substring(11, 16) : '09:00';
+                const dd = parseInt(deadlineDays.value) || 0;
+                const dt = deadlineTime.value;
+                const dlType = currentDeadlineType;
+                const dlDate = deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null;
+
+                let text = '';
+
+                if (uiType === 'disabled') {
+                    text = 'なし（期限・プログレスバーなし）';
+                } else {
+                    // 開始日時(常に先頭)
+                    if (uiType === 'none') {
+                        text = '開始:' + baseStr;
+                    } else {
+                        text = '次回:' + baseStr;
+                        text += '\n周期:';
+                        if (uiType === 'daily') {
+                            text += '毎日 ' + baseTimeStr;
+                        } else if (uiType === 'weekly') {
+                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                            text += weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                        } else if (uiType === 'monthly-day') {
+                            text += '毎月 ' + currentMonthDay + '日 ' + baseTimeStr;
+                        } else if (uiType === 'monthly-week') {
+                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                            text += '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                        } else if (uiType === 'yearly-date') {
+                            text += '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + baseTimeStr;
+                        } else if (uiType === 'yearly-week') {
+                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
+                            text += '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
+                        }
+                    }
+
+                    // 期限(開始の後に表示)
+                    if (dlType === 'absolute' && dlDate) {
+                        const dl = new Date(dlDate);
+                        text += '\n期限:' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
+                    } else if (dd > 0 || dt !== baseTimeStr) {
+                        text += '\n期限:開始から ' + dd + ' 日後 ' + dt + ' まで';
+                    }
+                }
+
+                preview.innerHTML = text.replace(/\n/g, '<br>');
+            }
+
+            updatePreview();
+
+            // 初期化時に期限タイプの表示状態を反映
+            updateDeadlineUI();
+
+            // 初期化時に条件付きセクションの表示状態を反映
+            updateConditionalSections();
+
+            return { el: container, getValue, updatePreview };
+        }
+
+        function openWhenEditor(node) {
+            const existing = document.querySelector('.when-editor-popup');
+            if (existing) existing.remove();
+
+            if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
+
+            const popup = document.createElement('div');
+            popup.className = 'when-editor-popup';
+            popup.style.cssText = 'position:fixed;background:white;border:1px solid #ddd;border-radius:10px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:10000;width:300px;font-size:13px;';
+
+            const title = document.createElement('div');
+            title.className = 'when-editor-title';
+            title.innerHTML = '🕐 When(周期・期限)';
+            popup.appendChild(title);
+
+            const editor = createWhenEditorUI(node.details.when);
+            popup.appendChild(editor.el);
+
+            // --- ボタン ---
+            const btnRow = document.createElement('div');
+            btnRow.className = 'when-buttons';
+            const clearBtn = document.createElement('button');
+            clearBtn.className = 'when-btn clear';
+            clearBtn.textContent = 'クリア';
+            clearBtn.addEventListener('click', () => {
+                if (node.details) delete node.details.when;
+                popup.remove();
+                renderNodes();
+            });
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'when-btn cancel';
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.addEventListener('click', () => popup.remove());
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'when-btn save';
+            saveBtn.textContent = '保存';
+            saveBtn.addEventListener('click', () => {
+                const newWhen = editor.getValue();
+                if (newWhen === null) {
+                    if (node.details) delete node.details.when;
+                } else {
+                    node.details.when = newWhen;
+                    node.details.when.nextDate = calculateNextDate(node.details.when);
+                }
+                popup.remove();
+                renderNodes();
+            });
+            btnRow.appendChild(clearBtn);
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(saveBtn);
+            popup.appendChild(btnRow);
+
+            // Position
+            document.body.appendChild(popup);
+            const rect = popup.getBoundingClientRect();
+            const x = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2)));
+            const y = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2)));
+            popup.style.left = x + 'px';
+            popup.style.top = y + 'px';
+
+            // Close on outside click
+            setTimeout(() => {
+                document.addEventListener('click', function closeWhenEditor(ev) {
+                    if (popup.contains(ev.target)) return;
+                    popup.remove();
+                    document.removeEventListener('click', closeWhenEditor);
+                });
+            }, 0);
+        }
+
+        // When progress bar generator
+        // Returns HTMLElement or null
+        function createWhenProgressBar(node) {
+            const w = node.details?.when;
+            if (!w || !w.repeatType || !w.nextDate) return null;
+            if (node.completed) return null; // 完了済みは非表示
+
+            const now = new Date();
+            const nextDate = new Date(w.nextDate);
+
+            // Calculate deadline date
+            let deadlineDate;
+            if (w.deadlineType === 'absolute' && w.deadlineDate) {
+                deadlineDate = new Date(w.deadlineDate);
+            } else {
+                const [dlHours, dlMinutes] = (w.deadlineTime || '18:00').split(':');
+                deadlineDate = new Date(nextDate);
+                deadlineDate.setDate(deadlineDate.getDate() + (w.deadlineDays || 0));
+                deadlineDate.setHours(parseInt(dlHours), parseInt(dlMinutes), 0, 0);
+            }
+
+            const container = document.createElement('div');
+            container.className = 'when-progress-container';
+            container.style.cssText = 'padding:2px 8px 4px;font-size:11px;';
+
+            // Info row
+            const infoRow = document.createElement('div');
+            infoRow.style.cssText = 'display:flex;justify-content:space-between;gap:4px;color:#666;margin-bottom:6px;white-space:nowrap;overflow:hidden;font-size:10px;';
+
+            const leftInfo = document.createElement('span');
+            leftInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex-shrink:0;';
+            const centerInfo = document.createElement('span');
+            centerInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;text-align:center;flex:1;';
+            const rightInfo = document.createElement('span');
+            rightInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex-shrink:0;text-align:right;';
+
+            // Time formatting helper
+            const fmtHM = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
+
+            if (now < nextDate) {
+                // Before start
+                const diffMs = nextDate - now;
+                const diffH = Math.floor(diffMs / 3600000);
+                const diffM = Math.floor((diffMs % 3600000) / 60000);
+                const until = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
+                leftInfo.textContent = `▶${until}`;
+                centerInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
+                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                } else {
+                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                }
+            } else if (now < deadlineDate) {
+                // Between start and deadline
+                const diffMs = deadlineDate - now;
+                const diffH = Math.floor(diffMs / 3600000);
+                const diffM = Math.floor((diffMs % 3600000) / 60000);
+                const remain = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
+                leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                centerInfo.textContent = `残り ${remain}`;
+                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
+                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                } else {
+                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                }
+            } else {
+                // After deadline
+                leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                centerInfo.textContent = '期限切れ';
+                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
+                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                } else {
+                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                }
+            }
+
+            infoRow.appendChild(leftInfo);
+            infoRow.appendChild(centerInfo);
+            infoRow.appendChild(rightInfo);
+            container.appendChild(infoRow);
+
+            // Progress bar: left edge = 8:00 today, now marker moves right over time
+            const barTrack = document.createElement('div');
+            barTrack.style.cssText = 'height:10px;border-radius:5px;position:relative;margin-top:2px;background:#f5f5f5;overflow:visible;';
+
+            // Time scale starts at 8:00 today
+            const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
+            const maxDist = Math.max(now - dayStart, nextDate - dayStart, deadlineDate - dayStart);
+            const scaleMs = Math.max(maxDist, 3600000) * 1.15; // at least 1h visible + 15% margin
+
+            // Positions relative to 8:00
+            const startPct = Math.min(100, Math.max(0, ((nextDate - dayStart) / scaleMs) * 100));
+            const deadlinePct = Math.min(100, Math.max(0, ((deadlineDate - dayStart) / scaleMs) * 100));
+            const nowPct = Math.min(100, Math.max(0, ((now - dayStart) / scaleMs) * 100));
+
+            // Determine active zone color
+            let activeColor = '#4caf50';
+            if (now >= deadlineDate) {
+                activeColor = '#f44336';
+            } else if (now >= nextDate) {
+                const totalActiveMs = deadlineDate - nextDate;
+                const elapsedMs = now - nextDate;
+                const remainingPct = totalActiveMs > 0 ? 100 - (elapsedMs / totalActiveMs * 100) : 0;
+                if (remainingPct <= 20) activeColor = '#f44336';
+                else if (remainingPct <= 50) activeColor = '#ff9800';
+                else activeColor = '#4caf50';
+            }
+
+            // 1. Zone before start: grey striped
+            if (startPct > 0) {
+                const beforeStart = document.createElement('div');
+                beforeStart.style.cssText = `position:absolute;left:0;top:0;height:100%;width:${startPct}%;background:repeating-linear-gradient(90deg,#ddd 0px,#ddd 3px,transparent 3px,transparent 6px);border-radius:5px 0 0 5px;opacity:0.5;`;
+                barTrack.appendChild(beforeStart);
+            }
+
+            // 2. Active zone (start to deadline): colored bar
+            if (nextDate < deadlineDate) {
+                const activeStart = startPct;
+                const activeEnd = Math.min(100, deadlinePct);
+                const activeWidth = activeEnd - activeStart;
+                if (activeWidth > 0) {
+                    const activeBar = document.createElement('div');
+                    activeBar.style.cssText = `position:absolute;left:${activeStart}%;top:0;height:100%;width:${activeWidth}%;background:${activeColor};opacity:${now >= nextDate ? 1 : 0.3};transition:opacity 0.3s ease;`;
+                    barTrack.appendChild(activeBar);
+                }
+            }
+
+            // 3. Start marker: white vertical line
+            if (startPct >= 0 && startPct <= 100) {
+                const startLine = document.createElement('div');
+                startLine.style.cssText = `position:absolute;left:${startPct}%;top:0;width:2px;height:100%;background:rgba(255,255,255,0.9);transform:translateX(-50%);`;
+                barTrack.appendChild(startLine);
+            }
+
+            // 4. Deadline marker: dark vertical line
+            if (deadlinePct >= 0 && deadlinePct <= 100) {
+                const dlLine = document.createElement('div');
+                dlLine.style.cssText = `position:absolute;left:${deadlinePct}%;top:-1px;width:2px;height:12px;background:#555;border-radius:1px;transform:translateX(-50%);`;
+                barTrack.appendChild(dlLine);
+            }
+
+            // 5. Now marker: triangle that moves right over time
+            const nowClamped = Math.min(100, Math.max(0, nowPct));
+            const nowMarker = document.createElement('div');
+            nowMarker.style.cssText = `position:absolute;left:${nowClamped}%;top:-5px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #333;transform:translateX(-50%);z-index:3;`;
+            barTrack.appendChild(nowMarker);
+
+            // Now marker tooltip (shown on hover)
+            nowMarker.title = `現在 ${fmtHM(now)}`;
+
+            container.appendChild(barTrack);
+
+            return container;
+        }
+
+        // Calculate next activation date based on when settings
+        function calculateNextDate(when) {
+            if (!when || !when.repeatType) return null;
+
+            const now = new Date();
+            let hours, minutes;
+            let next;
+
+            if (when.baseDateTime) {
+                const baseDate = new Date(when.baseDateTime);
+                hours = baseDate.getHours();
+                minutes = baseDate.getMinutes();
+                next = new Date(baseDate);
+            } else {
+                const timeParts = (when.baseTime || '09:00').split(':');
+                hours = parseInt(timeParts[0]);
+                minutes = parseInt(timeParts[1]);
+                next = new Date(now);
+                next.setHours(hours, minutes, 0, 0);
+            }
+
+            // 一度だけの場合は baseDateTime/baseTime をそのまま nextDate として使用
+            if (when.repeatType === 'none') {
+                return next;
+            }
+
+            if (when.repeatType === 'daily') {
+                if (next <= now) {
+                    next.setDate(next.getDate() + 1);
+                }
+            } else if (when.repeatType === 'weekly') {
+                const targetDays = when.daysOfWeek || (when.dayOfWeek !== undefined ? [when.dayOfWeek] : [0]);
+                const weekOfMonth = when.weekOfMonth || 'all';
+                if (targetDays.length === 0) return null;
+
+                let found = false;
+                for (let i = 0; i < 60; i++) {
+                    const check = new Date(next);
+                    check.setDate(check.getDate() + i);
+                    const dayOfWeek = (check.getDay() + 6) % 7;
+
+                    if (!targetDays.includes(dayOfWeek)) continue;
+
+                    // Check week of month
+                    if (weekOfMonth !== 'all') {
+                        const date = check.getDate();
+                        let weekNum;
+                        if (weekOfMonth === 'last') {
+                            const lastDay = new Date(check.getFullYear(), check.getMonth() + 1, 0);
+                            const lastWeekStart = lastDay.getDate() - (lastDay.getDay() + 6) % 7;
+                            weekNum = (date >= lastWeekStart) ? 'last' : null;
+                        } else {
+                            weekNum = Math.floor((date - 1) / 7) + 1;
+                        }
+                        if (weekNum !== weekOfMonth) continue;
+                    }
+
+                    if (i > 0 || check > now) {
+                        next = check;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) return null;
+            } else if (when.repeatType === 'monthly') {
+                const monthlyMode = when.monthlyMode || 'day';
+                if (monthlyMode === 'week') {
+                    // 毎月 第◯週 ◯曜日
+                    const targetDays = when.daysOfWeek || (when.dayOfWeek !== undefined ? [when.dayOfWeek] : [0]);
+                    const weekOfMonth = when.weekOfMonth || '1';
+                    if (targetDays.length === 0) return null;
+
+                    let found = false;
+                    for (let m = 0; m < 12; m++) {
+                        const checkMonth = new Date(next);
+                        checkMonth.setMonth(checkMonth.getMonth() + m);
+                        const firstDayOfMonth = new Date(checkMonth.getFullYear(), checkMonth.getMonth(), 1);
+
+                        for (let d = 0; d < 31; d++) {
+                            const check = new Date(firstDayOfMonth);
+                            check.setDate(check.getDate() + d);
+                            if (check.getMonth() !== firstDayOfMonth.getMonth()) break;
+
+                            const dayOfWeek = (check.getDay() + 6) % 7;
+                            if (!targetDays.includes(dayOfWeek)) continue;
+
+                            const date = check.getDate();
+                            let weekNum;
+                            if (weekOfMonth === 'last') {
+                                const lastDay = new Date(check.getFullYear(), check.getMonth() + 1, 0);
+                                const lastWeekStart = lastDay.getDate() - (lastDay.getDay() + 6) % 7;
+                                weekNum = (date >= lastWeekStart) ? 'last' : null;
+                            } else {
+                                weekNum = Math.floor((date - 1) / 7) + 1;
+                            }
+                            if (weekNum !== weekOfMonth) continue;
+
+                            const checkTime = new Date(check);
+                            checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                            if (checkTime > now) {
+                                next = checkTime;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                    }
+                    if (!found) return null;
+                } else {
+                    // 毎月 ◯日
+                    const targetDay = when.monthDay || 1;
+                    next.setDate(targetDay);
+                    if (next <= now) {
+                        next.setMonth(next.getMonth() + 1);
+                    }
+                }
+            } else if (when.repeatType === 'yearly') {
+                const yearlyMode = when.yearlyMode || 'date';
+                if (yearlyMode === 'week') {
+                    // 毎年 ◯月 第◯週 ◯曜日
+                    const targetDays = when.daysOfWeek || (when.dayOfWeek !== undefined ? [when.dayOfWeek] : [0]);
+                    const weekOfMonth = when.weekOfMonth || '1';
+                    const targetMonth = (when.yearMonth || 1) - 1;
+                    if (targetDays.length === 0) return null;
+
+                    let found = false;
+                    for (let y = 0; y < 2; y++) {
+                        const checkYear = new Date(next);
+                        checkYear.setFullYear(checkYear.getFullYear() + y);
+                        const firstDayOfMonth = new Date(checkYear.getFullYear(), targetMonth, 1);
+
+                        for (let d = 0; d < 31; d++) {
+                            const check = new Date(firstDayOfMonth);
+                            check.setDate(check.getDate() + d);
+                            if (check.getMonth() !== firstDayOfMonth.getMonth()) break;
+
+                            const dayOfWeek = (check.getDay() + 6) % 7;
+                            if (!targetDays.includes(dayOfWeek)) continue;
+
+                            const date = check.getDate();
+                            let weekNum;
+                            if (weekOfMonth === 'last') {
+                                const lastDay = new Date(check.getFullYear(), check.getMonth() + 1, 0);
+                                const lastWeekStart = lastDay.getDate() - (lastDay.getDay() + 6) % 7;
+                                weekNum = (date >= lastWeekStart) ? 'last' : null;
+                            } else {
+                                weekNum = Math.floor((date - 1) / 7) + 1;
+                            }
+                            if (weekNum !== weekOfMonth) continue;
+
+                            const checkTime = new Date(check);
+                            checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                            if (checkTime > now) {
+                                next = checkTime;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                    }
+                    if (!found) return null;
+                } else {
+                    // 毎年 ◯月◯日
+                    const targetMonth = (when.yearMonth || 1) - 1;
+                    const targetDay = when.yearDay || 1;
+                    next.setMonth(targetMonth, targetDay);
+                    if (next <= now) {
+                        next.setFullYear(next.getFullYear() + 1);
+                    }
+                }
+            }
+
+            // 未知のrepeatTypeの場合はnullを返す(不整合データのガード)
+            if (!['none', 'daily', 'weekly', 'monthly', 'yearly'].includes(when.repeatType)) {
+                return null;
+            }
+
+            return next;
+        }
+
+        function renderNodes() {
+            nodesEl.innerHTML = '';
+
+            // Collect all nodes hidden by cascade collapse
+            const hiddenNodeIds = new Set();
+            state.connections.forEach(conn => {
+                if (conn.collapsed) {
+                    const hideDescendants = (nodeId) => {
+                        hiddenNodeIds.add(nodeId);
+                        state.connections
+                            .filter(c => c.from === nodeId)
+                            .forEach(c => hideDescendants(c.to));
+                    };
+                    hideDescendants(conn.to);
+                }
+            });
+            state.hiddenNodeIds = hiddenNodeIds;
+
+            // Helper: recursively render children of a node using children array order
+            function renderChildren(parentNode, containerEl, depth) {
+                const childIds = parentNode.children || [];
+                childIds.forEach(childId => {
+                    const child = state.nodes.find(n => n.id === childId);
+                    if (!child) return;
+                    // Skip completed nodes when hideCompleted is enabled
+                    if (state.hideCompleted && child.completed) return;
+                    // Skip if this child is currently being dragged (and drag has actually started)
+                    if (state.dragNode?.id === child.id && state.isDragging) return;
+                    // Skip hidden nodes
+                    if (hiddenNodeIds.has(child.id)) return;
+
+                    const childEl = document.createElement('div');
+                    childEl.className = 'node'
+                        + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
+                        + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
+                        + (child.completed ? ' completed' : '')
+                        + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '');
+                    childEl.dataset.id = child.id;
+                    childEl.dataset.depth = depth;
+                    // Priority border styling for child nodes (0-5), skip if completed
+                    const cp = child.priority || 0;
+                    const parentColor = parentNode.color || '#4a90d9';
+                    if (!child.completed) {
+                        if (cp >= 5) {
+                            childEl.style.border = `3px solid #c0392b`;
+                            childEl.style.borderLeft = `4px solid ${parentColor}`;
+                        } else if (cp >= 4) {
+                            childEl.style.border = `2.5px solid #e74c3c`;
+                            childEl.style.borderLeft = `4px solid ${parentColor}`;
+                        } else if (cp >= 3) {
+                            childEl.style.border = `2px solid #e67e22`;
+                            childEl.style.borderLeft = `3px solid ${parentColor}`;
+                        } else if (cp >= 2) {
+                            childEl.style.border = `1.5px solid #f39c12`;
+                            childEl.style.borderLeft = `3px solid ${parentColor}`;
+                        } else if (cp >= 1) {
+                            childEl.style.border = `1px solid #f0c040`;
+                            childEl.style.borderLeft = `3px solid ${parentColor}`;
+                        } else {
+                            childEl.style.borderLeft = `3px solid ${parentColor}`;
+                        }
+                    } else {
+                        childEl.style.borderLeft = `3px solid ${parentColor}`;
+                    }
+                    childEl.style.borderRadius = '12px';
+
+                    const childCheckbox = document.createElement('span');
+                    childCheckbox.className = 'node-color';
+                    childCheckbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${child.color || '#4a90d9'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;margin-right:4px;`;
+                    childCheckbox.textContent = child.completed ? '✓' : '';
+                    childCheckbox.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Ignore right-click (button === 2), only toggle on left-click
+                        if (e.button === 2) return;
+                        child.completed = !child.completed;
+                        child.completedAt = child.completed ? new Date().toISOString() : null;
+                        renderNodes();
+                    });
+                    childCheckbox.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showColorPicker(e, child);
+                    });
+
+                    const childTitle = document.createElement('span');
+                    childTitle.className = 'node-title' + (child.completed ? ' completed' : '');
+                    childTitle.textContent = child.title;
+                    if (!child.completed) {
+                        if (cp >= 4) childTitle.style.fontWeight = '700';
+                        else if (cp >= 3) childTitle.style.fontWeight = '600';
+                        else if (cp >= 2) childTitle.style.fontWeight = '500';
+                    }
+
+                    // Expand/collapse button
+                    const expandBtn = document.createElement('span');
+                    expandBtn.style.cssText = 'margin-left:4px;font-size:11px;color:#4a90d9;cursor:pointer;width:14px;text-align:center;flex-shrink:0;';
+                    expandBtn.textContent = child.expanded ? '▼' : '▶';
+                    const hasChildren = state.nodes.some(n => n.parentId === child.id);
+                    if (!hasChildren) expandBtn.style.visibility = 'hidden';
+                    expandBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        child.expanded = !child.expanded;
+                        renderNodes();
+                    });
+
+                    // Task count badge
+                    const badge = document.createElement('span');
+                    badge.style.cssText = 'font-size:11px;color:#999;margin-left:4px;flex-shrink:0;';
+                    const descCount = state.nodes.filter(n => n.parentId === child.id).length;
+                    badge.textContent = descCount > 0 ? '(' + descCount + ')' : '';
+
+                    childEl.appendChild(childCheckbox);
+                    childEl.appendChild(childTitle);
+
+                    // Add detail indicators for child nodes
+                    const childIndicators = createIndicatorMenu(child);
+                    childIndicators.style.cssText = 'position:relative;display:inline-flex;padding:0;gap:2px;font-size:11px;margin-left:4px;';
+                    childEl.appendChild(childIndicators);
+
+                    // Link icon for child nodes (shown when link is set)
+                    const childLink = child.details?.link?.trim();
+                    if (childLink) {
+                        const childLinkIcon = document.createElement('a');
+                        childLinkIcon.textContent = '🔗';
+                        childLinkIcon.style.cssText = 'margin-left:4px;font-size:11px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
+                        childLinkIcon.title = 'Open link: ' + childLink;
+                        childLinkIcon.addEventListener('mouseenter', () => childLinkIcon.style.opacity = '1');
+                        childLinkIcon.addEventListener('mouseleave', () => childLinkIcon.style.opacity = '0.7');
+                        childLinkIcon.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            window.open(childLink, '_blank', 'noopener,noreferrer');
+                        });
+                        childEl.appendChild(childLinkIcon);
+                    }
+
+                    childEl.appendChild(expandBtn);
+                    childEl.appendChild(badge);
+
+                    // When progress bar for child nodes
+                    const childWhenProgress = createWhenProgressBar(child);
+                    if (childWhenProgress) {
+                        childWhenProgress.style.padding = '2px 0 2px 22px';
+                        childEl.appendChild(childWhenProgress);
+                    }
+
+                    // Use unified drag handler (same as root nodes)
+                    childEl.addEventListener('mousedown', (e) => {
+                        e.stopPropagation(); // Prevent parent node event from firing
+                        handleNodeMouseDown(e, child);
+                    });
+                    childEl.addEventListener('touchstart', (e) => handleNodeTouchStart(e, child), { passive: false });
+
+                    // Use unified drag-and-drop handlers (same as root nodes)
+                    childEl.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, childEl, child));
+                    childEl.addEventListener('mouseleave', () => handleNodeMouseLeave(childEl, child));
+
+                    // Hover tooltip for child nodes — reuses global singleton
+                    const childTooltipEl = document.querySelector('.node-hover-tooltip-global');
+                    let childTooltipTimer = null;
+                    let childTooltipVisible = false;
+                    
+                    function cancelChildTooltipTimer() {
+                        if (childTooltipTimer) {
+                            clearTimeout(childTooltipTimer);
+                            childTooltipTimer = null;
+                        }
+                    }
+                    
+                    function showChildTooltip() {
+                        if (state.dragNode) return;
+                        const html = buildNodeTooltipHtml(child);
+                        if (!html) return;
+                        
+                        childTooltipEl.innerHTML = html;
+                        childTooltipEl.style.display = 'block';
+                        void childTooltipEl.offsetHeight;
+                        
+                        const rect = childEl.getBoundingClientRect();
+                        const ttRect = childTooltipEl.getBoundingClientRect();
+                        let left = rect.right + 8;
+                        let top = rect.top;
+                        
+                        if (left + ttRect.width > window.innerWidth - 8) {
+                            left = rect.left - ttRect.width - 8;
+                        }
+                        if (left < 8) left = 8;
+                        if (top + ttRect.height > window.innerHeight - 8) {
+                            top = window.innerHeight - ttRect.height - 8;
+                        }
+                        if (top < 8) top = 8;
+                        
+                        childTooltipEl.style.left = left + 'px';
+                        childTooltipEl.style.top = top + 'px';
+                        childTooltipEl.style.opacity = '1';
+                        childTooltipVisible = true;
+                    }
+                    
+                    function hideChildTooltip() {
+                        childTooltipEl.style.opacity = '0';
+                        childTooltipVisible = false;
+                        setTimeout(() => {
+                            if (!childTooltipVisible) childTooltipEl.style.display = 'none';
+                        }, 150);
+                    }
+                    
+                    // Header-equivalent hover area: checkbox + title + indicators (not nested children)
+                    const childHeaderTargets = [childCheckbox, childTitle, childIndicators, expandBtn, badge].filter(Boolean);
+                    childHeaderTargets.forEach(target => {
+                        target.addEventListener('mouseenter', () => {
+                            if (state.dragNode) return;
+                            cancelChildTooltipTimer();
+                            childTooltipTimer = setTimeout(() => {
+                                showChildTooltip();
+                            }, 120);
+                        });
+                        target.addEventListener('mouseleave', () => {
+                            cancelChildTooltipTimer();
+                            if (childTooltipVisible) hideChildTooltip();
+                        });
+                        target.addEventListener('mousedown', () => {
+                            cancelChildTooltipTimer();
+                            if (childTooltipVisible) hideChildTooltip();
+                        });
+                    });
+
+                    childEl.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        child.expanded = !child.expanded;
+                        renderNodes();
+                    });
+
+                    // Child nodes area with recursive rendering (same structure as root nodes)
+                    const childTasksEl = document.createElement('div');
+                    childTasksEl.className = 'node-tasks';
+                    if (!child.expanded) {
+                        childTasksEl.classList.add('collapsed');
+                    }
+
+                    if (child.expanded) {
+                        renderChildren(child, childTasksEl, depth + 1);
+                    }
+
+                    childEl.appendChild(childTasksEl);
+
+                    containerEl.appendChild(childEl);
+                });
+            }
+
+            // Render root nodes
+            state.nodes.forEach(node => {
+                // Skip child nodes unless they are being actively dragged
+                if (node.parentId !== null && !(state.dragNode?.id === node.id && state.isDragging)) return;
+                // Skip completed nodes when hideCompleted is enabled
+                if (state.hideCompleted && node.completed) return;
+
+                const el = document.createElement('div');
+                el.className = 'node' + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
+                    + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
+                    + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '');
+
+                // Use absolute position for actively dragged child nodes only
+                if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
+                    let absX, absY;
+                    if (node.absX !== undefined && node.absY !== undefined) {
+                        absX = node.absX;
+                        absY = node.absY;
+                    } else {
+                        const absPos = getNodeAbsolutePosition(node);
+                        absX = absPos.x;
+                        absY = absPos.y;
+                    }
+                    el.style.left = absX + 'px';
+                    el.style.top = absY + 'px';
+                } else {
+                    el.style.left = node.x + 'px';
+                    el.style.top = node.y + 'px';
+                    // Priority border styling for root nodes (0-5), skip if completed
+                    if (!node.completed) {
+                        const rp = node.priority || 0;
+                        if (rp >= 5) el.style.border = '3px solid #c0392b';
+                        else if (rp >= 4) el.style.border = '2.5px solid #e74c3c';
+                        else if (rp >= 3) el.style.border = '2px solid #e67e22';
+                        else if (rp >= 2) el.style.border = '1.5px solid #f39c12';
+                        else if (rp >= 1) el.style.border = '1px solid #f0c040';
+                    }
+                }
+                el.dataset.id = node.id;
+
+                // Set explicit width/height for resizable nodes
+                if (node.width) {
+                    el.style.width = node.width + 'px';
+                }
+                // Only apply explicit height when expanded - collapsed nodes should auto-shrink to header
+                if (node.height && node.expanded) {
+                    el.style.minHeight = node.height + 'px';
+                }
+
+                if (hiddenNodeIds.has(node.id)) {
+                    el.style.display = 'none';
+                }
+
+                // If dragging a child node and drag has actually started, render as simplified element
+                if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
+                    el.classList.add('dragging-child', 'dragging');
+                    if (state.dropTarget && state.dropTarget.id === node.id) {
+                        el.classList.add('drop-target');
+                    }
+                    el.style.width = (node.width || 200) + 'px';
+                    el.style.minHeight = 'auto';
+                    el.style.padding = '8px 10px';
+
+                    const wrapper = document.createElement('div');
+                    wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+                    const checkbox = document.createElement('span');
+                    checkbox.className = 'node-color';
+                    checkbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${node.color || '#4a90d9'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;`;
+                    checkbox.textContent = node.completed ? '✓' : '';
+                    checkbox.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Ignore right-click (button === 2), only toggle on left-click
+                        if (e.button === 2) return;
+                        node.completed = !node.completed;
+                        node.completedAt = node.completed ? new Date().toISOString() : null;
+                    });
+                    checkbox.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showColorPicker(e, node);
+                    });
+
+                    const title = document.createElement('span');
+                    title.textContent = node.title;
+                    title.className = 'node-title' + (node.completed ? ' completed' : '');
+                    title.style.cssText = 'flex:1;font-size:13px;word-break:break-word;';
+
+                    wrapper.appendChild(checkbox);
+                    wrapper.appendChild(title);
+                    el.appendChild(wrapper);
+
+                    el.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showCanvasContextMenu(e.clientX, e.clientY, e);
+                    });
+
+                    el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
+                    el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+
+                    nodesEl.appendChild(el);
+                    return;
+                }
+
+                // Standard root node rendering
+                const header = document.createElement('div');
+                header.className = 'node-header';
+
+                const color = document.createElement('div');
+                color.className = 'node-color';
+                color.style.backgroundColor = node.color;
+                color.style.cssText = `width:16px;height:16px;border-radius:3px;background-color:${node.color};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:12px;font-weight:bold;`;
+                color.textContent = node.completed ? '✓' : '';
+                color.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Ignore right-click (button === 2), only toggle on left-click
+                    if (e.button === 2) return;
+                    node.completed = !node.completed;
+                    node.completedAt = node.completed ? new Date().toISOString() : null;
+                    renderNodes();
+                });
+                color.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showColorPicker(e, node);
+                });
+
+                const title = document.createElement('span');
+                title.className = 'node-title' + (node.completed ? ' completed' : '');
+                title.textContent = node.title;
+                if (!node.completed) {
+                    const tp = node.priority || 0;
+                    if (tp >= 4) title.style.fontWeight = '700';
+                    else if (tp >= 3) title.style.fontWeight = '600';
+                    else if (tp >= 2) title.style.fontWeight = '500';
+                }
+
+                const expandBtn = document.createElement('button');
+                expandBtn.className = 'expand-btn';
+                expandBtn.textContent = node.expanded ? '▼' : '▶';
+                const hasChildren = state.nodes.some(n => n.parentId === node.id);
+                if (!hasChildren) expandBtn.style.visibility = 'hidden';
+                expandBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    node.expanded = !node.expanded;
+                    renderNodes();
+                });
+
+                header.appendChild(color);
+                header.appendChild(title);
+
+                // Add detail indicators inside header
+                const indicatorsEl = createIndicatorMenu(node);
+                header.appendChild(indicatorsEl);
+
+                // Link icon (shown when link is set)
+                const link = node.details?.link?.trim();
+                if (link) {
+                    const linkIcon = document.createElement('a');
+                    linkIcon.textContent = '🔗';
+                    linkIcon.style.cssText = 'margin-left:4px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
+                    linkIcon.title = 'Open link: ' + link;
+                    linkIcon.addEventListener('mouseenter', () => linkIcon.style.opacity = '1');
+                    linkIcon.addEventListener('mouseleave', () => linkIcon.style.opacity = '0.7');
+                    linkIcon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        window.open(link, '_blank', 'noopener,noreferrer');
+                    });
+                    header.appendChild(linkIcon);
+                }
+
+                header.appendChild(expandBtn);
+
+                // Hover tooltip for why/what info — singleton pattern, attached to entire node
+                // Reuse single tooltip element across all nodes
+                let tooltipEl = document.querySelector('.node-hover-tooltip-global');
+                if (!tooltipEl) {
+                    tooltipEl = document.createElement('div');
+                    tooltipEl.className = 'node-hover-tooltip-global';
+                    tooltipEl.style.cssText = 'position:fixed;display:none;z-index:10001;background:white;border:1px solid #ddd;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);font-size:12px;max-width:280px;pointer-events:none;opacity:0;transition:opacity 0.15s ease;will-change:transform,opacity;';
+                    document.body.appendChild(tooltipEl);
+                }
+                
+                let tooltipTimer = null;
+                let tooltipVisible = false;
+                
+                function buildTooltipHtml() {
+                    const why = node.details?.why?.trim();
+                    const what = node.details?.what?.trim();
+                    const where = node.details?.where?.trim();
+                    const who = node.details?.who?.trim();
+                    const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
+                    const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
+                    
+                    const hasDetails = why || what || where || who;
+                    const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
+                    if (!hasDetails && !hasConns) return '';
+                    
+                    let html = '';
+                    
+                    // From: incoming connections
+                    if (incomingConns.length > 0) {
+                        incomingConns.forEach(conn => {
+                            const source = state.nodes.find(n => n.id === conn.from);
+                            const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
+                            const sourceColor = source ? source.color : '#4a90d9';
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.label)}</div>`;
+                        });
+                    }
+                    
+                    // Detail fields
+                    const fields = [];
+                    if (why) fields.push({label:'why', value:why});
+                    if (what) fields.push({label:'what', value:what});
+                    if (where) fields.push({label:'where', value:where});
+                    if (who) fields.push({label:'who', value:who});
+                    
+                    if (fields.length > 0) {
+                        if (incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                        fields.forEach((f, i) => {
+                            if (i > 0) html += '<div style="margin-top:6px;"></div>';
+                            html += `<div style="font-weight:600;color:#333;margin-bottom:2px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(f.label)}</div>`;
+                            html += `<div style="color:#555;white-space:pre-wrap;word-break:break-word;padding-left:8px;border-left:2px solid #888;">${escapeHtml(f.value)}</div>`;
+                        });
+                        if (incomingConns.length > 0) html += '</div>';
+                    }
+                    
+                    // To: outgoing connections
+                    if (outgoingConns.length > 0) {
+                        if (hasDetails || incomingConns.length > 0) html += '<div style="margin-top:8px;">';
+                        outgoingConns.forEach(conn => {
+                            const target = state.nodes.find(n => n.id === conn.to);
+                            const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
+                            const targetColor = target ? target.color : '#e67e22';
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
+                        });
+                        if (hasDetails || incomingConns.length > 0) html += '</div>';
+                    }
+                    
+                    return html;
+                }
+                
+                function positionTooltip() {
+                    const rect = el.getBoundingClientRect();
+                    const ttRect = tooltipEl.getBoundingClientRect();
+                    let left = rect.right + 8;
+                    let top = rect.top;
+                    
+                    // Right edge: flip to left side
+                    if (left + ttRect.width > window.innerWidth - 8) {
+                        left = rect.left - ttRect.width - 8;
+                    }
+                    // Left edge: clamp
+                    if (left < 8) left = 8;
+                    // Bottom edge: clamp
+                    if (top + ttRect.height > window.innerHeight - 8) {
+                        top = window.innerHeight - ttRect.height - 8;
+                    }
+                    // Top edge: clamp
+                    if (top < 8) top = 8;
+                    
+                    tooltipEl.style.left = left + 'px';
+                    tooltipEl.style.top = top + 'px';
+                }
+                
+                function showTooltip() {
+                    if (state.dragNode) return;
+                    const html = buildTooltipHtml();
+                    if (!html) return;
+                    
+                    tooltipEl.innerHTML = html;
+                    tooltipEl.style.display = 'block';
+                    // Force layout for position calc
+                    void tooltipEl.offsetHeight;
+                    positionTooltip();
+                    tooltipEl.style.opacity = '1';
+                    tooltipVisible = true;
+                }
+                
+                function hideTooltip() {
+                    tooltipEl.style.opacity = '0';
+                    tooltipVisible = false;
+                    // After transition, hide display
+                    setTimeout(() => {
+                        if (!tooltipVisible) tooltipEl.style.display = 'none';
+                    }, 150);
+                }
+                
+                function cancelTooltipTimer() {
+                    if (tooltipTimer) {
+                        clearTimeout(tooltipTimer);
+                        tooltipTimer = null;
+                    }
+                }
+                
+                // Mouse enter on header only (same as drop target boundary)
+                header.addEventListener('mouseenter', () => {
+                    if (state.dragNode) return;
+                    cancelTooltipTimer();
+                    tooltipTimer = setTimeout(() => {
+                        showTooltip();
+                    }, 120);
+                });
+                
+                header.addEventListener('mouseleave', () => {
+                    cancelTooltipTimer();
+                    if (tooltipVisible) hideTooltip();
+                });
+                
+                header.addEventListener('mousedown', () => {
+                    cancelTooltipTimer();
+                    if (tooltipVisible) hideTooltip();
+                });
+
+                el.appendChild(header);
+
+                // When progress bar
+                const whenProgress = createWhenProgressBar(node);
+                if (whenProgress) el.appendChild(whenProgress);
+
+                el.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showCanvasContextMenu(e.clientX, e.clientY, e);
+                });
+
+                // Child nodes area with recursive rendering
+                const tasksEl = document.createElement('div');
+                tasksEl.className = 'node-tasks';
+                if (!node.expanded) {
+                    tasksEl.classList.add('collapsed');
+                }
+
+                if (node.expanded) {
+                    renderChildren(node, tasksEl, 0);
+                }
+
+                el.appendChild(tasksEl);
+
+                el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
+                el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+
+                nodesEl.appendChild(el);
+
+                // Unified drag-and-drop handlers for root nodes
+                el.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, el, node));
+                el.addEventListener('mouseleave', () => handleNodeMouseLeave(el, node));
+
+                // Show/hide resize handles on node hover
+                el.addEventListener('mouseenter', () => {
+                    document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(h => {
+                        h.style.opacity = '1';
+                    });
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(h => {
+                        h.style.opacity = '';
+                    });
+                });
+
+                // Resize handles - appended to nodesEl (outside .node) to avoid overflow clipping
+                const resizeHandles = ['nw', 'ne', 'sw', 'se'];
+                resizeHandles.forEach(pos => {
+                    const resizeHandle = document.createElement('div');
+                    resizeHandle.className = 'resize-handle ' + pos;
+                    resizeHandle.dataset.nodeId = node.id;
+                    resizeHandle.dataset.pos = pos;
+
+                    resizeHandle.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                        state.resizingNode = node;
+                        state.resizeHandle = pos;
+                        state.resizeStartX = e.clientX;
+                        state.resizeStartY = e.clientY;
+                        state.resizeStartWidth = node.width || 200;
+                        state.resizeStartHeight = node.height || (domEl ? domEl.offsetHeight : 50);
+
+                        // Calculate absolute position for resize start
+                        let resizeStartLeft, resizeStartTop;
+                        if (node.parentId !== null) {
+                            const parent = state.nodes.find(n => n.id === node.parentId);
+                            if (parent) {
+                                const absPos = getNodeAbsolutePosition(node);
+                                resizeStartLeft = absPos.x;
+                                resizeStartTop = absPos.y;
+                            } else {
+                                resizeStartLeft = node.x;
+                                resizeStartTop = node.y;
+                            }
+                        } else {
+                            resizeStartLeft = node.x;
+                            resizeStartTop = node.y;
+                        }
+                        state.resizeStartLeft = resizeStartLeft;
+                        state.resizeStartTop = resizeStartTop;
+
+                        if (domEl) {
+                            domEl.classList.add('resizing');
+                        }
+                        resizeHandle.classList.add('resizing');
+                    });
+
+                    nodesEl.appendChild(resizeHandle);
+                });
+            });
+
+            // Update all resize handle positions after DOM rendering is fully complete
+            // Use double requestAnimationFrame to ensure layout is calculated
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    updateAllHandlePositions();
+                });
+            });
+        }
+
+        // Update all resize handle positions based on actual DOM state
+        function updateAllHandlePositions() {
+            state.nodes.forEach(node => {
+                let nx, ny;
+                if (node.parentId !== null) {
+                    // Child node: calculate absolute position
+                    const parent = state.nodes.find(n => n.id === node.parentId);
+                    if (parent) {
+                        const absPos = getNodeAbsolutePosition(node);
+                        nx = absPos.x;
+                        ny = absPos.y;
+                    } else {
+                        nx = node.x;
+                        ny = node.y;
+                    }
+                } else {
+                    nx = node.x;
+                    ny = node.y;
+                }
+                const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                if (!domEl) return;
+
+                const nw = domEl.offsetWidth;
+                const actualH = domEl.offsetHeight;
+
+                document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(handle => {
+                    const pos = handle.dataset.pos;
+                    let hx, hy;
+                    if (pos === 'nw') { hx = nx - 5; hy = ny - 5; }
+                    else if (pos === 'ne') { hx = nx + nw - 5; hy = ny - 5; }
+                    else if (pos === 'sw') { hx = nx - 5; hy = ny + actualH - 5; }
+                    else if (pos === 'se') { hx = nx + nw - 5; hy = ny + actualH - 5; }
+                    handle.style.left = hx + 'px';
+                    handle.style.top = hy + 'px';
+                });
+            });
+        }
+
+        function renderConnections() {
+            connectionsSvg.innerHTML = '';
+
+            // Collect all nodes that are hidden due to parent connection collapse (cascade)
+            const hiddenNodeIds = new Set();
+            state.connections.forEach(conn => {
+                if (conn.collapsed) {
+                    const hideDescendants = (nodeId) => {
+                        hiddenNodeIds.add(nodeId);
+                        state.connections
+                            .filter(c => c.from === nodeId)
+                            .forEach(c => hideDescendants(c.to));
+                    };
+                    hideDescendants(conn.to);
+                }
+            });
+
+            state.connections.forEach(conn => {
+                // Skip connections whose source is hidden by parent collapse
+                if (hiddenNodeIds.has(conn.from)) return;
+
+                const fromNode = state.nodes.find(n => n.id === conn.from);
+                const toNode = state.nodes.find(n => n.id === conn.to);
+                if (!fromNode || !toNode) return;
+
+                // Skip connections involving completed nodes when hideCompleted is enabled
+                if (state.hideCompleted && (fromNode.completed || toNode.completed)) return;
+
+                // Skip parent-child relationships (already shown as nested list)
+                if (toNode.parentId === fromNode.id || fromNode.parentId === toNode.id) return;
+
+                // Calculate edge points: root nodes use center, child nodes use left/right side
+                let fromEdge, toEdge;
+                if (fromNode.parentId === null) {
+                    fromEdge = getNodeEdgePoint(fromNode, toNode);
+                } else {
+                    fromEdge = getNodeConnectionSidePoint(fromNode, toNode, true);
+                }
+                if (toNode.parentId === null) {
+                    toEdge = getNodeEdgePoint(toNode, fromNode);
+                } else {
+                    toEdge = getNodeConnectionSidePoint(toNode, fromNode, false);
+                }
+
+                const x1 = fromEdge.x;
+                const y1 = fromEdge.y;
+                const x2 = toEdge.x;
+                const y2 = toEdge.y;
+
+                // Calculate absolute centers for control points
+                let fromAbsX = fromNode.x, fromAbsY = fromNode.y;
+                let toAbsX = toNode.x, toAbsY = toNode.y;
+                if (fromNode.parentId !== null) {
+                    const abs = getNodeAbsolutePosition(fromNode);
+                    fromAbsX = abs.x; fromAbsY = abs.y;
+                }
+                if (toNode.parentId !== null) {
+                    const abs = getNodeAbsolutePosition(toNode);
+                    toAbsX = abs.x; toAbsY = abs.y;
+                }
+
+                const fromCx = fromAbsX + (fromNode.width || 200) / 2;
+                const fromCy = fromAbsY + (fromNode.height || 50) / 2;
+                const toCx = toAbsX + (toNode.width || 200) / 2;
+                const toCy = toAbsY + (toNode.height || 50) / 2;
+
+                const dx = toCx - fromCx;
+                const dy = toCy - fromCy;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const cx1 = fromCx + dx * 0.3;
+                const cy1 = fromCy + Math.max(len * 0.2, 40) * (dy >= 0 ? 1 : -1);
+                const cx2 = toCx - dx * 0.3;
+                const cy2 = toCy - Math.max(len * 0.2, 40) * (dy >= 0 ? 1 : -1);
+
+                const pathD = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+
+                // Get node colors for gradient and endpoints
+                const fromColor = fromNode.color || '#999';
+                const toColor = toNode.color || '#999';
+
+                // Create SVG gradient for this connection
+                const svg = document.getElementById('connections');
+                let defs = svg.querySelector('defs');
+                if (!defs) {
+                    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                    svg.prepend(defs);
+                }
+                const gradId = `conn-grad-${conn.from}-${conn.to}`;
+                // Remove existing gradient if any (to update colors)
+                const existingGrad = document.getElementById(gradId);
+                if (existingGrad) existingGrad.remove();
+                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+                gradient.setAttribute('id', gradId);
+                gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+                gradient.setAttribute('x1', x1);
+                gradient.setAttribute('y1', y1);
+                gradient.setAttribute('x2', x2);
+                gradient.setAttribute('y2', y2);
+                const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop1.setAttribute('offset', '0%');
+                stop1.setAttribute('stop-color', fromColor);
+                const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop2.setAttribute('offset', '100%');
+                stop2.setAttribute('stop-color', toColor);
+                gradient.appendChild(stop1);
+                gradient.appendChild(stop2);
+                defs.appendChild(gradient);
+
+                // Group for hover management
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.classList.add('conn-group');
+                group.setAttribute('data-from', conn.from);
+                group.setAttribute('data-to', conn.to);
+
+                // Invisible wider path for easier hit testing (reduced from 20 to 10)
+                const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                hitPath.setAttribute('d', pathD);
+                hitPath.setAttribute('fill', 'none');
+                hitPath.setAttribute('stroke', 'rgba(0,0,0,0)');
+                hitPath.setAttribute('stroke-width', '10');
+                hitPath.setAttribute('pointer-events', 'all');
+                hitPath.style.pointerEvents = 'all';
+                hitPath.style.cursor = 'pointer';
+
+                // Visible line with gradient
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathD);
+                path.setAttribute('class', 'connection-line');
+                path.setAttribute('stroke', `url(#${gradId})`);
+                path.setAttribute('pointer-events', 'none');
+                path.style.pointerEvents = 'none';
+
+                // Double-click to toggle collapse (mousedown-based for reliability + dblclick fallback)
+                let connLastMouseDown = 0;
+                let connMouseDownPos = { x: 0, y: 0 };
+
+                const doToggleCollapse = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    conn.collapsed = !conn.collapsed;
+                    if (conn.collapsed && !conn.originalToPos) {
+                        conn.originalToPos = { x: toNode.x, y: toNode.y };
+                    }
+                    // Clear saved indicator position when expanding so it recalculates to mid-point
+                    if (!conn.collapsed) {
+                        delete conn.indX;
+                        delete conn.indY;
+                    }
+                    renderNodes();
+                    renderConnections();
+                };
+
+                hitPath.addEventListener('dblclick', doToggleCollapse);
+
+                // mousedown-based double-click detection for SVG reliability
+                hitPath.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    const now = Date.now();
+                    const dx = e.clientX - connMouseDownPos.x;
+                    const dy = e.clientY - connMouseDownPos.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (now - connLastMouseDown < 300 && dist < 10) {
+                        // Double-click detected
+                        connLastMouseDown = 0;
+                        doToggleCollapse(e);
+                        // Clear saved indicator position when toggling collapse via connection line
+                        delete conn.indX;
+                        delete conn.indY;
+                    } else {
+                        connLastMouseDown = now;
+                        connMouseDownPos = { x: e.clientX, y: e.clientY };
+                    }
+                });
+
+                // For collapsed connections, shorten line to indicator at mid-point
+                if (conn.collapsed) {
+                    let indX, indY;
+                    if (state.dragIndicator && state.dragIndicator.conn === conn) {
+                        // Use drag position for smooth mouse tracking
+                        indX = state.dragIndicator.currentIndX;
+                        indY = state.dragIndicator.currentIndY;
+                    } else if (conn.indX !== undefined && conn.indY !== undefined) {
+                        // Use saved indicator position from previous drag
+                        indX = conn.indX;
+                        indY = conn.indY;
+                    } else {
+                        indX = (fromCx + toCx) / 2;
+                        indY = (fromCy + toCy) / 2;
+                    }
+                    const shortD = `M ${x1} ${y1} L ${indX} ${indY}`;
+                    path.setAttribute('d', shortD);
+                    hitPath.setAttribute('d', shortD);
+                    path.setAttribute('stroke-dasharray', '5,3');
+                }
+
+                group.appendChild(hitPath);
+                group.appendChild(path);
+
+                // Endpoint dots colored by each node's color box
+                const fromDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromDot.setAttribute('cx', x1);
+                fromDot.setAttribute('cy', y1);
+                fromDot.setAttribute('r', '7');
+                fromDot.style.fill = '#fff';
+                fromDot.style.stroke = fromColor;
+                fromDot.style.strokeWidth = '1.5';
+                fromDot.setAttribute('pointer-events', 'none');
+                fromDot.classList.add('conn-endpoint');
+                group.appendChild(fromDot);
+
+                const toDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                toDot.setAttribute('cx', x2);
+                toDot.setAttribute('cy', y2);
+                toDot.setAttribute('r', '7');
+                toDot.style.fill = '#fff';
+                toDot.style.stroke = toColor;
+                toDot.style.strokeWidth = '1.5';
+                toDot.setAttribute('pointer-events', 'none');
+                toDot.classList.add('conn-endpoint');
+                group.appendChild(toDot);
+
+                // Collapsed indicator at mid-point (where label would be)
+                let indX, indY;
+                if (conn.collapsed) {
+                    if (state.dragIndicator && state.dragIndicator.conn === conn) {
+                        // Use drag position for smooth mouse tracking
+                        indX = state.dragIndicator.currentIndX;
+                        indY = state.dragIndicator.currentIndY;
+                    } else if (conn.indX !== undefined && conn.indY !== undefined) {
+                        // Use saved indicator position from previous drag
+                        indX = conn.indX;
+                        indY = conn.indY;
+                    } else {
+                        indX = (fromCx + toCx) / 2;
+                        indY = (fromCy + toCy) / 2;
+                    }
+
+                    const indicator = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    indicator.setAttribute('cx', indX);
+                    indicator.setAttribute('cy', indY);
+                    indicator.setAttribute('r', '12');
+                    indicator.setAttribute('fill', '#fff');
+                    indicator.setAttribute('stroke', toColor);
+                    indicator.setAttribute('stroke-width', '2');
+                    indicator.setAttribute('class', 'collapse-indicator');
+                    indicator.style.cursor = 'pointer';
+                    indicator.style.pointerEvents = 'all';
+
+                    const plus = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    plus.setAttribute('x', indX);
+                    plus.setAttribute('y', indY + 4);
+                    plus.setAttribute('text-anchor', 'middle');
+                    plus.setAttribute('font-size', '14');
+                    plus.setAttribute('fill', toColor);
+                    plus.setAttribute('class', 'collapse-plus');
+                    plus.style.pointerEvents = 'all';
+                    plus.style.cursor = 'pointer';
+                    plus.textContent = '+';
+
+                    // Click indicator to expand
+                    // +インジケータのダブルクリック/ドラッグ処理(indicatorとplusで変数を共有)
+                    // 注意: renderConnections()の呼び出しごとにリセットされないようstateで管理
+                    if (!state.indClickState) state.indClickState = {};
+                    const indClickKey = conn.from + '-' + conn.to;
+                    if (!state.indClickState[indClickKey]) {
+                        state.indClickState[indClickKey] = { lastMouseDown: 0, mouseDownPos: { x: 0, y: 0 } };
+                    }
+                    const indClick = state.indClickState[indClickKey];
+
+                    [indicator, plus].forEach(el => {
+                        // Drag indicator to move collapsed node and all hidden descendants
+                        // Also handles double-click to toggle collapse/expand
+                        el.addEventListener('mousedown', (e) => {
+                            if (e.button !== 0) return;
+                            const now = Date.now();
+                            const dx = e.clientX - indClick.mouseDownPos.x;
+                            const dy = e.clientY - indClick.mouseDownPos.y;
+                            const dist = Math.hypot(dx, dy);
+
+                            if (now - indClick.lastMouseDown < 300 && dist < 10) {
+                                // Double-click: toggle collapse (same as connection line)
+                                indClick.lastMouseDown = 0;
+                                e.stopPropagation();
+                                e.preventDefault();
+                                conn.collapsed = !conn.collapsed;
+                                if (!conn.collapsed && conn.originalToPos) {
+                                    toNode.x = conn.originalToPos.x;
+                                    toNode.y = conn.originalToPos.y;
+                                    delete conn.originalToPos;
+                                    // Clear saved indicator position when expanding
+                                    delete conn.indX;
+                                    delete conn.indY;
+                                } else if (conn.collapsed && !conn.originalToPos) {
+                                    conn.originalToPos = { x: toNode.x, y: toNode.y };
+                                    // Clear saved indicator position when re-collapsing (will use midpoint)
+                                    delete conn.indX;
+                                    delete conn.indY;
+                                }
+                                renderNodes();
+                                renderConnections();
+                                return;
+                            }
+
+                            indClick.lastMouseDown = now;
+                            indClick.mouseDownPos = { x: e.clientX, y: e.clientY };
+
+                            // Single click: start drag
+                            e.stopPropagation();
+                            e.preventDefault();
+
+                            // Collect all hidden descendant nodes with their offsets from indicator
+                            const hiddenDescendants = [];
+
+                            // Include the direct target node (B) first
+                            const toNode = state.nodes.find(n => n.id === conn.to);
+                            if (toNode) {
+                                hiddenDescendants.push({
+                                    node: toNode,
+                                    offsetX: toNode.x - indX,
+                                    offsetY: toNode.y - indY,
+                                    conn: conn
+                                });
+                            }
+
+                            // Recursively collect ALL descendants (not just collapsed connections)
+                            // In cascade collapse, child connections may not have collapsed flag
+                            const collectHidden = (nodeId) => {
+                                state.connections
+                                    .filter(c => c.from === nodeId)
+                                    .forEach(c => {
+                                        const n = state.nodes.find(node => node.id === c.to);
+                                        if (n) {
+                                            hiddenDescendants.push({
+                                                node: n,
+                                                offsetX: n.x - indX,
+                                                offsetY: n.y - indY,
+                                                conn: c
+                                            });
+                                            collectHidden(c.to);
+                                        }
+                                    });
+                            };
+                            collectHidden(conn.to);
+
+                            state.dragIndicator = {
+                                conn: conn,
+                                indOffsetX: (e.clientX - container.getBoundingClientRect().left - state.panX) / state.scale - indX,
+                                indOffsetY: (e.clientY - container.getBoundingClientRect().top - state.panY) / state.scale - indY,
+                                hiddenDescendants: hiddenDescendants,
+                                currentIndX: indX,
+                                currentIndY: indY
+                            };
+                        });
+                    });
+
+                    group.appendChild(indicator);
+                    group.appendChild(plus);
+                }
+
+                // Label
+                if (conn.label && !conn.collapsed) {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('class', 'connection-label');
+                    text.setAttribute('x', (fromCx + toCx) / 2);
+                    text.setAttribute('y', (fromCy + toCy) / 2 - 10);
+                    text.textContent = conn.label;
+                    text.style.pointerEvents = 'all';
+                    text.style.cursor = 'pointer';
+                    text.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        conn.collapsed = !conn.collapsed;
+                        if (conn.collapsed && !conn.originalToPos) {
+                            conn.originalToPos = { x: toNode.x, y: toNode.y };
+                        }
+                        renderNodes();
+                        renderConnections();
+                    });
+                    group.appendChild(text);
+                }
+
+                // Connection point on "from" node (draggable to change source)
+                const fromPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromPoint.setAttribute('class', 'conn-point');
+                fromPoint.setAttribute('cx', x1);
+                fromPoint.setAttribute('cy', y1);
+                fromPoint.setAttribute('r', '6');
+                fromPoint.style.fill = fromColor;
+                fromPoint.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    state.draggingConn = conn;
+                    state.draggingConn.isSource = true;
+                    fromPoint.classList.add('dragging');
+                });
+                group.appendChild(fromPoint);
+
+                // Connection point on "to" node (draggable to change destination) - hidden when collapsed
+                if (!conn.collapsed) {
+                    const toPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    toPoint.setAttribute('class', 'conn-point');
+                    toPoint.setAttribute('cx', x2);
+                    toPoint.setAttribute('cy', y2);
+                    toPoint.setAttribute('r', '6');
+                    toPoint.style.fill = toColor;
+                    toPoint.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        state.draggingConn = conn;
+                        state.draggingConn.isSource = false;
+                        toPoint.classList.add('dragging');
+                    });
+                    group.appendChild(toPoint);
+                }
+
+                // Arrowhead - hidden when collapsed
+                if (!conn.collapsed) {
+                    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    const angle = Math.atan2(y2 - cy2, x2 - cx2);
+                    const arrowLen = 10;
+                    const arrowAngle = 0.5;
+                    arrow.setAttribute('points', `
+                        ${x2},${y2}
+                        ${x2 - arrowLen * Math.cos(angle - arrowAngle)},${y2 - arrowLen * Math.sin(angle - arrowAngle)}
+                        ${x2 - arrowLen * Math.cos(angle + arrowAngle)},${y2 - arrowLen * Math.sin(angle + arrowAngle)}
+                    `);
+                    arrow.setAttribute('fill', toColor);
+                    group.appendChild(arrow);
+                }
+
+                // Right-click on connection to delete - use distance-based priority
+                group.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Distance-based priority: check if this is the closest connection to mouse
+                    const mouseX = (e.clientX - state.panX) / state.scale;
+                    const mouseY = (e.clientY - state.panY) / state.scale;
+
+                    let closestConn = conn;
+                    let minDist = Infinity;
+
+                    const groups = connectionsSvg.querySelectorAll('.conn-group');
+                    for (const g of groups) {
+                        const hitPath = g.querySelector('path[stroke-width="10"]');
+                        if (!hitPath) continue;
+                        const pathLen = hitPath.getTotalLength();
+                        if (pathLen === 0) continue;
+
+                        let bestDist = Infinity;
+                        const step = Math.max(pathLen / 20, 5);
+                        for (let i = 0; i <= pathLen; i += step) {
+                            const pt = hitPath.getPointAtLength(Math.min(i, pathLen));
+                            const d = Math.hypot(pt.x - mouseX, pt.y - mouseY);
+                            if (d < bestDist) bestDist = d;
+                        }
+
+                        const threshold = 15 / state.scale;
+                        if (bestDist < threshold && bestDist < minDist) {
+                            minDist = bestDist;
+                            const fromId = parseInt(g.getAttribute('data-from'));
+                            const toId = parseInt(g.getAttribute('data-to'));
+                            const foundConn = state.connections.find(c => c.from === fromId && c.to === toId);
+                            if (foundConn) closestConn = foundConn;
+                        }
+                    }
+
+                    showConnectionContextMenu(e.clientX, e.clientY, closestConn);
+                });
+
+                // Wider invisible hover area (reduced from 30 to 15)
+                const hoverPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                // Use shortened path when collapsed to avoid hidden node area
+                if (conn.collapsed) {
+                    const indX = (fromCx + toCx) / 2;
+                    const indY = (fromCy + toCy) / 2;
+                    hoverPath.setAttribute('d', `M ${x1} ${y1} L ${indX} ${indY}`);
+                } else {
+                    hoverPath.setAttribute('d', pathD);
+                }
+                hoverPath.setAttribute('fill', 'none');
+                hoverPath.setAttribute('stroke', 'transparent');
+                hoverPath.setAttribute('stroke-width', '15');
+                hoverPath.setAttribute('pointer-events', 'stroke');
+                hoverPath.setAttribute('cursor', 'pointer');
+                hoverPath.style.opacity = '0';
+                group.insertBefore(hoverPath, path);
+
+                connectionsSvg.appendChild(group);
+            });
+        }
+
+        // ==================== Virtual Connection Line ====================
+        function updatePendingConnection(x, y, fromNodeId) {
+            let tempLine = document.getElementById('pending-connection');
+            const sourceId = fromNodeId || state.connectingFrom;
+            if (!sourceId && !state.draggingConn) {
+                if (tempLine) tempLine.remove();
+                return;
+            }
+
+            let fromNode;
+            if (state.draggingConn) {
+                const anchorNodeId = state.draggingConn.isSource ? state.draggingConn.to : state.draggingConn.from;
+                fromNode = state.nodes.find(n => n.id === anchorNodeId);
+            } else {
+                fromNode = state.nodes.find(n => n.id === sourceId);
+            }
+            if (!fromNode) {
+                if (tempLine) tempLine.remove();
+                return;
+            }
+
+            const x1 = fromNode.x + (fromNode.width || 200) / 2;
+            const y1 = fromNode.y + (fromNode.height || 50) / 2;
+            const x2 = (x - state.panX) / state.scale;
+            const y2 = (y - state.panY) / state.scale;
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const cx1 = x1 + dx * 0.5;
+            const cy1 = y1;
+            const cx2 = x2 - dx * 0.5;
+            const cy2 = y2;
+
+            const pathD = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+
+            if (!tempLine) {
+                tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                tempLine.id = 'pending-connection';
+                tempLine.setAttribute('fill', 'none');
+                tempLine.setAttribute('stroke', '#4a90d9');
+                tempLine.setAttribute('stroke-width', '2');
+                tempLine.setAttribute('stroke-dasharray', '6,4');
+                tempLine.setAttribute('pointer-events', 'none');
+                connectionsSvg.appendChild(tempLine);
+            }
+
+            tempLine.setAttribute('d', pathD);
+        }
+        function showColorPicker(e, node) {
+            const existing = document.querySelector('.color-picker');
+            if (existing) existing.remove();
+
+            const picker = document.createElement('div');
+            picker.className = 'color-picker';
+            picker.style.left = e.clientX + 'px';
+            picker.style.top = e.clientY + 'px';
+
+            state.colors.forEach(c => {
+                const opt = document.createElement('div');
+                opt.className = 'color-option';
+                opt.style.backgroundColor = c;
+                opt.addEventListener('click', () => {
+                    node.color = c;
+                    renderNodes();
+                    picker.remove();
+                });
+                picker.appendChild(opt);
+            });
+
+            document.body.appendChild(picker);
+
+            const close = (e) => {
+                if (!picker.contains(e.target)) {
+                    picker.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        // ==================== Mouse/Touch Handlers ====================
+        const nodeDblClickState = new Map();
+
+        // Unified drag-and-drop mouseenter handler for all node types
+        function handleNodeMouseEnter(e, element, node) {
+            // State management is handled entirely by mousemove (vertical third-split logic).
+            // mouseenter only clears stale CSS classes from other nodes.
+            if (!state.isDragging || !state.dragNode || state.dragNode.id === node.id) return;
+            // No state updates here - mousemove owns state.dropTarget / state.reorderTarget
+        }
+
+        // Unified drag-and-drop mouseleave handler for all node types
+        function handleNodeMouseLeave(element, node) {
+            // State (dropTarget/reorderTarget) is managed by mousemove; do not clear here
+            // to avoid race conditions between mouseleave and mousemove events.
+        }
+
+        function handleNodeMouseDown(e, node) {
+            console.log('[DEBUG] handleNodeMouseDown called. target=', e.target.className, 'nodeId=', node.id);
+            if (e.button !== 0) return;
+            // Guard: skip drag if clicking on interactive elements (allow dragging on node-title)
+            // ハンバーガーメニューのmousedownも除外
+            if (e.target.closest('.task-delete-btn') ||
+                e.target.closest('.expand-btn') || e.target.closest('.color-picker') ||
+                e.target.closest('.node-color') || e.target.closest('.add-task') ||
+                e.target.closest('.resize-handle') || e.target.closest('.hamburger') ||
+                e.target.closest('.node-indicators') || e.target.closest('.indicator-group')) {
+                console.log('[DEBUG] handleNodeMouseDown: clicked on interactive element, returning');
+                return;
+            }
+
+            e.stopPropagation();
+
+            const now = Date.now();
+            const dblState = nodeDblClickState.get(node.id) || { lastMouseDownTime: 0, cooldown: false };
+
+            if (dblState.cooldown) {
+                e.preventDefault();
+                return;
+            }
+
+            const timeDiff = now - dblState.lastMouseDownTime;
+            if (timeDiff < 300) {
+                e.preventDefault();
+                window.getSelection().removeAllRanges();
+                dblState.cooldown = true;
+                dblState.lastMouseDownTime = 0;
+                nodeDblClickState.set(node.id, dblState);
+
+                node.expanded = !node.expanded;
+                renderNodes();
+
+                // Clear drag state to prevent extraction on mouseup after double-click
+                state.dragNode = null;
+                state.isDragging = false;
+                state.pendingExtract = false;
+                state.reorderTarget = null;
+                state.dropTarget = null;
+                const tooltip = document.getElementById('drag-tooltip');
+                if (tooltip) tooltip.classList.remove('show');
+
+                setTimeout(() => {
+                    dblState.cooldown = false;
+                    nodeDblClickState.set(node.id, dblState);
+                }, 200);
+                return;
+            }
+
+            dblState.lastMouseDownTime = now;
+            nodeDblClickState.set(node.id, dblState);
+
+            // Calculate absolute position for drag offset
+            let nodeAbsX = node.x;
+            let nodeAbsY = node.y;
+            if (node.parentId !== null) {
+                // Use actual DOM position for child nodes to prevent jump at drag start
+                const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                if (domEl) {
+                    const rect = domEl.getBoundingClientRect();
+                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                    nodeAbsX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                    nodeAbsY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                } else {
+                    const absPos = getNodeAbsolutePosition(node);
+                    nodeAbsX = absPos.x;
+                    nodeAbsY = absPos.y;
+                }
+                // Store absolute position so renderNodes() can position the dragged node correctly
+                node.absX = nodeAbsX;
+                node.absY = nodeAbsY;
+            }
+
+            // Store drag start position to distinguish click from drag
+            state.dragStartX = nodeAbsX;
+            state.dragStartY = nodeAbsY;
+
+            // Multi-select drag: if node is already selected, keep selection and start drag
+            if (!e.ctrlKey && !e.metaKey && state.mode !== 'connect' &&
+                state.selectedNodeIds.length > 0 && state.selectedNodeIds.includes(node.id)) {
+                state.dragNode = node;
+                state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
+                state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
+
+                // Don't start drag immediately - wait for mousemove threshold
+                state.isDragging = false;
+                state.pendingExtract = false;
+                state.dropTarget = null;
+                state.reorderTarget = null;
+                state.dragStartMouseX = e.clientX;
+                state.dragStartMouseY = e.clientY;
+
+                return;
+            }
+
+            if (state.mode === 'connect') {
+                if (!state.connectingFrom) {
+                    state.connectingFrom = node.id;
+                    modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                } else if (state.connectingFrom !== node.id) {
+                    createConnection(state.connectingFrom, node.id);
+                    state.connectingFrom = null;
+                    modeIndicator.textContent = '接続モード: 開始ノードを選択';
+                    setMode('select');
+                }
+                return;
+            }
+
+            if (e.ctrlKey || e.metaKey) {
+                toggleNodeSelection(node.id, true);
+                return;
+            }
+
+            clearSelection();
+            state.selectedNodeId = node.id;
+            state.dragNode = node;
+            state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
+            state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
+
+            // ドラッグ開始時にピッカー等のツールバーをクリア
+            document.querySelectorAll('.priority-picker, .color-picker, .canvas-context-menu, .detail-editor-popup, .node-hover-tooltip').forEach(el => el.remove());
+
+            // Don't start drag immediately - wait for mousemove threshold
+            state.isDragging = false;
+            state.pendingExtract = false;  // Reset extraction flag at drag start
+            state.dropTarget = null;  // Clear drop target at drag start
+            state.reorderTarget = null;  // Clear reorder target at drag start
+            state.dragStartMouseX = e.clientX;
+            state.dragStartMouseY = e.clientY;
+
+            renderNodes();
+        }
+
+        let longPressTimer = null;
+        let isLongPress = false;
+
+        function handleNodeTouchStart(e, node) {
+            if (e.target.closest('.node-title') || e.target.closest('.add-task') ||
+                e.target.closest('input[type="checkbox"]') || e.target.closest('.node-color')) return;
+
+            e.stopPropagation();
+            e.preventDefault();
+
+            const touch = e.touches[0];
+
+            if (state.mode === 'connect') {
+                if (!state.connectingFrom) {
+                    state.connectingFrom = node.id;
+                    modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                } else if (state.connectingFrom !== node.id) {
+                    createConnection(state.connectingFrom, node.id);
+                    state.connectingFrom = null;
+                    setMode('select');
+                }
+                return;
+            }
+
+            isLongPress = false;
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                toggleNodeSelection(node.id, true);
+            }, 500);
+
+            state.selectedNodeId = node.id;
+            state.dragNode = node;
+            // Calculate absolute position for drag offset
+            let nodeAbsX = node.x;
+            let nodeAbsY = node.y;
+            if (node.parentId !== null) {
+                // Use actual DOM position for child nodes to prevent jump at drag start
+                const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                if (domEl) {
+                    const rect = domEl.getBoundingClientRect();
+                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                    nodeAbsX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                    nodeAbsY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                } else {
+                    const absPos = getNodeAbsolutePosition(node);
+                    nodeAbsX = absPos.x;
+                    nodeAbsY = absPos.y;
+                }
+                // Store absolute position so renderNodes() can position the dragged node correctly
+                node.absX = nodeAbsX;
+                node.absY = nodeAbsY;
+            }
+            state.dragOffsetX = (touch.clientX - state.panX) / state.scale - nodeAbsX;
+            state.dragOffsetY = (touch.clientY - state.panY) / state.scale - nodeAbsY;
+            renderNodes();
+        }
+
+        container.addEventListener('mousedown', (e) => {
+            // Skip if clicking on interactive elements (nodes, connections, UI)
+            if (e.target.closest('.node') || e.target.closest('.conn-group') || e.target.closest('.conn-point') ||
+                e.target.closest('.toolbar') || e.target.closest('.zoom-controls') ||
+                e.target.closest('.context-menu') || e.target.closest('.color-picker') ||
+                e.target.classList.contains('selection-box')) return;
+
+            if (state.mode === 'node') {
+                const x = (e.clientX - state.panX) / state.scale;
+                const y = (e.clientY - state.panY) / state.scale;
+
+                // Check if click is inside any existing node - if so, nest the new node inside it
+                let parentNode = null;
+                for (const n of state.nodes) {
+                    if (n.parentId !== null) continue; // Only root nodes can be parents for nesting
+                    const nx = n.x, ny = n.y;
+                    const nw = n.width || 200;
+                    const nh = n.height || 50;
+                    if (x >= nx && x <= nx + nw && y >= ny && y <= ny + nh) {
+                        parentNode = n;
+                        break;
+                    }
+                }
+
+                const newNode = createNode(x, y);
+
+                if (parentNode) {
+                    // Nest inside the parent node
+                    if (!parentNode.children) parentNode.children = [];
+                    parentNode.children.push(newNode.id);
+                    newNode.parentId = parentNode.id;
+                    newNode.x = 20;
+                    newNode.y = 10;
+                    parentNode.expanded = true;
+                }
+
+                setMode('select');
+                clearSelection();
+                // Auto-focus title for immediate editing
+                requestAnimationFrame(() => {
+                    const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                    const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                    try {
+                        enableTitleEdit(titleEl, newNode);
+                    } catch (err) {
+                        console.error('Error in enableTitleEdit:', err);
+                    }
+                });
+                return;
+            }
+
+            if (state.mode === 'pan' || e.button === 1 || e.button === 2 || e.shiftKey) {
+                state.isPanning = true;
+                state.lastMouseX = e.clientX;
+                state.lastMouseY = e.clientY;
+                container.classList.add('panning');
+                if (e.button === 2) {
+                    state.rightClickPanning = true;
+                    state.rightClickPanStartX = e.clientX;
+                    state.rightClickPanStartY = e.clientY;
+                    state.suppressContextMenu = false;
+                }
+                e.preventDefault();
+            } else if (state.connectingFrom) {
+                // 接続作成中の空白クリック → 新規ノード作成して接続
+                const x = (e.clientX - state.panX) / state.scale;
+                const y = (e.clientY - state.panY) / state.scale;
+                const newNode = createNode(x, y);
+                createConnection(state.connectingFrom, newNode.id);
+                state.connectingFrom = null;
+                const tempLine = document.getElementById('pending-connection');
+                if (tempLine) tempLine.remove();
+                modeIndicator.classList.remove('active');
+                setMode('select');
+                clearSelection();
+                // 新規ノードのタイトル編集を開始
+                requestAnimationFrame(() => {
+                    const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                    const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                    try {
+                        enableTitleEdit(titleEl, newNode);
+                    } catch (err) {
+                        console.error('Error in enableTitleEdit:', err);
+                    }
+                });
+                e.preventDefault();
+            } else {
+                // Range selection start
+                if (!e.ctrlKey && !e.metaKey) {
+                    clearSelection();
+                }
+                state.isSelecting = true;
+                state.selectionStartX = (e.clientX - state.panX) / state.scale;
+                state.selectionStartY = (e.clientY - state.panY) / state.scale;
+                updateSelectionBox();
+                e.preventDefault();
+            }
+        });
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+
+                if (state.mode === 'node') {
+                    const x = (touch.clientX - state.panX) / state.scale;
+                    const y = (touch.clientY - state.panY) / state.scale;
+
+                    // Check if touch is inside any existing node - if so, nest the new node inside it
+                    let parentNode = null;
+                    for (const n of state.nodes) {
+                        if (n.parentId !== null) continue;
+                        const nx = n.x, ny = n.y;
+                        const nw = n.width || 200;
+                        const nh = n.height || 50;
+                        if (x >= nx && x <= nx + nw && y >= ny && y <= ny + nh) {
+                            parentNode = n;
+                            break;
+                        }
+                    }
+
+                    const newNode = createNode(x, y);
+
+                    if (parentNode) {
+                        // Nest inside the parent node
+                        if (!parentNode.children) parentNode.children = [];
+                        parentNode.children.push(newNode.id);
+                        newNode.parentId = parentNode.id;
+                        newNode.x = 20;
+                        newNode.y = 10;
+                        parentNode.expanded = true;
+                    }
+
+                    setMode('select');
+                    clearSelection();
+                    requestAnimationFrame(() => {
+                        const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                        const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                        try {
+                            enableTitleEdit(titleEl, newNode);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    });
+                    return;
+                }
+
+                if (state.connectingFrom) {
+                    // 接続作成中の空白タップ → 新規ノード作成して接続
+                    const x = (touch.clientX - state.panX) / state.scale;
+                    const y = (touch.clientY - state.panY) / state.scale;
+                    const newNode = createNode(x, y);
+                    createConnection(state.connectingFrom, newNode.id);
+                    state.connectingFrom = null;
+                    const tempLine = document.getElementById('pending-connection');
+                    if (tempLine) tempLine.remove();
+                    modeIndicator.classList.remove('active');
+                    setMode('select');
+                    clearSelection();
+                    requestAnimationFrame(() => {
+                        const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                        const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                        try {
+                            enableTitleEdit(titleEl, newNode);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    });
+                    return;
+                }
+
+                state.isPanning = true;
+                state.lastMouseX = touch.clientX;
+                state.lastMouseY = touch.clientY;
+            } else if (e.touches.length === 2) {
+                state.lastPinchDist = getPinchDistance(e.touches);
+                state.lastPinchScale = state.scale;
+            }
+        }, { passive: false });
+
+        window.addEventListener('mousemove', (e) => {
+            // Debug log for mousemove
+            if (state.dragNode) {
+                console.log('[DEBUG] mousemove. dragNode=', state.dragNode.id, 'isDragging=', state.isDragging, 'dropTarget=', state.dropTarget ? state.dropTarget.id : null, 'reorderTarget=', state.reorderTarget ? state.reorderTarget.siblingId : null);
+            }
+            // Update pending connection line
+            if (state.connectingFrom || state.draggingConn) {
+                updatePendingConnection(e.clientX, e.clientY);
+            }
+
+            // Drag collapsed indicator to move hidden node and all descendants
+            if (state.dragIndicator) {
+                const containerRect = container.getBoundingClientRect();
+                const newIndX = (e.clientX - containerRect.left - state.panX) / state.scale - state.dragIndicator.indOffsetX;
+                const newIndY = (e.clientY - containerRect.top - state.panY) / state.scale - state.dragIndicator.indOffsetY;
+
+                // Update current indicator position for rendering
+                state.dragIndicator.currentIndX = newIndX;
+                state.dragIndicator.currentIndY = newIndY;
+
+                // Move all hidden descendants following the indicator with relative offsets
+                state.dragIndicator.hiddenDescendants.forEach(desc => {
+                    desc.node.x = newIndX + desc.offsetX;
+                    desc.node.y = newIndY + desc.offsetY;
+                    // Update original position tracking
+                    if (desc.conn.originalToPos) {
+                        desc.conn.originalToPos.x = desc.node.x;
+                        desc.conn.originalToPos.y = desc.node.y;
+                    }
+                });
+                // Save indicator position on the main connection only (not descendants)
+                // to avoid incorrect position references when descendants are independently collapsed
+                state.dragIndicator.conn.indX = newIndX;
+                state.dragIndicator.conn.indY = newIndY;
+
+                renderNodes();
+                renderConnections();
+                return;
+            }
+
+            if (state.isPanning) {
+                if (state.rightClickPanning) {
+                    const dist = Math.hypot(e.clientX - state.rightClickPanStartX, e.clientY - state.rightClickPanStartY);
+                    if (dist > 3) {
+                        state.suppressContextMenu = true;
+                    }
+                }
+                state.panX += e.clientX - state.lastMouseX;
+                state.panY += e.clientY - state.lastMouseY;
+                state.lastMouseX = e.clientX;
+                state.lastMouseY = e.clientY;
+                updateTransform();
+            }
+
+            // Connection dragging - change source or destination node
+            if (state.draggingConn) {
+                const mx = (e.clientX - state.panX) / state.scale;
+                const my = (e.clientY - state.panY) / state.scale;
+
+                // Find node under cursor - unified hit detection: closest center wins
+                let candidates = [];
+                for (const node of state.nodes) {
+                    if (node.id === state.draggingConn.from || node.id === state.draggingConn.to) continue;
+                    let nx, ny;
+                    if (node.parentId !== null) {
+                        const abs = getNodeAbsolutePosition(node);
+                        nx = abs.x; ny = abs.y;
+                    } else {
+                        nx = node.x; ny = node.y;
+                    }
+                    const nw = node.width || 200;
+                    const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                    const nh = domEl ? domEl.offsetHeight : (node.height || 50);
+                    if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                        const centerX = nx + nw / 2;
+                        const centerY = ny + nh / 2;
+                        const dist = Math.hypot(mx - centerX, my - centerY);
+                        candidates.push({ node, dist });
+                    }
+                }
+                let targetNode = null;
+                let minDist = Infinity;
+                for (const c of candidates) {
+                    if (c.dist < minDist) {
+                        minDist = c.dist;
+                        targetNode = c.node;
+                    }
+                }
+
+                state.connDragTarget = targetNode;
+
+                // Visual feedback: highlight target node
+                document.querySelectorAll('.node').forEach(el => {
+                    const nid = parseInt(el.dataset.id);
+                    if (targetNode && nid === targetNode.id) {
+                        el.style.outline = '3px solid #4a90d9';
+                        el.style.outlineOffset = '2px';
+                    } else {
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    }
+                });
+                return;
+            }
+
+            if (state.isSelecting) {
+                const curX = (e.clientX - state.panX) / state.scale;
+                const curY = (e.clientY - state.panY) / state.scale;
+                updateSelectionBox(state.selectionStartX, state.selectionStartY, curX, curY);
+
+                // Select nodes inside box
+                const minX = Math.min(state.selectionStartX, curX);
+                const minY = Math.min(state.selectionStartY, curY);
+                const maxX = Math.max(state.selectionStartX, curX);
+                const maxY = Math.max(state.selectionStartY, curY);
+
+                state.selectedNodeIds = state.nodes.filter(n => {
+                    // Skip hidden nodes (collapsed descendants)
+                    if (state.hiddenNodeIds && state.hiddenNodeIds.has(n.id)) return false;
+                    let nx = n.x;
+                    let ny = n.y;
+                    if (n.parentId !== null) {
+                        const absPos = getNodeAbsolutePosition(n);
+                        nx = absPos.x;
+                        ny = absPos.y;
+                    }
+                    const nw = n.width || 200;
+                    const domEl = document.querySelector(`.node[data-id="${n.id}"]`);
+                    const nh = domEl ? domEl.offsetHeight : (n.height || 50);
+                    return nx < maxX && nx + nw > minX && ny < maxY && ny + nh > minY;
+                }).map(n => n.id);
+
+                if (state.selectedNodeIds.length > 0) {
+                    state.selectedNodeId = state.selectedNodeIds[state.selectedNodeIds.length - 1];
+                }
+                renderNodes();
+                return;
+            }
+
+            // Resize node
+            if (state.resizingNode) {
+                const dx = (e.clientX - state.resizeStartX) / state.scale;
+                const dy = (e.clientY - state.resizeStartY) / state.scale;
+                const pos = state.resizeHandle;
+
+                let newWidth = state.resizeStartWidth;
+                let newHeight = state.resizeStartHeight;
+                let newX = state.resizeStartLeft;
+                let newY = state.resizeStartTop;
+
+                if (pos.includes('e')) {
+                    newWidth = Math.max(160, state.resizeStartWidth + dx);
+                }
+                if (pos.includes('w')) {
+                    newWidth = Math.max(160, state.resizeStartWidth - dx);
+                    newX = state.resizeStartLeft + dx;
+                }
+                if (pos.includes('s')) {
+                    newHeight = Math.max(50, state.resizeStartHeight + dy);
+                }
+                if (pos.includes('n')) {
+                    newHeight = Math.max(50, state.resizeStartHeight - dy);
+                    newY = state.resizeStartTop + dy;
+                }
+
+                state.resizingNode.width = newWidth;
+                state.resizingNode.height = newHeight;
+
+                // Update position - use absX/absY for child nodes, x/y for root nodes
+                if (state.resizingNode.parentId !== null) {
+                    state.resizingNode.absX = newX;
+                    state.resizingNode.absY = newY;
+                } else {
+                    state.resizingNode.x = newX;
+                    state.resizingNode.y = newY;
+                }
+
+                // Update DOM directly to avoid full re-render during resize
+                const domEl = document.querySelector(`.node[data-id="${state.resizingNode.id}"]`);
+                if (domEl) {
+                    domEl.style.width = newWidth + 'px';
+                    domEl.style.height = newHeight + 'px';
+                    domEl.style.left = newX + 'px';
+                    domEl.style.top = newY + 'px';
+                }
+
+                // Update resize handles position during resize
+                document.querySelectorAll(`.resize-handle[data-node-id="${state.resizingNode.id}"]`).forEach(handle => {
+                    const pos = handle.dataset.pos;
+                    let hx, hy;
+                    if (pos === 'nw') { hx = newX - 5; hy = newY - 5; }
+                    else if (pos === 'ne') { hx = newX + newWidth - 5; hy = newY - 5; }
+                    else if (pos === 'sw') { hx = newX - 5; hy = newY + newHeight - 5; }
+                    else if (pos === 'se') { hx = newX + newWidth - 5; hy = newY + newHeight - 5; }
+                    handle.style.left = hx + 'px';
+                    handle.style.top = hy + 'px';
+                });
+
+                renderConnections();
+                return;
+            }
+
+            // Child drag is now started directly on mousedown - no candidate needed (unified drag)
+
+            // Check drag threshold before starting actual drag
+            if (state.dragNode && !state.isDragging) {
+                const dx = Math.abs(e.clientX - state.dragStartMouseX);
+                const dy = Math.abs(e.clientY - state.dragStartMouseY);
+                if (dx > 5 || dy > 5) {
+                    state.isDragging = true;
+                    nodesEl.style.cursor = 'grabbing';
+                    renderNodes();
+                }
+            }
+
+            if (state.dragNode && state.isDragging) {
+                const tooltip = document.getElementById('drag-tooltip');
+                if (tooltip) {
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY - 30) + 'px';
+                }
+                const newX = (e.clientX - state.panX) / state.scale - state.dragOffsetX;
+                const newY = (e.clientY - state.panY) / state.scale - state.dragOffsetY;
+
+                console.log('Child drag move:', state.dragNode.id, 'newX:', newX, 'newY:', newY, 'parentId:', state.dragNode.parentId);
+
+                // Calculate old absolute position
+                let oldAbsX = state.dragNode.x;
+                let oldAbsY = state.dragNode.y;
+                if (state.dragNode.parentId !== null) {
+                    const absPos = getNodeAbsolutePosition(state.dragNode);
+                    oldAbsX = absPos.x;
+                    oldAbsY = absPos.y;
+                }
+
+                const dx = newX - oldAbsX;
+                const dy = newY - oldAbsY;
+
+                // Update position - for child nodes, update relative to parent but use absolute for display
+                if (state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        const parentAbsPos = getNodeAbsolutePosition(parent);
+                        state.dragNode.x = newX - parentAbsPos.x;
+                        state.dragNode.y = newY - parentAbsPos.y;
+                        state.dragNode.absX = newX;
+                        state.dragNode.absY = newY;
+                    }
+                } else {
+                    state.dragNode.x = newX;
+                    state.dragNode.y = newY;
+                }
+
+                // Move all selected nodes together (only root nodes - child nodes follow their parent automatically)
+                if (state.selectedNodeIds.length > 1) {
+                    state.selectedNodeIds.forEach(id => {
+                        if (id !== state.dragNode.id) {
+                            const n = state.nodes.find(node => node.id === id);
+                            if (n && n.parentId === null) {
+                                n.x += dx;
+                                n.y += dy;
+                            }
+                        }
+                    });
+                }
+
+                // Update collapsed connection destinations' positions when dragging source
+                if (state.dragNode) {
+                    const movedNodes = new Set();
+                    const moveCascade = (fromId, dx, dy) => {
+                        state.connections.forEach(conn => {
+                            if (conn.from === fromId && conn.collapsed) {
+                                const toNode = state.nodes.find(n => n.id === conn.to);
+                                if (toNode && !movedNodes.has(toNode.id)) {
+                                    movedNodes.add(toNode.id);
+                                    toNode.x += dx;
+                                    toNode.y += dy;
+                                    if (conn.originalToPos) {
+                                        conn.originalToPos.x += dx;
+                                        conn.originalToPos.y += dy;
+                                    }
+                                    // Recursively move descendants
+                                    moveCascade(toNode.id, dx, dy);
+                                }
+                            }
+                        });
+                    };
+                    moveCascade(state.dragNode.id, dx, dy);
+                }
+
+                // Unified drag detection: purely visual, based on DOM header position
+                // No special handling for parent/child/sibling - all nodes are treated equally
+                if (state.dragNode && !state.selectedNodeIds.includes(state.dragNode.id)) {
+                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                    const mx = (e.clientX - canvasRect.left - state.panX) / state.scale;
+                    const my = (e.clientY - canvasRect.top - state.panY) / state.scale;
+                    let candidates = [];
+
+                    for (const node of state.nodes) {
+                        if (node.id === state.dragNode.id) continue;
+                        if (state.selectedNodeIds.includes(node.id)) continue;
+                        if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
+                        // Skip descendants of dragNode to prevent circular nesting
+                        let isDescendant = false;
+                        let current = node;
+                        while (current && current.parentId !== null) {
+                            if (current.parentId === state.dragNode.id) {
+                                isDescendant = true;
+                                break;
+                            }
+                            current = state.nodes.find(n => n.id === current.parentId);
+                        }
+                        if (isDescendant) continue;
+
+                        // Get bounds from DOM - parent nodes use header, child nodes use full div.node
+                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                        if (!domEl) continue;
+                        let rect;
+                        if (node.parentId === null) {
+                            // Root nodes: use header for hit test to avoid child node overlap
+                            const headerEl = domEl.querySelector('.node-header') || domEl.querySelector('.node-title');
+                            rect = headerEl ? headerEl.getBoundingClientRect() : domEl.getBoundingClientRect();
+                        } else {
+                            // Child nodes: use full div.node (no .node-header class)
+                            rect = domEl.getBoundingClientRect();
+                        }
+                        const nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+                        const ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+                        const nw = rect.width / state.scale;
+                        const nh = rect.height / state.scale;
+
+                        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                            const centerX = nx + nw / 2;
+                            const centerY = ny + nh / 2;
+                            const dist = Math.hypot(mx - centerX, my - centerY);
+                            candidates.push({ node, dist });
+                        }
+                    }
+
+                    // Pick closest candidate
+                    let targetNode = null;
+                    let minDist = Infinity;
+                    for (const c of candidates) {
+                        if (c.dist < minDist) {
+                            minDist = c.dist;
+                            targetNode = c.node;
+                        }
+                    }
+
+                    // Clear all indicators
+                    document.querySelectorAll('.node').forEach(el => {
+                        el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
+                    });
+
+                    if (targetNode) {
+                        const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
+                        let headerEl, fullRect;
+                        if (targetNode.parentId === null) {
+                            // Root nodes: use header for zone detection
+                            headerEl = targetDomEl ? (targetDomEl.querySelector('.node-header') || targetDomEl.querySelector('.node-title')) : null;
+                            fullRect = headerEl ? headerEl.getBoundingClientRect() : (targetDomEl ? targetDomEl.getBoundingClientRect() : null);
+                        } else {
+                            // Child nodes: use full div.node
+                            fullRect = targetDomEl ? targetDomEl.getBoundingClientRect() : null;
+                        }
+                        let tTop, tBottom;
+                        if (fullRect) {
+                            tTop = (fullRect.top - canvasRect.top - state.panY) / state.scale;
+                            tBottom = (fullRect.bottom - canvasRect.top - state.panY) / state.scale;
+                        } else {
+                            tTop = targetNode.y;
+                            tBottom = targetNode.y + (targetNode.height || 50);
+                        }
+                        const thirdH = (tBottom - tTop) / 3;
+
+                        if (my < tTop + thirdH) {
+                            // Top zone → insert before this node
+                            state.reorderTarget = { siblingId: targetNode.id, insertBefore: true, siblingParentId: targetNode.parentId };
+                            state.dropTarget = null;
+                            state.pendingExtract = false;
+                            showInsertGuide(targetNode.id, 'before');
+                            if (tooltip) { tooltip.textContent = '▲'; tooltip.classList.add('show'); }
+                        } else if (my > tBottom - thirdH) {
+                            // Bottom zone → insert after this node
+                            state.reorderTarget = { siblingId: targetNode.id, insertBefore: false, siblingParentId: targetNode.parentId };
+                            state.dropTarget = null;
+                            state.pendingExtract = false;
+                            showInsertGuide(targetNode.id, 'after');
+                            if (tooltip) { tooltip.textContent = '▼'; tooltip.classList.add('show'); }
+                        } else {
+                            // Middle zone → nest into this node
+                            state.dropTarget = targetNode;
+                            state.reorderTarget = null;
+                            state.pendingExtract = false;
+                            hideInsertGuides();
+                            if (targetDomEl) targetDomEl.classList.add('nest-target');
+                            if (tooltip) { tooltip.textContent = '▶'; tooltip.classList.add('show'); }
+                        }
+                    } else {
+                        state.dropTarget = null;
+                        state.reorderTarget = null;
+                        hideInsertGuides();
+                        if (state.dragNode.parentId !== null) {
+                            state.pendingExtract = true;
+                            if (tooltip) { tooltip.textContent = '⏎'; tooltip.classList.add('show'); }
+                        } else {
+                            state.pendingExtract = false;
+                            if (tooltip) tooltip.classList.remove('show');
+                        }
+                    }
+                }
+
+                renderNodes();
+                renderConnections();                renderNodes();
+                renderConnections();
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            // Update pending connection line for touch
+            if ((state.connectingFrom || state.draggingConn) && e.touches.length === 1) {
+                const touch = e.touches[0];
+                updatePendingConnection(touch.clientX, touch.clientY);
+            }
+
+            if (state.isPanning && e.touches.length === 1) {
+                const touch = e.touches[0];
+                state.panX += touch.clientX - state.lastMouseX;
+                state.panY += touch.clientY - state.lastMouseY;
+                state.lastMouseX = touch.clientX;
+                state.lastMouseY = touch.clientY;
+                updateTransform();
+            }
+
+            if (e.touches.length === 2) {
+                const dist = getPinchDistance(e.touches);
+                const scale = state.lastPinchScale * (dist / state.lastPinchDist);
+                setZoom(scale);
+            }
+
+            // Child drag for touch is now started directly on touchstart - no candidate needed (unified drag)
+
+            if (state.dragNode && e.touches.length === 1) {
+                const touch = e.touches[0];
+
+                // Cancel long press if moved
+                if (longPressTimer) {
+                    const moveDist = Math.hypot(touch.clientX - state.lastMouseX, touch.clientY - state.lastMouseY);
+                    if (moveDist > 10) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                        isLongPress = false;
+                    }
+                }
+
+                const newX = (touch.clientX - state.panX) / state.scale - state.dragOffsetX;
+                const newY = (touch.clientY - state.panY) / state.scale - state.dragOffsetY;
+
+                // Calculate old absolute position
+                let oldAbsX = state.dragNode.x;
+                let oldAbsY = state.dragNode.y;
+                if (state.dragNode.parentId !== null) {
+                    const absPos = getNodeAbsolutePosition(state.dragNode);
+                    oldAbsX = absPos.x;
+                    oldAbsY = absPos.y;
+                }
+
+                const dx = newX - oldAbsX;
+                const dy = newY - oldAbsY;
+
+                // Update position (relative if child, absolute if parent)
+                if (state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        const parentAbsPos = getNodeAbsolutePosition(parent);
+                        state.dragNode.x = newX - parentAbsPos.x;
+                        state.dragNode.y = newY - parentAbsPos.y;
+                        state.dragNode.absX = newX;
+                        state.dragNode.absY = newY;
+                    }
+                } else {
+                    state.dragNode.x = newX;
+                    state.dragNode.y = newY;
+                }
+
+                if (state.selectedNodeIds.length > 1) {
+                    state.selectedNodeIds.forEach(id => {
+                        if (id !== state.dragNode.id) {
+                            const n = state.nodes.find(node => node.id === id);
+                            if (n && n.parentId === null) {
+                                n.x += dx;
+                                n.y += dy;
+                            }
+                        }
+                    });
+                }
+
+                renderNodes();
+                renderConnections();
+                renderGroups();
+            }
+
+            // Connection drag on mobile
+            if (state.draggingConn && e.touches.length === 1) {
+                const touch = e.touches[0];
+                const mx = (touch.clientX - state.panX) / state.scale;
+                const my = (touch.clientY - state.panY) / state.scale;
+
+                let targetNode = null;
+                for (const node of state.nodes) {
+                    if (node.id === state.draggingConn.from) continue;
+                    // Skip hidden nodes
+                    if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
+
+                    // Calculate absolute position for proper hit testing
+                    let nx = node.x;
+                    let ny = node.y;
+                    if (node.parentId !== null) {
+                        const absPos = getNodeAbsolutePosition(node);
+                        nx = absPos.x;
+                        ny = absPos.y;
+                    }
+
+                    const nw = node.width || 200;
+                    const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                    const nh = domEl ? domEl.offsetHeight : (node.height || 50);
+                    if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                        targetNode = node;
+                        break;
+                    }
+                }
+
+                state.connDragTarget = targetNode;
+                document.querySelectorAll('.node').forEach(el => {
+                    const nid = parseInt(el.dataset.id);
+                    if (targetNode && nid === targetNode.id) {
+                        el.style.outline = '3px solid #4a90d9';
+                        el.style.outlineOffset = '2px';
+                    } else {
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    }
+                });
+            }
+        }, { passive: false });
+
+        window.addEventListener('mouseup', () => {
+            console.log('[DEBUG] window mouseup. dragNode=', state.dragNode ? state.dragNode.id : null, 'isDragging=', state.isDragging);
+            state.isPanning = false;
+            state.rightClickPanning = false;
+            container.classList.remove('panning');
+            if (state.isSelecting) {
+                state.isSelecting = false;
+                document.getElementById('selection-box').style.display = 'none';
+            }
+
+            // ドラッグ中はpendingPriorityClickをクリア
+            if (state.isDragging) {
+                state.pendingPriorityClick = null;
+            }
+
+            // Finalize connection drag
+            if (state.draggingConn) {
+                if (state.connDragTarget) {
+                    const isSource = state.draggingConn.isSource;
+                    const otherId = isSource ? state.draggingConn.to : state.draggingConn.from;
+                    const targetId = state.connDragTarget.id;
+
+                    if (targetId !== otherId) {
+                        const exists = state.connections.some(c =>
+                            c.from === (isSource ? targetId : otherId) && c.to === (isSource ? otherId : targetId)
+                        );
+                        if (!exists) {
+                            if (isSource) {
+                                state.draggingConn.from = targetId;
+                            } else {
+                                state.draggingConn.to = targetId;
+                            }
+                            renderConnections();
+                            showToast('接続を変更しました');
+                        } else {
+                            showToast('同じ接続が既に存在します');
+                        }
+                    }
+                }
+                delete state.draggingConn.isSource;
+                state.draggingConn = null;
+                state.connDragTarget = null;
+                document.querySelectorAll('.node').forEach(el => {
+                    el.style.outline = '';
+                    el.style.outlineOffset = '';
+                });
+            }
+
+            // Clear pending connection line
+            const tempLine = document.getElementById('pending-connection');
+            if (tempLine) tempLine.remove();
+
+            // Calculate whether node was actually dragged (vs just clicked)
+            const CLICK_THRESHOLD = 5;
+            let wasDragged = false;
+            if (state.dragNode) {
+                let currentAbsX = state.dragNode.x;
+                let currentAbsY = state.dragNode.y;
+                if (state.dragNode.parentId !== null) {
+                    // Use DOM position for child nodes (consistent with drag start)
+                    const domEl = document.querySelector(`.node[data-id="${state.dragNode.id}"]`);
+                    if (domEl) {
+                        const rect = domEl.getBoundingClientRect();
+                        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                        currentAbsX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                        currentAbsY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                    } else {
+                        const absPos = getNodeAbsolutePosition(state.dragNode);
+                        currentAbsX = absPos.x;
+                        currentAbsY = absPos.y;
+                    }
+                }
+                wasDragged = Math.hypot(currentAbsX - state.dragStartX, currentAbsY - state.dragStartY) > CLICK_THRESHOLD;
+            }
+
+            // Unified drop handling - determined by mousemove visual detection
+            let didAction = false;
+
+            if (wasDragged && state.dragNode) {
+                // 1. Nest into dropTarget (middle zone drop)
+                if (state.dropTarget && !state.reorderTarget) {
+                    const child = state.dragNode;
+                    const parent = state.dropTarget;
+
+                    // Prevent circular nesting
+                    let current = parent;
+                    let isCircular = false;
+                    while (current) {
+                        if (current.id === child.id) {
+                            isCircular = true;
+                            break;
+                        }
+                        current = state.nodes.find(n => n.id === current.parentId);
+                    }
+
+                    if (!isCircular && child.id !== parent.id) {
+                        // Remove from old parent
+                        if (child.parentId !== null) {
+                            const oldParent = state.nodes.find(n => n.id === child.parentId);
+                            if (oldParent) {
+                                oldParent.children = oldParent.children.filter(id => id !== child.id);
+                                const absPos = getNodeAbsolutePosition(child);
+                                child.x = absPos.x;
+                                child.y = absPos.y;
+                            }
+                        }
+                        child.parentId = parent.id;
+                        if (!parent.children) parent.children = [];
+                        parent.children.push(child.id);
+                        child.x = 20;
+                        child.y = (parent.height || 50) + 10;
+                        child.width = Math.max(160, (parent.width || 200) - 40);
+                        parent.expanded = true;
+                        didAction = true;
+                        showToast('ノードをタスクとして追加しました');
+                    }
+                }
+                // 2. Reorder: insert before/after target node
+                else if (state.reorderTarget && !state.dropTarget) {
+                    const targetNode = state.nodes.find(n => n.id === state.reorderTarget.siblingId);
+                    const targetParentId = state.reorderTarget.siblingParentId;
+
+                    if (targetNode) {
+                        // Remove from old parent
+                        if (state.dragNode.parentId !== null) {
+                            const oldParent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                            if (oldParent && oldParent.children) {
+                                oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
+                                if (oldParent.children.length === 0) oldParent.expanded = false;
+                            }
+                        }
+
+                        if (targetParentId === null) {
+                            // Target is root - make dragged node a root too
+                            const absPos = getNodeAbsolutePosition(state.dragNode);
+                            state.dragNode.x = absPos.x;
+                            state.dragNode.y = absPos.y;
+                            state.dragNode.parentId = null;
+                            state.dragNode.width = calculateNodeWidth(state.dragNode.title);
+
+                            // Position near target
+                            let tx = targetNode.x, ty = targetNode.y;
+                            if (targetNode.parentId !== null) {
+                                const tAbs = getNodeAbsolutePosition(targetNode);
+                                tx = tAbs.x; ty = tAbs.y;
+                            }
+                            state.dragNode.x = tx;
+                            state.dragNode.y = ty + (targetNode.height || 50) + 20;
+
+                            didAction = true;
+                            showToast('ノードを移動しました');
+                        } else {
+                            // Target has parent - add dragged node to that parent
+                            const newParent = state.nodes.find(n => n.id === targetParentId);
+                            if (newParent) {
+                                state.dragNode.parentId = targetParentId;
+                                if (!newParent.children) newParent.children = [];
+
+                                const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
+                                let insertIndex;
+                                if (toIndex !== -1) {
+                                    insertIndex = state.reorderTarget.insertBefore ? toIndex : toIndex + 1;
+                                } else {
+                                    insertIndex = newParent.children.length;
+                                }
+                                newParent.children.splice(insertIndex, 0, state.dragNode.id);
+
+                                // Position relative to new parent
+                                const parentAbsPos = getNodeAbsolutePosition(newParent);
+                                const absPos = getNodeAbsolutePosition(state.dragNode);
+                                state.dragNode.x = absPos.x - parentAbsPos.x;
+                                state.dragNode.y = absPos.y - parentAbsPos.y;
+                                state.dragNode.width = Math.max(160, (newParent.width || 200) - 40);
+
+                                didAction = true;
+                                showToast('順序を変更しました');
+                            }
+                        }
+                    }
+                }
+                // 3. No target but dragged node had parent → extract to root
+                else if (!didAction && state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        const absPos = getNodeAbsolutePosition(state.dragNode);
+                        state.dragNode.x = absPos.x;
+                        state.dragNode.y = absPos.y;
+                        state.dragNode.parentId = null;
+                        state.dragNode.width = calculateNodeWidth(state.dragNode.title);
+                        if (parent.children) {
+                            parent.children = parent.children.filter(id => id !== state.dragNode.id);
+                            if (parent.children.length === 0) parent.expanded = false;
+                        }
+                        didAction = true;
+                        showToast('ノードを取り出しました');
+                    }
+                }
+            }
+
+            state.dropTarget = null;
+            state.reorderTarget = null;
+            state.pendingExtract = false;            // Clear reorder indicators (all nodes including root)
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
+            });
+            hideInsertGuides();
+            state.reorderTarget = null;
+
+            state.dragNode = null;
+            state.pendingExtract = false;
+            const tooltip = document.getElementById('drag-tooltip');
+            if (tooltip) tooltip.classList.remove('show');
+            renderNodes();
+            renderConnections();
+
+            // Clear drag tooltip
+            state.pendingExtract = false;
+
+            // End resize
+            if (state.resizingNode) {
+                // Update relative coordinates for child nodes
+                if (state.resizingNode.parentId !== null) {
+                    const parentNode = state.nodes.find(n => n.id === state.resizingNode.parentId);
+                    if (parentNode) {
+                        state.resizingNode.x = state.resizingNode.absX - parentNode.x;
+                        state.resizingNode.y = state.resizingNode.absY - parentNode.y;
+                    }
+                }
+                document.querySelectorAll('.node.resizing').forEach(el => {
+                    el.classList.remove('resizing');
+                });
+                document.querySelectorAll('.resize-handle.resizing').forEach(el => {
+                    el.classList.remove('resizing');
+                });
+                state.resizingNode = null;
+            }
+        });
+
+        window.addEventListener('touchend', (e) => {
+            state.isPanning = false;
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            if (state.isSelecting) {
+                state.isSelecting = false;
+                document.getElementById('selection-box').style.display = 'none';
+            }
+
+            // Finalize connection drag
+            if (state.draggingConn) {
+                const touch = e.changedTouches[0];
+                if (touch) {
+                    const mx = (touch.clientX - state.panX) / state.scale;
+                    const my = (touch.clientY - state.panY) / state.scale;
+                    // Unified hit detection: closest center wins
+                    let candidates = [];
+                    for (const node of state.nodes) {
+                        if (node.id === state.draggingConn.from || node.id === state.draggingConn.to) continue;
+                        let nx = node.x;
+                        let ny = node.y;
+                        if (node.parentId !== null) {
+                            const absPos = getNodeAbsolutePosition(node);
+                            nx = absPos.x;
+                            ny = absPos.y;
+                        }
+                        const nw = node.width || 200;
+                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                        const nh = domEl ? domEl.offsetHeight : (node.height || 50);
+                        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                            const centerX = nx + nw / 2;
+                            const centerY = ny + nh / 2;
+                            const dist = Math.hypot(mx - centerX, my - centerY);
+                            candidates.push({ node, dist });
+                        }
+                    }
+                    let targetNode = null;
+                    let minDist = Infinity;
+                    for (const c of candidates) {
+                        if (c.dist < minDist) {
+                            minDist = c.dist;
+                            targetNode = c.node;
+                        }
+                    }
+                    if (targetNode) {
+                        const isSource = state.draggingConn.isSource;
+                        const otherId = isSource ? state.draggingConn.to : state.draggingConn.from;
+                        const targetId = targetNode.id;
+
+                        if (targetId !== otherId) {
+                            const exists = state.connections.some(c =>
+                                c.from === (isSource ? targetId : otherId) && c.to === (isSource ? otherId : targetId)
+                            );
+                            if (!exists) {
+                                if (isSource) {
+                                    state.draggingConn.from = targetId;
+                                } else {
+                                    state.draggingConn.to = targetId;
+                                }
+                                renderConnections();
+                                showToast('接続を変更しました');
+                            } else {
+                                showToast('同じ接続が既に存在します');
+                            }
+                        }
+                    }
+                }
+                delete state.draggingConn.isSource;
+                state.draggingConn = null;
+                state.connDragTarget = null;
+                document.querySelectorAll('.node').forEach(el => {
+                    el.style.outline = '';
+                    el.style.outlineOffset = '';
+                });
+            }
+
+            // Clear pending connection line
+            const tempLine = document.getElementById('pending-connection');
+            if (tempLine) tempLine.remove();
+
+            state.dragNode = null;
+
+            // Clear drag tooltip for touch
+        });
+
+        function getPinchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function showConnectionContextMenu(x, y, conn) {
+            const existing = document.querySelector('.context-menu');
+            if (existing) existing.remove();
+
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.display = 'block';
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+
+            const fromNode = state.nodes.find(n => n.id === conn.from);
+            const toNode = state.nodes.find(n => n.id === conn.to);
+
+            const items = [
+                { text: conn.collapsed ? '接続を展開' : '接続を折りたたむ', icon: '📂', action: () => {
+                    conn.collapsed = !conn.collapsed;
+                    if (conn.collapsed && !conn.originalToPos && toNode) {
+                        conn.originalToPos = { x: toNode.x, y: toNode.y };
+                    }
+                    renderNodes();
+                    renderConnections();
+                }},
+                { text: 'ラベル編集', icon: '🏷️', action: () => {
+                    enableConnectionLabelEdit(conn);
+                }},
+                { text: '削除', icon: '🗑️', class: 'delete', action: () => {
+                    if (confirm('この接続を削除しますか?')) {
+                        deleteConnection(conn.from, conn.to);
+                    }
+                }}
+            ];
+
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'context-item' + (item.class ? ' ' + item.class : '');
+                el.innerHTML = `${item.icon} ${item.text}`;
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    item.action();
+                    menu.remove();
+                });
+                menu.appendChild(el);
+            });
+
+            document.body.appendChild(menu);
+
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+            if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+
+            const close = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        // ==================== Context Menu (Canvas) ====================
+        container.addEventListener('contextmenu', (e) => {
+            if (state.suppressContextMenu) {
+                e.preventDefault();
+                state.suppressContextMenu = false;
+                return;
+            }
+            if (e.target !== container && e.target !== canvas && !e.target.closest('#nodes') && !e.target.closest('.conn-group') && !e.target.closest('#connections')) return;
+            e.preventDefault();
+            showCanvasContextMenu(e.clientX, e.clientY, e);
+        });
+
+        function showCanvasContextMenu(x, y, clickEvent) {
+            const existing = document.querySelector('.context-menu');
+            if (existing) existing.remove();
+
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.display = 'block';
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+
+            const items = [];
+
+            // Node-specific items
+            const targetNode = clickEvent?.target?.closest('.node');
+            const targetChildNode = clickEvent?.target?.closest('.node .node-tasks .node');
+
+            // Helper: add indicator toolbar to context menu (horizontal icons)
+            function addIndicatorToolbar(node) {
+                if (!node) return;
+                const toolbar = document.createElement('div');
+                toolbar.className = 'context-indicator-toolbar';
+                toolbar.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 0;border-top:1px solid #eee;margin-top:4px;';
+
+                const indicators = [
+                    { type: 'priority', icon: () => {
+                        const p = node.priority || 0;
+                        return p === 0 ? '☆' : '★'.repeat(p);
+                    }, title: '優先度', active: () => (node.priority || 0) > 0 },
+                    { type: 'when', icon: () => '🕐', title: '期限', active: () => {
+                        const w = node.details?.when;
+                        return w && w.repeatType !== 'none';
+                    }},
+                    { type: 'what', icon: () => '📝', title: '内容', active: () => !!node.details?.what },
+                    { type: 'who', icon: () => '👤', title: '担当', active: () => !!node.details?.who },
+                    { type: 'where', icon: () => '📍', title: '場所', active: () => !!node.details?.where }
+                ];
+
+                indicators.forEach(ind => {
+                    const btn = document.createElement('span');
+                    btn.className = 'context-indicator-btn';
+                    btn.textContent = ind.icon();
+                    btn.title = ind.title;
+                    const isActive = ind.active();
+                    btn.style.cssText = `cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:background 0.15s,opacity 0.15s;opacity:${isActive ? '1' : '0.35'};${isActive ? 'color:#333;' : ''}`;
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        menu.remove();
+                        openDetailEditor(node, ind.type);
+                    });
+                    btn.addEventListener('mouseenter', () => btn.style.background = '#f0f0f0');
+                    btn.addEventListener('mouseleave', () => btn.style.background = 'transparent');
+                    toolbar.appendChild(btn);
+                });
+                menu.appendChild(toolbar);
+            }
+
+            if (targetChildNode) {
+                // Child node context menu
+                const childId = parseInt(targetChildNode.dataset.id);
+                const childNode = state.nodes.find(n => n.id === childId);
+                const childTitleEl = targetChildNode.querySelector('.node-title');
+
+                    if (childNode && childTitleEl) {
+                    items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
+                        console.log('Child title edit clicked', childTitleEl, childNode);
+                        menu.remove();
+                        try {
+                            enableTitleEdit(childTitleEl, childNode);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    }});
+                    items.push({ text: '接続作成', icon: '🔗', action: () => {
+                        state.connectingFrom = childId;
+                        modeIndicator.textContent = '接続モード: 終了ノードを選択(右クリックでキャンセル)';
+                        modeIndicator.classList.add('active');
+                        setMode('connect');
+                    }});
+                    items.push({ text: '子ノードを削除', icon: '🗑️', class: 'delete', action: () => {
+                        if (confirm('この子ノードを削除しますか?')) {
+                            const parent = state.nodes.find(n => n.id === childNode.parentId);
+                            if (parent) {
+                                parent.children = parent.children.filter(c => c !== childId);
+                                if (parent.children.length === 0) {
+                                    parent.expanded = false;
+                                }
+                            }
+                            state.nodes = state.nodes.filter(n => n.id !== childId);
+                            state.connections = state.connections.filter(c => c.from !== childId && c.to !== childId);
+                            renderNodes();
+                            renderConnections();
+                        }
+                    }});
+                    items.push({ text: '詳細情報を編集', icon: '📋', action: () => {
+                        menu.remove();
+                        openBulkDetailEditor(childNode);
+                    }});
+                    addIndicatorToolbar(childNode);
+                }
+            } else if (targetNode) {
+                const nodeId = parseInt(targetNode.dataset.id);
+                const node = state.nodes.find(n => n.id === nodeId);
+                const titleEl = targetNode.querySelector('.node-title') || targetNode.querySelector('.task-text');
+
+                items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
+                    console.log('Root title edit clicked', titleEl, node);
+                    menu.remove();
+                    if (titleEl) {
+                        try {
+                            enableTitleEdit(titleEl, node);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    }
+                }});
+                items.push({ text: '接続作成', icon: '🔗', action: () => {
+                    state.connectingFrom = nodeId;
+                    modeIndicator.textContent = '接続モード: 終了ノードを選択(右クリックでキャンセル)';
+                    modeIndicator.classList.add('active');
+                    setMode('connect');
+                }});
+                items.push({ text: node?.expanded ? '子ノードを折りたたむ' : '子ノードを展開', icon: '📂', action: () => {
+                    node.expanded = !node.expanded;
+                    renderNodes();
+                }});
+                items.push({ text: '詳細情報を編集', icon: '📋', action: () => {
+                    menu.remove();
+                    openBulkDetailEditor(node);
+                }});
+                addIndicatorToolbar(node);
+                items.push({ text: '子ノードをソート', icon: '📊', action: () => {
+                    if (node.children && node.children.length > 1) {
+                        sortNodeChildren(node);
+                        showToast('子ノードをソートしました');
+                    } else {
+                        showToast('ソート対象の子ノードがありません');
+                    }
+                    renderNodes();
+                }});
+                items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
+                    if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
+                }});
+
+                // Ungroup option for child nodes
+                if (node?.parentId !== null) {
+                    items.push({ text: '親子関係を解除', icon: '⬆️', action: () => {
+                        const oldParent = state.nodes.find(n => n.id === node.parentId);
+                        if (oldParent && oldParent.children) {
+                            oldParent.children = oldParent.children.filter(id => id !== node.id);
+                            if (oldParent.children.length === 0) {
+                                oldParent.expanded = false;
+                            }
+                        }
+                        node.parentId = null;
+                        node.width = calculateNodeWidth(node.title);
+                        renderNodes();
+                        showToast('親子関係を解除しました');
+                    }});
+                }
+            } else {
+                // Check for connection line click
+                const targetConnGroup = clickEvent?.target?.closest('.conn-group');
+                if (targetConnGroup) {
+                    const connFrom = parseInt(targetConnGroup.getAttribute('data-from'));
+                    const connTo = parseInt(targetConnGroup.getAttribute('data-to'));
+                    const conn = state.connections.find(c => c.from === connFrom && c.to === connTo);
+                    const fromNode = state.nodes.find(n => n.id === connFrom);
+                    const toNode = state.nodes.find(n => n.id === connTo);
+
+                    if (conn && fromNode && toNode) {
+                        items.push({ text: conn.collapsed ? '接続を展開' : '接続を折りたたむ', icon: '📂', action: () => {
+                            conn.collapsed = !conn.collapsed;
+                            if (conn.collapsed && !conn.originalToPos) {
+                                conn.originalToPos = { x: toNode.x, y: toNode.y };
+                            }
+                            renderNodes();
+                            renderConnections();
+                        }});
+                        items.push({ text: '接続を削除', icon: '🗑️', class: 'delete', action: () => {
+                            if (confirm('この接続を削除しますか?')) {
+                                deleteConnection(connFrom, connTo);
+                            }
+                        }});
+                    }
+                }
+
+                // Canvas items
+                if (!targetConnGroup && state.connectingFrom) {
+                    items.push({ text: '接続モードをキャンセル', icon: '❌', action: () => {
+                        state.connectingFrom = null;
+                        const tempLine = document.getElementById('pending-connection');
+                        if (tempLine) tempLine.remove();
+                        modeIndicator.classList.remove('active');
+                        setMode('select');
+                    }});
+                } else {
+                    items.push({ text: 'ノード追加', icon: '📦', action: () => {
+                        const cx = (x - state.panX) / state.scale;
+                        const cy = (y - state.panY) / state.scale;
+                        const newNode = createNode(cx, cy);
+                        clearSelection();
+                        requestAnimationFrame(() => {
+                            const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                            const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                            try {
+                                enableTitleEdit(titleEl, newNode);
+                            } catch (err) {
+                                console.error('Error in enableTitleEdit:', err);
+                            }
+                        });
+                    }});
+                }
+
+            }
+
+            items.push({ text: '', class: 'context-separator' });
+            items.push({ text: '全体表示', icon: '⬛', action: fitToView });
+
+            console.log('Context menu items count:', items.length, 'targetChildNode:', !!targetChildNode, 'targetNode:', !!targetNode);
+
+            items.forEach(item => {
+                if (item.class === 'context-separator') {
+                    const sep = document.createElement('div');
+                    sep.className = 'context-separator';
+                    menu.appendChild(sep);
+                } else {
+                    const el = document.createElement('div');
+                    el.className = 'context-item' + (item.class ? ' ' + item.class : '');
+                    el.innerHTML = `${item.icon} ${item.text}`;
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        try {
+                            item.action();
+                        } catch (err) {
+                            console.error('Error in menu action:', err);
+                        }
+                        menu.remove();
+                    });
+                    menu.appendChild(el);
+                }
+            });
+
+            document.body.appendChild(menu);
+
+            // Adjust position to stay in viewport
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+            if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+
+            const close = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        // ==================== Keyboard Shortcuts ====================
+        document.addEventListener('keydown', (e) => {
+            if (e.target.isContentEditable) {
+                if (e.key === 'Escape') e.target.blur();
+                return;
+            }
+
+            if (e.key === ' ' && !state.isPanning) {
+                e.preventDefault();
+                setMode('pan');
+                return;
+            }
+
+            if (e.key === 'v' || e.key === 'V') setMode('select');
+            if (e.key === 'n' || e.key === 'N') setMode('node');
+            if (e.key === 'c' || e.key === 'C') setMode('connect');
+            if (e.key === 'g' || e.key === 'G') {
+                if (state.selectedNodeIds.length > 1) {
+                    const name = prompt('グループ名:', 'グループ');
+                    if (name) {
+                        createGroup([...state.selectedNodeIds], name);
+                        clearSelection();
+                    }
+                } else {
+                    setMode('group');
+                }
+            }
+
+            if (e.key === 'u' || e.key === 'U') {
+                if (state.selectedNodeId) {
+                    const node = state.nodes.find(n => n.id === state.selectedNodeId);
+                    if (node && node.parentId !== null) {
+                        const oldParent = state.nodes.find(n => n.id === node.parentId);
+                        if (oldParent && oldParent.children) {
+                            oldParent.children = oldParent.children.filter(id => id !== node.id);
+                            if (oldParent.children.length === 0) {
+                                oldParent.expanded = false;
+                            }
+                        }
+                        node.parentId = null;
+                        node.width = calculateNodeWidth(node.title);
+                        renderNodes();
+                        showToast('親子関係を解除しました');
+                    }
+                }
+            }
+
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Skip if user is typing in an input, textarea, or contenteditable
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                    return;
+                }
+                if (state.selectedNodeIds.length > 0) {
+                    state.selectedNodeIds.forEach(id => deleteNode(id));
+                    clearSelection();
+                } else if (state.selectedNodeId) {
+                    deleteNode(state.selectedNodeId);
+                    state.selectedNodeId = null;
+                }
+            }
+
+            if (e.key === 'Escape') {
+                // Clear pending connection
+                state.connectingFrom = null;
+                const tempLine = document.getElementById('pending-connection');
+                if (tempLine) tempLine.remove();
+                modeIndicator.classList.remove('active');
+
+                setMode('select');
+                state.selectedNodeId = null;
+                renderNodes();
+            }
+
+            // Enter to edit selected node title
+            if (e.key === 'Enter') {
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                    return;
+                }
+                if (state.selectedNodeId) {
+                    e.preventDefault();
+                    const node = state.nodes.find(n => n.id === state.selectedNodeId);
+                    const nodeEl = document.querySelector('.node[data-id="' + state.selectedNodeId + '"]');
+                    const titleEl = nodeEl ? (nodeEl.querySelector('.node-title') || nodeEl.querySelector('.task-text')) : null;
+                    if (node) {
+                        try {
+                            enableTitleEdit(titleEl, node);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === ' ' && state.mode === 'pan') {
+                setMode('select');
+            }
+        });
+
+        // ==================== Selection Box ====================
+        function updateSelectionBox(x1, y1, x2, y2) {
+            const box = document.getElementById('selection-box');
+            if (!x1) {
+                box.style.display = 'none';
+                return;
+            }
+            box.style.display = 'block';
+            box.style.left = Math.min(x1, x2) + 'px';
+            box.style.top = Math.min(y1, y2) + 'px';
+            box.style.width = Math.abs(x2 - x1) + 'px';
+            box.style.height = Math.abs(y2 - y1) + 'px';
+        }
+
+        function saveToFile(overwrite = false) {
+            const data = {
+                version: 2,
+                nodes: state.nodes,
+                connections: state.connections,
+                nextId: state.nextId
+            };
+            const json = JSON.stringify(data, null, 2);
+
+            // Try File System Access API for overwrite save
+            if (overwrite && state.lastFileHandle) {
+                return state.lastFileHandle.createWritable().then(writable => {
+                    return writable.write(json).then(() => {
+                        writable.close();
+                        showToast('上書き保存しました');
+                        updateFileInfoDisplay(new Date());
+                    });
+                }).catch(err => {
+                    console.error('Overwrite save failed:', err);
+                    // Fallback to download
+                    downloadJSON(json);
+                });
+            }
+
+            // Show save file picker for "Save As"
+            if ('showSaveFilePicker' in window) {
+                const opts = {
+                    suggestedName: state.lastFileName || `taskmind-${new Date().toISOString().slice(0,10)}.json`,
+                    types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
+                };
+                return window.showSaveFilePicker(opts).then(handle => {
+                    state.lastFileHandle = handle;
+                    state.lastFileName = handle.name;
+                    updateFileInfoDisplay(); // ファイル名のみ先行表示
+                    return handle.createWritable().then(writable => {
+                        return writable.write(json).then(() => {
+                            writable.close();
+                            showToast('保存しました');
+                            updateFileInfoDisplay(new Date());
+                        });
+                    });
+                }).catch(err => {
+                    if (err.name !== 'AbortError') {
+                        console.error('Save picker failed:', err);
+                        downloadJSON(json);
+                    }
+                });
+            }
+
+            // Fallback: download
+            downloadJSON(json);
+            return Promise.resolve();
+        }
+
+        function updateFileInfoDisplay() {}
+
+        function downloadJSON(json) {
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = state.lastFileName || `taskmind-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('保存しました');
+        }
+
+        async function loadFromFile(file = null) {
+            // File System Access API path
+            if (!file && 'showOpenFilePicker' in window) {
+                try {
+                    const [handle] = await window.showOpenFilePicker({
+                        types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+                        multiple: false
+                    });
+                    state.lastFileHandle = handle;
+                    state.lastFileName = handle.name;
+                    const fileObj = await handle.getFile();
+                    await parseFileData(fileObj);
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                    console.error('Open picker failed:', err);
+                    // Fall through to legacy input method
+                }
+            }
+
+            // Legacy path (from file input or fallback)
+            if (file) {
+                state.lastFileName = file.name;
+                await parseFileData(file);
+            }
+        }
+
+        function parseFileData(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        state.nodes = (data.nodes || []).map(n => {
+                            const node = {
+                                ...n,
+                                completed: n.completed ?? false
+                            };
+                            // Inject missing 5W1H fields for backward compatibility
+                            if (typeof node.priority !== 'number') node.priority = 0;
+                            if (!node.details || typeof node.details !== 'object') {
+                                node.details = {
+                                    when: { cycle: '', startDate: '', deadline: '' },
+                                    what: '',
+                                    who: '',
+                                    where: '',
+                                    link: ''
+                                };
+                            }
+                            if (!node.details.when || typeof node.details.when !== 'object') {
+                                node.details.when = { cycle: '', startDate: '', deadline: '' };
+                            }
+                            delete node.tasks;
+                            return node;
+                        });
+
+                        // Build children arrays from parentId for old data compatibility
+                        state.nodes.forEach(node => {
+                            if (!node.children || node.children.length === 0) {
+                                node.children = state.nodes
+                                    .filter(n => n.parentId === node.id)
+                                    .map(n => n.id);
+                            }
+                        });
+                        state.connections = data.connections || [];
+                        state.nextId = data.nextId || 1;
+
+                        renderNodes();
+                        renderConnections();
+                        fitToView();
+                        // ロード時にwhen再計算実行
+                        recalculateWhenDates();
+                        showToast('読込みました' + (state.lastFileName ? ` (${state.lastFileName})` : ''));
+                        updateFileInfoDisplay(new Date());
+                        resolve();
+                    } catch (err) {
+                        showToast('読込エラー: ' + err.message);
+                        resolve();
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        document.getElementById('btn-save').addEventListener('click', () => {
+            if (saveInProgress) return;
+            saveInProgress = true;
+            saveToFile(true).finally(() => { saveInProgress = false; });
+        });
+        document.getElementById('btn-load').addEventListener('click', () => {
+            if ('showOpenFilePicker' in window) {
+                loadFromFile();
+            } else {
+                fileInput.click();
+            }
+        });
+        document.getElementById('btn-recalc').addEventListener('click', () => {
+            recalculateWhenDates();
+            showToast('When再計算完了');
+        });
+        document.getElementById('btn-sort-all').addEventListener('click', () => {
+            let sortedCount = 0;
+            state.nodes.forEach(node => {
+                if (node.children && node.children.length > 1) {
+                    sortNodeChildren(node);
+                    sortedCount++;
+                }
+            });
+            renderNodes();
+            renderConnections();
+            showToast(sortedCount > 0 ? sortedCount + '個のノードをソートしました' : 'ソート対象のノードがありません');
+        });
+        document.getElementById('btn-hide-completed').addEventListener('click', () => {
+            state.hideCompleted = !state.hideCompleted;
+            const btn = document.getElementById('btn-hide-completed');
+            btn.title = state.hideCompleted ? '完了済みノードを表示' : '完了済みノードを非表示';
+            btn.classList.toggle('active', state.hideCompleted);
+            btn.classList.toggle('hide-active', state.hideCompleted);
+            renderNodes();
+            renderConnections();
+            showToast(state.hideCompleted ? '完了済みノードを非表示にしました' : '完了済みノードを表示しました');
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) loadFromFile(e.target.files[0]);
+        });
+
+        // Ctrl+S: overwrite save, Ctrl+Shift+S: save as
+        let saveInProgress = false;
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                if (e.repeat) return;
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                    return;
+                }
+                e.preventDefault();
+                if (saveInProgress) {
+                    showToast('保存処理中です...');
+                    return;
+                }
+                saveInProgress = true;
+                const overwrite = !e.shiftKey;
+                saveToFile(overwrite).finally(() => {
+                    saveInProgress = false;
+                });
+            }
+        });
+
+        // ==================== Utils ====================
+        function showToast(msg) {
+            toastEl.textContent = msg;
+            toastEl.classList.add('show');
+            setTimeout(() => toastEl.classList.remove('show'), 2000);
+        }
+
+        // ==================== Init ====================
+        // Create sample data
+        const node1 = createNode(100, 100, 'メイン');
+        node1.completed = false;
+        const node2 = createNode(400, 80, 'タスクA');
+        node2.completed = false;
+        const node3 = createNode(400, 250, 'タスクB');
+        node3.completed = false;
+
+        // No parent-child relationship for initial nodes - they are independent
+        // Users can nest them via drag & drop if needed
+
+        createConnection(1, 2, '依頼');
+        createConnection(1, 3, '実装');
+
+        fitToView();
+        // fetch Last-Modified header to show file update time
+        fetch('index.html', { method: 'HEAD', cache: 'no-store' })
+            .then(r => {
+                const lm = r.headers.get('Last-Modified');
+                const el = document.getElementById('file-info');
+                if (el && lm) {
+                    const d = new Date(lm);
+                    const pad = n => String(n).padStart(2, '0');
+                    el.textContent = '🕐 ' + d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                }
+            })
+            .catch(() => {});
+
+        // ==================== When Recalculation ====================
+        /**
+         * 全ノードのwhenを再計算
+         * - nextDateが現在時刻を過ぎていたらノードを再有効化(completed=false)
+         * - 次回日時を再計算してnextDateを更新
+         * @returns {number} 再有効化したノード数
+         */
+        function recalculateWhenDates() {
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const activatedNodes = [];
+            const startedNodes = [];
+
+            state.nodes.forEach(node => {
+                const w = node.details?.when;
+                if (!w || !w.repeatType || w.repeatType === 'none') return;
+
+                const nextDate = w.nextDate ? new Date(w.nextDate) : null;
+                if (!nextDate) return;
+
+                const nextDateStart = new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
+
+                if (node.completed) {
+                    // 完了状態で開始日を過ぎていれば有効化(日付のみ比較)
+                    if (nextDateStart <= todayStart) {
+                        node.completed = false;
+                        node.completedAt = null;
+                        activatedNodes.push({ title: node.title, date: nextDate });
+                        console.log(`[When] ノード「${node.title}」を有効化(開始日: ${nextDate.toLocaleDateString('ja-JP')})`);
+                    }
+                } else {
+                    // 有効状態で開始日時を通過していれば通知
+                    if (nextDate <= now) {
+                        startedNodes.push({ title: node.title, date: nextDate });
+                        console.log(`[When] ノード「${node.title}」の開始時刻を通過(${nextDate.toLocaleString('ja-JP')})`);
+                    }
+                }
+
+                // 次回日時を再計算(有効化・通知の有無に関わらず)
+                const newNextDate = calculateNextDate(w);
+                if (newNextDate) {
+                    w.nextDate = newNextDate.toISOString();
+                }
+            });
+
+            // --- 有効化通知 ---
+            const activatedCount = activatedNodes.length;
+            if (activatedCount > 0) {
+                renderNodes();
+
+                // 画面内トースト
+                if (activatedCount === 1) {
+                    showToast(`「${activatedNodes[0].title}」を有効化しました`);
+                } else {
+                    const titles = activatedNodes.map(n => `・${n.title}`).join('\n');
+                    showToast(`${activatedCount}個のタスクを有効化しました\n${titles}`);
+                }
+
+                // デスクトップ通知
+                sendWhenNotification(
+                    activatedCount === 1 ? 'タスクを有効化しました' : `${activatedCount}個のタスクを有効化しました`,
+                    activatedCount === 1
+                        ? `「${activatedNodes[0].title}」が本日の予定です`
+                        : activatedNodes.map(n => `・${n.title}`).join('\n')
+                );
+                // アクティブ化要求
+                requestAttention(activatedCount);
+            }
+
+            // --- 開始時刻通過通知 ---
+            const startedCount = startedNodes.length;
+            if (startedCount > 0) {
+                // 画面内トースト
+                if (startedCount === 1) {
+                    showToast(`「${startedNodes[0].title}」の開始時刻です`);
+                } else {
+                    const titles = startedNodes.map(n => `・${n.title}`).join('\n');
+                    showToast(`${startedCount}個のタスクが開始時刻を通過しました\n${titles}`);
+                }
+
+                // デスクトップ通知
+                sendWhenNotification(
+                    startedCount === 1 ? '開始時刻を通過しました' : `${startedCount}個のタスクが開始時刻を通過しました`,
+                    startedCount === 1
+                        ? `「${startedNodes[0].title}」の開始時刻を通過しました`
+                        : startedNodes.map(n => `・${n.title}`).join('\n')
+                );
+                // アクティブ化要求
+                requestAttention(startedCount);
+            }
+
+            return activatedCount + startedCount;
+        }
+
+        // デスクトップ通知送信ヘルパー
+        function sendWhenNotification(title, body) {
+            if (!('Notification' in window)) return;
+            const send = () => {
+                const n = new Notification(title, { body: body, icon: '/favicon.ico' });
+                // 通知クリックでウィンドウをアクティブ化
+                n.addEventListener('click', () => {
+                    window.focus();
+                    if (navigator.clearAppBadge) navigator.clearAppBadge();
+                });
+            };
+            if (Notification.permission === 'granted') {
+                send();
+            } else if (Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') send();
+                });
+            }
+        }
+
+        // アクティブ化要求(タスクバー明滅・タブ点滅・バッジ)
+        function requestAttention(count) {
+            // 1. ウィンドウ前面化(ブラウザが許可する場合)
+            try { window.focus(); } catch (e) {}
+
+            // 2. タスクバー/ドックバッジ(Chrome/Edge対応)
+            if (navigator.setAppBadge) {
+                navigator.setAppBadge(count).catch(() => {});
+            }
+
+            // 3. タイトル点滅
+            flashTitle(count);
+        }
+
+        let _flashInterval = null;
+        let _originalTitle = document.title;
+        function flashTitle(count) {
+            if (_flashInterval) return;
+            const msg = count ? `【${count}件】` : '【通知】';
+            let on = false;
+            _flashInterval = setInterval(() => {
+                document.title = on ? _originalTitle : msg + _originalTitle;
+                on = !on;
+            }, 1000);
+            // 10秒後に停止
+            setTimeout(() => { stopFlashTitle(); }, 10000);
+        }
+        function stopFlashTitle() {
+            if (_flashInterval) {
+                clearInterval(_flashInterval);
+                _flashInterval = null;
+                document.title = _originalTitle;
+            }
+        }
+        // ユーザーが画面をクリックしたら点滅停止
+        document.addEventListener('click', stopFlashTitle);
+        document.addEventListener('keydown', stopFlashTitle);
+
+        // 自動再計算: 1分ごとにチェック
+        setInterval(() => {
+            recalculateWhenDates();
+        }, 60000);
+
+        // 初期ロード時にも実行
+        recalculateWhenDates();
+    
