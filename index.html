@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="1769c57">
+    <meta name="commit-id" content="4020f79">
     <title>TaskMind</title>
     <style>
         * {
@@ -1767,19 +1767,20 @@
                 const oldDayWidth = state.timeline.dayWidth;
                 const newDayWidth = Math.max(10, Math.min(1000, oldDayWidth * delta));
 
-                // Zoom centered on mouse position
+                // Calculate mouse-centered zoom position
                 const timelineContainer = document.querySelector('.timeline-container');
                 let targetScrollLeft = null;
                 let targetScrollTop = null;
+                let mouseViewportX = null;
                 if (timelineContainer) {
                     const rect = timelineContainer.getBoundingClientRect();
                     const mouseX = e.clientX - rect.left + timelineContainer.scrollLeft;
-                    // Account for lane header offset (120px)
                     const gridX = Math.max(0, mouseX - 120);
                     const mouseDay = gridX / oldDayWidth;
                     const newGridX = mouseDay * newDayWidth;
                     targetScrollLeft = Math.max(0, newGridX + 120 - (e.clientX - rect.left));
                     targetScrollTop = timelineContainer.scrollTop;
+                    mouseViewportX = e.clientX - rect.left;
                 }
 
                 state.timeline.dayWidth = newDayWidth;
