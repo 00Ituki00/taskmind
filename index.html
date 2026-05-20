@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="b9315f5">
+    <meta name="commit-id" content="3bb0219">
     <title>TaskMind</title>
     <style>
         * {
@@ -1777,7 +1777,9 @@
                     const mouseDay = gridX / oldDayWidth;
                     const newGridX = mouseDay * newDayWidth;
                     const newScrollLeft = Math.max(0, newGridX + 120 - (e.clientX - rect.left));
-                    timelineContainer.scrollLeft = newScrollLeft;
+                    // Save scroll position for renderNodes to restore
+                    state.timeline.scrollLeft = newScrollLeft;
+                    state.timeline.scrollTop = timelineContainer.scrollTop;
                 }
 
                 state.timeline.dayWidth = newDayWidth;
@@ -4661,6 +4663,11 @@ function getNodeEdgePoint(node, targetNode) {
                 container.scrollLeft = state._timelineScroll.left;
                 container.scrollTop = state._timelineScroll.top;
                 state._timelineScroll = null;
+            } else if (state.timeline.scrollLeft !== undefined) {
+                container.scrollLeft = state.timeline.scrollLeft;
+                container.scrollTop = state.timeline.scrollTop || 0;
+                state.timeline.scrollLeft = undefined;
+                state.timeline.scrollTop = undefined;
             }
 
             // Timeline pan drag - only setup window listeners once
