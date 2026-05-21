@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="910c6f3">
+    <meta name="commit-id" content="a035200">
     <title>TaskMind</title>
     <style>
         * {
@@ -747,6 +747,20 @@
 
         .tool-btn.active {
             background: #e0e8f0;
+        }
+
+        .tool-btn.notify-active {
+            background: #1976d2 !important;
+            color: white !important;
+            border: 2px solid #1565c0 !important;
+        }
+        .tool-btn.notify-denied {
+            opacity: 0.3;
+            filter: grayscale(100%);
+        }
+        .tool-btn.notify-active .bell-icon,
+        .tool-btn.notify-active {
+            text-shadow: 0 0 4px rgba(255,255,255,0.5);
         }
 
         .tool-btn.hide-active {
@@ -7734,13 +7748,77 @@ function getNodeEdgePoint(node, targetNode) {
             showToast('When再計算完了');
         });
         document.getElementById('btn-notify').addEventListener('click', () => {
-            requestNotificationPermission().then(granted => {
-                const btn = document.getElementById('btn-notify');
-                if (granted) {
-                    btn.style.color = '#4a90d9';
-                    btn.title = '通知有効';
+            console.log('[Notify] Button clicked');
+            
+            if (!('Notification' in window)) {
+                showToast('このブラウザは通知をサポートしていません');
+                updateNotifyButton(false, true);
+                return;
+            }
+            
+            const currentPermission = Notification.permission;
+            console.log('[Notify] Current permission:', currentPermission);
+            
+            if (currentPermission === 'granted') {
+                _notificationEnabled = true;
+                updateNotifyButton(true);
+                showToast('通知はすでに有効です');
+                return;
+            }
+            
+            if (currentPermission === 'denied') {
+                showToast('通知がブロックされています。ブラウザ設定で許可してください');
+                updateNotifyButton(false, true);
+                return;
+            }
+            
+            // default状態の場合、クリックハンドラ内で直接requestPermissionを呼ぶ（ユーザージェスチャー保持）
+            console.log('[Notify] Requesting permission...');
+            try {
+                const result = Notification.requestPermission();
+                
+                if (result && typeof result.then === 'function') {
+                    // Promise式API（モダンブラウザ）
+                    result.then(permission => {
+                        console.log('[Notify] Permission result:', permission);
+                        if (permission === 'granted') {
+                            _notificationEnabled = true;
+                            updateNotifyButton(true);
+                            showToast('通知が有効になりました');
+                            setTimeout(() => {
+                                try {
+                                    new Notification('TaskMind', { body: '通知が有効になりました' });
+                                } catch (e) {
+                                    console.log('[Notify] Test notification failed:', e);
+                                }
+                            }, 100);
+                        } else {
+                            updateNotifyButton(false, true);
+                            showToast('通知が許可されませんでした');
+                        }
+                    }).catch(err => {
+                        console.error('[Notify] Error requesting permission:', err);
+                        showToast('通知エラー: ' + err.message);
+                        updateNotifyButton(false, true);
+                    });
+                } else {
+                    // コールバック式API（古いブラウザ）
+                    const permission = result;
+                    console.log('[Notify] Permission result (sync):', permission);
+                    if (permission === 'granted') {
+                        _notificationEnabled = true;
+                        updateNotifyButton(true);
+                        showToast('通知が有効になりました');
+                    } else {
+                        updateNotifyButton(false, true);
+                        showToast('通知が許可されませんでした');
+                    }
                 }
-            });
+            } catch (err) {
+                console.error('[Notify] Exception:', err);
+                showToast('通知エラー: ' + err.message);
+                updateNotifyButton(false, true);
+            }
         });
 
         // Layout toggle button
@@ -8354,28 +8432,81 @@ function getNodeEdgePoint(node, targetNode) {
         let _notifiedTasks = new Set(); // 通知済みタスク追跡
 
         async function requestNotificationPermission() {
+            console.log('[Notify] requestNotificationPermission called');
             if (!('Notification' in window)) {
+                console.log('[Notify] Notification API not supported');
                 showToast('このブラウザは通知をサポートしていません');
+                updateNotifyButton(false, true);
                 return false;
             }
+            console.log('[Notify] Current permission:', Notification.permission);
             if (Notification.permission === 'granted') {
                 _notificationEnabled = true;
+                updateNotifyButton(true);
+                console.log('[Notify] Already granted');
                 return true;
             }
             if (Notification.permission === 'denied') {
+                console.log('[Notify] Permission denied');
                 showToast('通知がブロックされています。ブラウザ設定で許可してください');
+                updateNotifyButton(false, true);
                 return false;
             }
-            const permission = await Notification.requestPermission();
-            if (permission === 'granted') {
-                _notificationEnabled = true;
-                showToast('通知が有効になりました');
-                // テスト通知
-                new Notification('TaskMind', { body: '通知が有効になりました' });
-                return true;
-            } else {
-                showToast('通知が許可されませんでした');
+            console.log('[Notify] Requesting permission...');
+            try {
+                // 古いブラウザではコールバック式、新しいブラウザではPromise式
+                let permission;
+                const result = Notification.requestPermission();
+                if (result && typeof result.then === 'function') {
+                    permission = await result;
+                } else {
+                    permission = result;
+                }
+                console.log('[Notify] Permission result:', permission);
+                if (permission === 'granted') {
+                    _notificationEnabled = true;
+                    updateNotifyButton(true);
+                    showToast('通知が有効になりました');
+                    // テスト通知（エラーがあっても無視）
+                    setTimeout(() => {
+                        try {
+                            new Notification('TaskMind', { body: '通知が有効になりました' });
+                        } catch (e) {
+                            console.log('[Notify] Test notification failed:', e);
+                        }
+                    }, 100);
+                    return true;
+                } else {
+                    updateNotifyButton(false, true);
+                    showToast('通知が許可されませんでした');
+                    return false;
+                }
+            } catch (err) {
+                console.error('[Notify] Error requesting permission:', err);
+                showToast('通知エラー: ' + err.message);
+                updateNotifyButton(false, true);
                 return false;
+            }
+        }
+
+        function updateNotifyButton(active, denied = false) {
+            const btn = document.getElementById('btn-notify');
+            if (!btn) {
+                console.log('[Notify] Button not found');
+                return;
+            }
+            btn.classList.remove('notify-active', 'notify-denied');
+            if (active) {
+                btn.classList.add('notify-active');
+                btn.title = '通知有効';
+                console.log('[Notify] Button set to active');
+            } else if (denied) {
+                btn.classList.add('notify-denied');
+                btn.title = '通知ブロック中';
+                console.log('[Notify] Button set to denied');
+            } else {
+                btn.title = '通知許可 (ブラウザ通知を有効化)';
+                console.log('[Notify] Button set to default');
             }
         }
 
@@ -8463,10 +8594,15 @@ function getNodeEdgePoint(node, targetNode) {
         recalculateWhenDates();
 
         // 初期化時に通知許可状態をチェック
-        if ('Notification' in window && Notification.permission === 'granted') {
-            _notificationEnabled = true;
-            const notifyBtn = document.getElementById('btn-notify');
-            if (notifyBtn) notifyBtn.style.color = '#4a90d9';
+        console.log('[Notify] Init check. Notification exists:', 'Notification' in window);
+        if ('Notification' in window) {
+            console.log('[Notify] Init permission:', Notification.permission);
+            if (Notification.permission === 'granted') {
+                _notificationEnabled = true;
+                updateNotifyButton(true);
+            } else if (Notification.permission === 'denied') {
+                updateNotifyButton(false, true);
+            }
         }
 
         // 初期描画
