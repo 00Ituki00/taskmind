@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="a035200">
+    <meta name="commit-id" content="d713073">
     <title>TaskMind</title>
     <style>
         * {
@@ -8349,16 +8349,52 @@ function getNodeEdgePoint(node, targetNode) {
         // When周期タスク完了時にbaseDateTimeとnextDateを更新
         function updateWhenOnComplete(node) {
             const w = node.details?.when;
-            if (!w || w.repeatType === 'none' || w.repeatType === 'once' || !w.nextDate) return;
+            if (!w || w.repeatType === 'none' || w.repeatType === 'once') return;
+            
             const now = new Date();
-            const nextDate = new Date(w.nextDate);
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const nextDateStart = new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
-            // 現在日付が開始日（nextDate）以降なら更新
-            if (todayStart >= nextDateStart) {
+            
+            // 現在のnextDateを確認
+            let nextDate = null;
+            let shouldUpdate = false;
+            
+            if (w.nextDate) {
+                nextDate = new Date(w.nextDate);
+                const nextDateStart = new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
+                // nextDateが過去または今日なら更新
+                if (todayStart >= nextDateStart) {
+                    shouldUpdate = true;
+                }
+            } else {
+                // nextDateがない場合はbaseDateTimeから計算
+                shouldUpdate = true;
+            }
+            
+            // 次回日時を再計算（完了時に必ず次回を設定）
+            if (w.baseDateTime) {
+                const baseDate = new Date(w.baseDateTime);
+                const baseDateStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+                // baseDateTimeも過ぎていれば更新
+                if (todayStart >= baseDateStart) {
+                    shouldUpdate = true;
+                }
+            }
+            
+            if (shouldUpdate) {
                 // baseDateTimeを現在日時に更新（時刻は維持）
-                const hours = nextDate.getHours();
-                const minutes = nextDate.getMinutes();
+                let hours, minutes;
+                if (w.baseDateTime) {
+                    const baseDate = new Date(w.baseDateTime);
+                    hours = baseDate.getHours();
+                    minutes = baseDate.getMinutes();
+                } else if (w.baseTime) {
+                    const [h, m] = w.baseTime.split(':');
+                    hours = parseInt(h);
+                    minutes = parseInt(m);
+                } else {
+                    hours = 9;
+                    minutes = 0;
+                }
                 const newBase = new Date(now);
                 newBase.setHours(hours, minutes, 0, 0);
                 w.baseDateTime = newBase.toISOString();
