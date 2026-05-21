@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="934d61e">
+    <meta name="commit-id" content="910c6f3">
     <title>TaskMind</title>
     <style>
         * {
@@ -8381,7 +8381,7 @@ function getNodeEdgePoint(node, targetNode) {
 
         function sendNotification(title, body, options = {}) {
             if (!_notificationEnabled || Notification.permission !== 'granted') return;
-            if (document.visibilityState === 'visible' && !options.force) return; // アクティブ時は不要
+            // Removed visibility check - always show notification even when tab is active
 
             const notif = new Notification(title, {
                 body: body,
@@ -8461,6 +8461,13 @@ function getNodeEdgePoint(node, targetNode) {
 
         // 初期ロード時にも実行
         recalculateWhenDates();
+
+        // 初期化時に通知許可状態をチェック
+        if ('Notification' in window && Notification.permission === 'granted') {
+            _notificationEnabled = true;
+            const notifyBtn = document.getElementById('btn-notify');
+            if (notifyBtn) notifyBtn.style.color = '#4a90d9';
+        }
 
         // 初期描画
         renderNodes();
