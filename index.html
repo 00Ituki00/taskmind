@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="4e65c7c">
+    <meta name="commit-id" content="2d02e55">
     <title>TaskMind</title>
     <style>
         * {
@@ -5326,6 +5326,17 @@ function getNodeEdgePoint(node, targetNode) {
             return text;
         }
 
+        // Helper: if node is a child of a collapsed (not expanded) parent, return the parent node instead
+        // This ensures connection lines point to the visible parent node when children are hidden
+        function getVisibleEndpoint(node) {
+            if (!node || node.parentId === null) return node;
+            const parent = state.nodes.find(n => n.id === node.parentId);
+            if (parent && !parent.expanded) {
+                return parent;
+            }
+            return node;
+        }
+
         function renderConnections() {
             connectionsSvg.innerHTML = '';
 
@@ -5347,15 +5358,23 @@ function getNodeEdgePoint(node, targetNode) {
                 // Skip connections whose source is hidden by parent collapse
                 if (hiddenNodeIds.has(conn.from)) return;
 
-                const fromNode = state.nodes.find(n => n.id === conn.from);
-                const toNode = state.nodes.find(n => n.id === conn.to);
-                if (!fromNode || !toNode) return;
+                const rawFromNode = state.nodes.find(n => n.id === conn.from);
+                const rawToNode = state.nodes.find(n => n.id === conn.to);
+                if (!rawFromNode || !rawToNode) return;
+
+                // If either endpoint is a child of a collapsed parent, redirect to the parent node
+                const fromNode = getVisibleEndpoint(rawFromNode);
+                const toNode = getVisibleEndpoint(rawToNode);
+
+                // Skip if both endpoints resolved to the same node (e.g. both children of same collapsed parent)
+                if (fromNode.id === toNode.id) return;
 
                 // Skip connections involving completed nodes when hideCompleted is enabled
                 if (state.hideCompleted && (fromNode.completed || toNode.completed)) return;
 
                 // Skip parent-child relationships (already shown as nested list)
-                if (toNode.parentId === fromNode.id || fromNode.parentId === toNode.id) return;
+                // Check against raw nodes to preserve original parent-child semantics
+                if (rawToNode.parentId === rawFromNode.id || rawFromNode.parentId === rawToNode.id) return;
 
                 // Calculate edge points: root nodes use center, child nodes use left/right side
                 let fromEdge, toEdge;
