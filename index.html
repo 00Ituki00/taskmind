@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="7edabf2">
+    <meta name="commit-id" content="4e65c7c">
     <title>TaskMind</title>
     <style>
         * {
@@ -2063,28 +2063,53 @@
             return node;
         }
 
-        // Sort children of a node recursively: incomplete first, then by priority desc, then by createdAt asc
+        // Sort children of a node recursively: incomplete first, then by date (nextDate/deadlineDate asc),
+        // then preserving original manual order (stable), createdAt as last fallback
         function sortNodeChildren(node) {
             if (!node.children || node.children.length < 2) return;
+            
+            // Record original order to respect manual drag-and-drop order as stable sort tie-breaker
+            const originalOrder = new Map();
+            node.children.forEach((id, idx) => originalOrder.set(id, idx));
+            
             node.children.sort((aId, bId) => {
                 const a = state.nodes.find(n => n.id === aId);
                 const b = state.nodes.find(n => n.id === bId);
                 if (!a || !b) return 0;
-                // Completed nodes go to bottom
+                
+                // 1. Completed nodes go to bottom
                 if (a.completed !== b.completed) {
                     return a.completed ? 1 : -1;
                 }
-                // Same completion status: higher priority first
-                const ap = a.priority || 0;
-                const bp = b.priority || 0;
-                if (ap !== bp) {
-                    return bp - ap;
+                
+                // 2. Sort by date (nextDate > deadlineDate), earlier first
+                const aWhen = a.details?.when;
+                const bWhen = b.details?.when;
+                const aDate = aWhen?.nextDate || aWhen?.deadlineDate || null;
+                const bDate = bWhen?.nextDate || bWhen?.deadlineDate || null;
+                
+                if (aDate && bDate) {
+                    const diff = new Date(aDate) - new Date(bDate);
+                    if (diff !== 0) return diff;
+                } else if (aDate && !bDate) {
+                    return -1; // nodes with date come first
+                } else if (!aDate && bDate) {
+                    return 1;
                 }
-                // Same priority: earlier created first
+                
+                // 3. Preserve manual order (original children array index)
+                const aIdx = originalOrder.get(aId) ?? 0;
+                const bIdx = originalOrder.get(bId) ?? 0;
+                if (aIdx !== bIdx) {
+                    return aIdx - bIdx;
+                }
+                
+                // 4. createdAt as final fallback
                 const ad = a.createdAt ? new Date(a.createdAt) : new Date(0);
                 const bd = b.createdAt ? new Date(b.createdAt) : new Date(0);
                 return ad - bd;
             });
+            
             // Recursively sort nested children
             node.children.forEach(childId => {
                 const child = state.nodes.find(n => n.id === childId);
