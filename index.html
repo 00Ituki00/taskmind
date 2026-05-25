@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="d5cae22">
+    <meta name="commit-id" content="1688642">
     <title>TaskMind</title>
     <style>
         * {
@@ -6990,6 +6990,11 @@ function getNodeEdgePoint(node, targetNode) {
             // Clear pending connection line
             const tempLine = document.getElementById('pending-connection');
             if (tempLine) tempLine.remove();
+
+            // Clear drag indicator state when mouse is released
+            if (state.dragIndicator) {
+                state.dragIndicator = null;
+            }
 
             // Calculate whether node was actually dragged (vs just clicked)
             const CLICK_THRESHOLD = 5;
