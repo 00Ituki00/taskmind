@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="1688642">
+    <meta name="commit-id" content="c9e4e0f">
     <title>TaskMind</title>
     <style>
         * {
@@ -5524,8 +5524,11 @@ function getNodeEdgePoint(node, targetNode) {
                     e.stopPropagation();
                     e.preventDefault();
                     conn.collapsed = !conn.collapsed;
+                    const rawToNode = state.nodes.find(n => n.id === conn.to);
                     if (conn.collapsed && !conn.originalToPos) {
-                        conn.originalToPos = { x: toNode.x, y: toNode.y };
+                        if (rawToNode) {
+                            conn.originalToPos = { x: rawToNode.x, y: rawToNode.y };
+                        }
                     }
                     // Clear saved indicator position when expanding so it recalculates to mid-point
                     if (!conn.collapsed) {
@@ -5670,15 +5673,20 @@ function getNodeEdgePoint(node, targetNode) {
                                 e.stopPropagation();
                                 e.preventDefault();
                                 conn.collapsed = !conn.collapsed;
+                                const rawToNode = state.nodes.find(n => n.id === conn.to);
                                 if (!conn.collapsed && conn.originalToPos) {
-                                    toNode.x = conn.originalToPos.x;
-                                    toNode.y = conn.originalToPos.y;
+                                    if (rawToNode) {
+                                        rawToNode.x = conn.originalToPos.x;
+                                        rawToNode.y = conn.originalToPos.y;
+                                    }
                                     delete conn.originalToPos;
                                     // Clear saved indicator position when expanding
                                     delete conn.indX;
                                     delete conn.indY;
                                 } else if (conn.collapsed && !conn.originalToPos) {
-                                    conn.originalToPos = { x: toNode.x, y: toNode.y };
+                                    if (rawToNode) {
+                                        conn.originalToPos = { x: rawToNode.x, y: rawToNode.y };
+                                    }
                                     // Clear saved indicator position when re-collapsing (will use midpoint)
                                     delete conn.indX;
                                     delete conn.indY;
@@ -5695,16 +5703,17 @@ function getNodeEdgePoint(node, targetNode) {
                             e.stopPropagation();
                             e.preventDefault();
 
-                            // Collect all hidden descendant nodes with their offsets from indicator
+                            // Collect all hidden descendant nodes with their ABSOLUTE offsets from indicator
                             const hiddenDescendants = [];
 
-                            // Include the direct target node (B) first
-                            const toNode = state.nodes.find(n => n.id === conn.to);
-                            if (toNode) {
+                            // Include the direct target node (raw target, not visible endpoint) first
+                            const rawToNode = state.nodes.find(n => n.id === conn.to);
+                            if (rawToNode) {
+                                const absPos = getNodeAbsolutePosition(rawToNode);
                                 hiddenDescendants.push({
-                                    node: toNode,
-                                    offsetX: toNode.x - indX,
-                                    offsetY: toNode.y - indY,
+                                    node: rawToNode,
+                                    offsetX: absPos.x - indX,
+                                    offsetY: absPos.y - indY,
                                     conn: conn
                                 });
                             }
@@ -5717,10 +5726,11 @@ function getNodeEdgePoint(node, targetNode) {
                                     .forEach(c => {
                                         const n = state.nodes.find(node => node.id === c.to);
                                         if (n) {
+                                            const absPos = getNodeAbsolutePosition(n);
                                             hiddenDescendants.push({
                                                 node: n,
-                                                offsetX: n.x - indX,
-                                                offsetY: n.y - indY,
+                                                offsetX: absPos.x - indX,
+                                                offsetY: absPos.y - indY,
                                                 conn: c
                                             });
                                             collectHidden(c.to);
@@ -6407,10 +6417,20 @@ function getNodeEdgePoint(node, targetNode) {
                 state.dragIndicator.currentIndX = newIndX;
                 state.dragIndicator.currentIndY = newIndY;
 
-                // Move all hidden descendants following the indicator with relative offsets
+                // Move all hidden descendants following the indicator with absolute offsets
+                // Convert target absolute position back to relative coordinates
                 state.dragIndicator.hiddenDescendants.forEach(desc => {
-                    desc.node.x = newIndX + desc.offsetX;
-                    desc.node.y = newIndY + desc.offsetY;
+                    const targetAbsX = newIndX + desc.offsetX;
+                    const targetAbsY = newIndY + desc.offsetY;
+                    if (desc.node.parentId !== null) {
+                        const parent = state.nodes.find(n => n.id === desc.node.parentId);
+                        const parentAbs = getNodeAbsolutePosition(parent);
+                        desc.node.x = targetAbsX - parentAbs.x;
+                        desc.node.y = targetAbsY - parentAbs.y;
+                    } else {
+                        desc.node.x = targetAbsX;
+                        desc.node.y = targetAbsY;
+                    }
                     // Update original position tracking
                     if (desc.conn.originalToPos) {
                         desc.conn.originalToPos.x = desc.node.x;
