@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="4a8367f">
+    <meta name="commit-id" content="e53aa63">
     <title>TaskMind</title>
     <style>
         * {
@@ -5416,10 +5416,28 @@ function getNodeEdgePoint(node, targetNode) {
                 const dx = toCx - fromCx;
                 const dy = toCy - fromCy;
                 const len = Math.sqrt(dx * dx + dy * dy);
-                const cx1 = fromCx + dx * 0.3;
-                const cy1 = fromCy + Math.max(len * 0.2, 40) * (dy >= 0 ? 1 : -1);
-                const cx2 = toCx - dx * 0.3;
-                const cy2 = toCy - Math.max(len * 0.2, 40) * (dy >= 0 ? 1 : -1);
+
+                // Calculate control points from edge points, extending in the direction
+                // from node center to edge point (natural tangent direction)
+                const edgeDx1 = x1 - fromCx;
+                const edgeDy1 = y1 - fromCy;
+                const edgeLen1 = Math.sqrt(edgeDx1 * edgeDx1 + edgeDy1 * edgeDy1) || 1;
+                const edgeDx2 = x2 - toCx;
+                const edgeDy2 = y2 - toCy;
+                const edgeLen2 = Math.sqrt(edgeDx2 * edgeDx2 + edgeDy2 * edgeDy2) || 1;
+
+                // Edge-to-edge distance (more accurate than center-to-center for curve length)
+                const edgeDx = x2 - x1;
+                const edgeDy = y2 - y1;
+                const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy) || 1;
+
+                // Control distance: proportional to edge-to-edge distance, with minimum for visibility
+                const controlDist = Math.max(edgeLen * 0.4, 50);
+
+                const cx1 = x1 + (edgeDx1 / edgeLen1) * controlDist;
+                const cy1 = y1 + (edgeDy1 / edgeLen1) * controlDist;
+                const cx2 = x2 + (edgeDx2 / edgeLen2) * controlDist;
+                const cy2 = y2 + (edgeDy2 / edgeLen2) * controlDist;
 
                 const pathD = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
 
