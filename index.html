@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="e53aa63">
+    <meta name="commit-id" content="d5cae22">
     <title>TaskMind</title>
     <style>
         * {
@@ -5333,8 +5333,13 @@ function getNodeEdgePoint(node, targetNode) {
             const parent = state.nodes.find(n => n.id === node.parentId);
             if (!parent) return node;
             if (!parent.expanded) {
-                // Parent is collapsed; recursively resolve to parent's own visible ancestor
+                // Parent is collapsed; redirect to parent's visible ancestor
                 return getVisibleEndpoint(parent);
+            }
+            // Parent is expanded but may itself be hidden by an ancestor collapse
+            const visibleParent = getVisibleEndpoint(parent);
+            if (visibleParent.id !== parent.id) {
+                return visibleParent;
             }
             return node;
         }
