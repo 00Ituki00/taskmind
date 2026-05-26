@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="39dca19">
+    <meta name="commit-id" content="6046ab2">
     <title>TaskMind</title>
     <style>
         * {
@@ -5847,9 +5847,21 @@ function getNodeEdgePoint(node, targetNode) {
                     const labelColor = conn.type ? (typeColors[conn.type] || '#888') : '#555';
 
                     if (labelText) {
+                        // Calculate bezier midpoint for accurate label placement
+                        function getBezierPoint(t, p0, p1, p2, p3) {
+                            const oneMinusT = 1 - t;
+                            const mt2 = oneMinusT * oneMinusT;
+                            const t2 = t * t;
+                            return {
+                                x: mt2 * oneMinusT * p0.x + 3 * mt2 * t * p1.x + 3 * oneMinusT * t2 * p2.x + t2 * t * p3.x,
+                                y: mt2 * oneMinusT * p0.y + 3 * mt2 * t * p1.y + 3 * oneMinusT * t2 * p2.y + t2 * t * p3.y
+                            };
+                        }
+                        const bezierMid = getBezierPoint(0.5, {x: x1, y: y1}, {x: cx1, y: cy1}, {x: cx2, y: cy2}, {x: x2, y: y2});
+
                         const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-                        fo.setAttribute('x', ((fromCx + toCx) / 2) - 50);
-                        fo.setAttribute('y', ((fromCy + toCy) / 2) - 25);
+                        fo.setAttribute('x', bezierMid.x - 50);
+                        fo.setAttribute('y', bezierMid.y - 25);
                         fo.setAttribute('width', '100');
                         fo.setAttribute('height', '30');
                         fo.style.pointerEvents = 'none';
