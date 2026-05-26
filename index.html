@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="c9e4e0f">
+    <meta name="commit-id" content="39dca19">
     <title>TaskMind</title>
     <style>
         * {
@@ -3104,12 +3104,16 @@ function getNodeEdgePoint(node, targetNode) {
                 if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
                 // Save when data from integrated editor
                 if (whenEditor) {
+                    const originalNextDate = node.details.when?.nextDate || null;
                     const newWhen = whenEditor.getValue();
                     if (newWhen === null) {
                         if (node.details) delete node.details.when;
                     } else {
                         node.details.when = newWhen;
-                        node.details.when.nextDate = calculateNextDate(node.details.when);
+                        const hasManualNextDate = newWhen.nextDate && (!originalNextDate || newWhen.nextDate !== originalNextDate);
+                        if (!hasManualNextDate || !newWhen.nextDate) {
+                            node.details.when.nextDate = calculateNextDate(node.details.when);
+                        }
                     }
                 }
                 modal.querySelectorAll('textarea[data-field-key], input[data-field-key]').forEach(ta => {
@@ -3451,6 +3455,47 @@ function getNodeEdgePoint(node, targetNode) {
 
             container.appendChild(deadlineSection);
 
+            // --- 次回日時（手動編集） ---
+            const nextDateSection = document.createElement('div');
+            nextDateSection.className = 'when-section';
+            const nextDateLabel = document.createElement('div');
+            nextDateLabel.className = 'when-section-label';
+            nextDateLabel.textContent = '次回日時';
+            nextDateSection.appendChild(nextDateLabel);
+
+            const nextDateRow = document.createElement('div');
+            nextDateRow.className = 'when-row';
+            nextDateRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+            const autoCalcCheckbox = document.createElement('input');
+            autoCalcCheckbox.type = 'checkbox';
+            autoCalcCheckbox.checked = true;
+            autoCalcCheckbox.id = 'when-autocalc-' + Math.random().toString(36).slice(2, 8);
+            const autoCalcLabel = document.createElement('label');
+            autoCalcLabel.htmlFor = autoCalcCheckbox.id;
+            autoCalcLabel.textContent = '自動計算';
+            autoCalcLabel.style.cssText = 'font-size:12px;color:#666;cursor:pointer;';
+
+            const nextDateInput = document.createElement('input');
+            nextDateInput.type = 'datetime-local';
+            nextDateInput.value = w.nextDate ? isoToLocalISO(w.nextDate) : '';
+            nextDateInput.disabled = true;
+            nextDateInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;background:#f5f5f5;';
+
+            autoCalcCheckbox.addEventListener('change', () => {
+                nextDateInput.disabled = autoCalcCheckbox.checked;
+                nextDateInput.style.background = autoCalcCheckbox.checked ? '#f5f5f5' : '#fff';
+                if (autoCalcCheckbox.checked && w.nextDate) {
+                    nextDateInput.value = isoToLocalISO(w.nextDate);
+                }
+            });
+
+            nextDateRow.appendChild(autoCalcCheckbox);
+            nextDateRow.appendChild(autoCalcLabel);
+            nextDateRow.appendChild(nextDateInput);
+            nextDateSection.appendChild(nextDateRow);
+            container.appendChild(nextDateSection);
+
             // --- プレビュー ---
             const previewSection = document.createElement('div');
             previewSection.className = 'when-section';
@@ -3463,6 +3508,7 @@ function getNodeEdgePoint(node, targetNode) {
                 const isDisabled = (uiType === 'disabled');
                 timeSection.style.display = isDisabled ? 'none' : 'block';
                 deadlineSection.style.display = isDisabled ? 'none' : 'block';
+                nextDateSection.style.display = isDisabled ? 'none' : 'block';
                 weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
                 // 毎週・毎月(曜日)・毎年(曜日)共通で「毎週」〜「最終」オプション表示
                 const needAllOption = (uiType === 'weekly');
@@ -3498,6 +3544,8 @@ function getNodeEdgePoint(node, targetNode) {
 
                 if (repeatType === 'disabled') return null;
 
+                const manualNextDate = (!autoCalcCheckbox.checked && nextDateInput.value) ? new Date(nextDateInput.value).toISOString() : null;
+
                 return {
                     repeatType: repeatType,
                     baseDateTime: timeInput.value ? new Date(timeInput.value).toISOString() : null,
@@ -3513,7 +3561,7 @@ function getNodeEdgePoint(node, targetNode) {
                     monthDay: currentMonthDay,
                     monthlyMode: monthlyMode,
                     yearlyMode: yearlyMode,
-                    nextDate: w.nextDate || null,
+                    nextDate: manualNextDate || w.nextDate || null,
                     lastCompleted: w.lastCompleted || null
                 };
             }
@@ -3630,12 +3678,17 @@ function getNodeEdgePoint(node, targetNode) {
             saveBtn.className = 'when-btn save';
             saveBtn.textContent = '保存';
             saveBtn.addEventListener('click', () => {
+                const originalNextDate = node.details.when?.nextDate || null;
                 const newWhen = editor.getValue();
                 if (newWhen === null) {
                     if (node.details) delete node.details.when;
                 } else {
                     node.details.when = newWhen;
-                    node.details.when.nextDate = calculateNextDate(node.details.when);
+                    // 手動設定されたnextDateがない場合のみ自動計算
+                    const hasManualNextDate = newWhen.nextDate && (!originalNextDate || newWhen.nextDate !== originalNextDate);
+                    if (!hasManualNextDate || !newWhen.nextDate) {
+                        node.details.when.nextDate = calculateNextDate(node.details.when);
+                    }
                 }
                 popup.remove();
                 renderNodes();
@@ -4103,9 +4156,14 @@ function getNodeEdgePoint(node, targetNode) {
                         e.stopPropagation();
                         // Ignore right-click (button === 2), only toggle on left-click
                         if (e.button === 2) return;
+                        const wasCompleted = child.completed;
                         child.completed = !child.completed;
                         child.completedAt = child.completed ? new Date().toISOString() : null;
-                        if (child.completed) updateWhenOnComplete(child);
+                        if (child.completed) {
+                            updateWhenOnComplete(child);
+                        } else if (wasCompleted) {
+                            undoWhenComplete(child);
+                        }
                         renderNodes();
                     });
                     childCheckbox.addEventListener('contextmenu', (e) => {
@@ -4363,9 +4421,15 @@ function getNodeEdgePoint(node, targetNode) {
                         e.stopPropagation();
                         // Ignore right-click (button === 2), only toggle on left-click
                         if (e.button === 2) return;
+                        const wasCompleted = node.completed;
                         node.completed = !node.completed;
                         node.completedAt = node.completed ? new Date().toISOString() : null;
-                        if (node.completed) updateWhenOnComplete(node);
+                        if (node.completed) {
+                            updateWhenOnComplete(node);
+                        } else if (wasCompleted) {
+                            // Undo completion: restore previous nextDate if available
+                            undoWhenComplete(node);
+                        }
                     });
                     checkbox.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
@@ -4409,9 +4473,14 @@ function getNodeEdgePoint(node, targetNode) {
                     e.stopPropagation();
                     // Ignore right-click (button === 2), only toggle on left-click
                     if (e.button === 2) return;
+                    const wasCompleted = node.completed;
                     node.completed = !node.completed;
                     node.completedAt = node.completed ? new Date().toISOString() : null;
-                    if (node.completed) updateWhenOnComplete(node);
+                    if (node.completed) {
+                        updateWhenOnComplete(node);
+                    } else if (wasCompleted) {
+                        undoWhenComplete(node);
+                    }
                     renderNodes();
                 });
                 color.addEventListener('contextmenu', (e) => {
@@ -8468,6 +8537,11 @@ function getNodeEdgePoint(node, targetNode) {
                 if (nextDate > now) return;
             }
             
+            // 完了前の値を保存（取消用）
+            w._prevNextDate = w.nextDate || null;
+            w._prevBaseDateTime = w.baseDateTime || null;
+            w._prevBaseTime = w.baseTime || null;
+            
             // baseDateTimeを現在日時に更新（時刻は維持）
             let hours, minutes;
             if (w.baseDateTime) {
@@ -8494,6 +8568,30 @@ function getNodeEdgePoint(node, targetNode) {
             w.lastCompleted = now.toISOString();
             
             console.log(`[When] 「${node.title}」完了更新: baseDateTime=${w.baseDateTime}, nextDate=${w.nextDate}`);
+        }
+
+        /**
+         * 完了を取消（次回日時を元に戻す）
+         */
+        function undoWhenComplete(node) {
+            const w = node.details?.when;
+            if (!w) return;
+            
+            // 保存していた前回の値を復元
+            if (w._prevNextDate !== undefined) {
+                w.nextDate = w._prevNextDate;
+                delete w._prevNextDate;
+            }
+            if (w._prevBaseDateTime !== undefined) {
+                w.baseDateTime = w._prevBaseDateTime;
+                delete w._prevBaseDateTime;
+            }
+            if (w._prevBaseTime !== undefined) {
+                w.baseTime = w._prevBaseTime;
+                delete w._prevBaseTime;
+            }
+            
+            console.log(`[When] 「${node.title}」完了取消: nextDate=${w.nextDate}`);
         }
 
         // デスクトップ通知送信ヘルパー
