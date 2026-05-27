@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="6046ab2">
+    <meta name="commit-id" content="3192154">
     <title>TaskMind</title>
     <style>
         * {
@@ -7921,6 +7921,7 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
+        let saveInProgress = false;
         document.getElementById('btn-save').addEventListener('click', () => {
             if (saveInProgress) return;
             saveInProgress = true;
