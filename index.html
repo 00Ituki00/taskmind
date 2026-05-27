@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="e75acc1">
+    <meta name="commit-id" content="e913062">
     <title>TaskMind</title>
     <style>
         * {
@@ -4196,8 +4196,11 @@ function getNodeEdgePoint(node, targetNode) {
                     // Task count badge
                     const badge = document.createElement('span');
                     badge.style.cssText = 'font-size:11px;color:#999;margin-left:4px;flex-shrink:0;';
-                    const descCount = state.nodes.filter(n => n.parentId === child.id).length;
-                    badge.textContent = descCount > 0 ? '(' + descCount + ')' : '';
+                    const children = state.nodes.filter(n => n.parentId === child.id);
+                    const completedChildren = children.filter(n => n.completed).length;
+                    const totalChildren = children.length;
+                    badge.textContent = totalChildren > 0 ? '(' + completedChildren + '/' + totalChildren + ')' : '';
+                    badge.dataset.badge = 'true';
 
                     childEl.appendChild(childCheckbox);
                     childEl.appendChild(childTitle);
@@ -4544,6 +4547,17 @@ function getNodeEdgePoint(node, targetNode) {
                 header.appendChild(indicatorsEl);
 
                 header.appendChild(expandBtn);
+
+                // Task count badge for parent nodes
+                const children = state.nodes.filter(n => n.parentId === node.id);
+                const completedChildren = children.filter(n => n.completed).length;
+                const totalChildren = children.length;
+                if (totalChildren > 0) {
+                    const badge = document.createElement('span');
+                    badge.style.cssText = 'font-size:11px;color:#999;margin-left:4px;flex-shrink:0;';
+                    badge.textContent = '(' + completedChildren + '/' + totalChildren + ')';
+                    header.appendChild(badge);
+                }
 
                 // Hover tooltip for why/what info — singleton pattern, attached to entire node
                 // Reuse single tooltip element across all nodes
