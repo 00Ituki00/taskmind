@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="e913062">
+    <meta name="commit-id" content="b8d4a37">
     <title>TaskMind</title>
     <style>
         * {
@@ -1951,7 +1951,8 @@
                         'Caution': '#f39c12',
                         'Therefore': '#e91e63'
                     };
-                    const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[conn.type] || conn.type)}</span>` : '';
+                    const displayType = conn.customType || conn.type || '';
+                    const typeTag = displayType ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[displayType] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[displayType] || displayType)}</span>` : '';
                     html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${typeTag}${sourceTitle}</div>`;
                 });
             }
@@ -1999,7 +2000,8 @@
                         'Caution': '#f39c12',
                         'Therefore': '#e91e63'
                     };
-                    const typeTag = conn.type ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[conn.type] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[conn.type] || conn.type)}</span>` : '';
+                    const displayType = conn.customType || conn.type || '';
+                    const typeTag = displayType ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[displayType] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[displayType] || displayType)}</span>` : '';
                     html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${typeTag}${targetTitle}</div>`;
                 });
                 if (hasDetails || incomingConns.length > 0) html += '</div>';
@@ -2157,11 +2159,11 @@
                         'Therefore': '#e91e63',
             'Custom': '#888888'
         };
-        function createConnection(from, to, label = '', type = '') {
+        function createConnection(from, to, label = '', type = '', customType = '') {
             const exists = state.connections.some(c => c.from === from && c.to === to);
             if (exists) return;
 
-            state.connections.push({ from, to, label, type });
+            state.connections.push({ from, to, label, type, customType });
             renderConnections();
         }
 
@@ -2218,6 +2220,23 @@
                 popup.appendChild(btn);
             });
 
+            // 自由入力ボタン
+            const customBtn = document.createElement('button');
+            customBtn.style.cssText = `
+                border:none; background:none; padding:6px 8px; border-radius:4px;
+                cursor:pointer; text-align:left; font-size:13px;
+                display:flex; align-items:center; gap:6px;
+            `;
+            customBtn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:#888888;display:inline-block;"></span> ✏️ 自由入力`;
+            customBtn.addEventListener('mouseenter', () => customBtn.style.background = '#f5f5f5');
+            customBtn.addEventListener('mouseleave', () => customBtn.style.background = 'none');
+            customBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                popup.remove();
+                showCustomTypeInput(fromNodeId, x, y, 'start');
+            });
+            popup.appendChild(customBtn);
+
             // Cancel button
             const cancel = document.createElement('button');
             cancel.textContent = 'キャンセル';
@@ -2249,6 +2268,100 @@
         }
 
         // Connection type selector popup (shown when editing existing connection)
+        function showCustomTypeInput(target, x, y, mode) {
+            const existing = document.querySelector('.custom-type-input');
+            if (existing) existing.remove();
+
+            const popup = document.createElement('div');
+            popup.className = 'custom-type-input';
+            popup.style.cssText = `
+                position:fixed; left:${x}px; top:${y}px;
+                background:white; border:1px solid #ddd; border-radius:8px;
+                padding:10px; box-shadow:0 4px 16px rgba(0,0,0,0.15);
+                z-index:10000; display:flex; flex-direction:column; gap:6px;
+                font-size:13px; min-width:160px;
+            `;
+
+            const title = document.createElement('div');
+            title.style.cssText = 'font-weight:600; font-size:12px; color:#666; margin-bottom:4px;';
+            title.textContent = '接続タイプを入力';
+            popup.appendChild(title);
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = '例: 関連, 前提, 派生...';
+            input.style.cssText = 'width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:13px; box-sizing:border-box;';
+            if (mode === 'edit') {
+                input.value = target.customType || target.type || '';
+            }
+            popup.appendChild(input);
+
+            const btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex; justify-content:flex-end; gap:6px; margin-top:4px;';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.style.cssText = 'padding:4px 10px; font-size:12px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer;';
+            cancelBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                popup.remove();
+            });
+
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = '保存';
+            saveBtn.style.cssText = 'padding:4px 10px; font-size:12px; border:none; border-radius:4px; background:#4a90d9; color:white; cursor:pointer;';
+            saveBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const val = input.value.trim();
+                if (val) {
+                    if (mode === 'edit') {
+                        target.customType = val;
+                        target.type = '';
+                        target.label = '';
+                    } else {
+                        state.pendingConnectionType = '';
+                        state.pendingConnectionCustomType = val;
+                        state.connectingFrom = target;
+                        state.mode = 'connect';
+                        modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                        modeIndicator.classList.add('active');
+                    }
+                }
+                popup.remove();
+                if (mode === 'edit') {
+                    renderConnections();
+                }
+            });
+
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(saveBtn);
+            popup.appendChild(btnRow);
+
+            document.body.appendChild(popup);
+            input.focus();
+            input.select();
+
+            const closeHandler = (e) => {
+                if (!popup.contains(e.target)) {
+                    popup.remove();
+                    document.removeEventListener('mousedown', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveBtn.click();
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    popup.remove();
+                    document.removeEventListener('mousedown', closeHandler);
+                }
+            });
+        }
+
         function showConnectionTypeSelectorForEdit(conn, x, y) {
             const existing = document.querySelector('.conn-type-selector');
             if (existing) existing.remove();
@@ -2294,6 +2407,25 @@
                 });
                 popup.appendChild(btn);
             });
+
+            // 自由入力ボタン
+            const customBtn = document.createElement('button');
+            const isCustom = !conn.type || !['Why','How','Problem','Result','Alternative','Caution','Therefore'].includes(conn.type);
+            customBtn.style.cssText = `
+                border:none; background:${isCustom ? '#f0f0f0' : 'none'}; padding:6px 8px; border-radius:4px;
+                cursor:pointer; text-align:left; font-size:13px;
+                display:flex; align-items:center; gap:6px;
+                font-weight:${isCustom ? '600' : 'normal'};
+            `;
+            customBtn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:#888888;display:inline-block;"></span> ✏️ 自由入力 ${isCustom ? '✓' : ''}`;
+            customBtn.addEventListener('mouseenter', () => { if (!isCustom) customBtn.style.background = '#f5f5f5'; });
+            customBtn.addEventListener('mouseleave', () => { if (!isCustom) customBtn.style.background = 'none'; });
+            customBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                popup.remove();
+                showCustomTypeInput(conn, x, y, 'edit');
+            });
+            popup.appendChild(customBtn);
 
             const cancel = document.createElement('button');
             cancel.textContent = 'キャンセル';
@@ -5871,7 +6003,7 @@ function getNodeEdgePoint(node, targetNode) {
                         'Caution': '#f39c12',
                         'Therefore': '#e91e63'
                     };
-                    const labelText = conn.type ? (typeLabels[conn.type] || conn.type) : conn.label;
+                    const labelText = conn.customType ? conn.customType : (conn.type ? (typeLabels[conn.type] || conn.type) : conn.label);
                     const labelColor = conn.type ? (typeColors[conn.type] || '#888') : '#555';
 
                     if (labelText) {
@@ -6228,9 +6360,11 @@ function getNodeEdgePoint(node, targetNode) {
                 } else if (state.connectingFrom !== node.id) {
                     // Second node clicked - create connection with pre-selected type
                     const type = state.pendingConnectionType || 'Related';
-                    createConnection(state.connectingFrom, node.id, '', type);
+                    const customType = state.pendingConnectionCustomType || '';
+                    createConnection(state.connectingFrom, node.id, '', type, customType);
                     state.connectingFrom = null;
                     state.pendingConnectionType = null;
+                    state.pendingConnectionCustomType = null;
                     modeIndicator.textContent = '接続モード: 開始ノードを選択';
                     setMode('select');
                 }
@@ -6393,9 +6527,11 @@ function getNodeEdgePoint(node, targetNode) {
                 const x = (e.clientX - state.panX) / state.scale;
                 const y = (e.clientY - state.panY) / state.scale;
                 const newNode = createNode(x, y);
-                createConnection(state.connectingFrom, newNode.id, '', state.pendingConnectionType || '');
+                const customType = state.pendingConnectionCustomType || '';
+                createConnection(state.connectingFrom, newNode.id, '', state.pendingConnectionType || '', customType);
                 state.connectingFrom = null;
                 state.pendingConnectionType = null;
+                state.pendingConnectionCustomType = null;
                 const tempLine = document.getElementById('pending-connection');
                 if (tempLine) tempLine.remove();
                 modeIndicator.classList.remove('active');
@@ -6477,9 +6613,11 @@ function getNodeEdgePoint(node, targetNode) {
                     const x = (touch.clientX - state.panX) / state.scale;
                     const y = (touch.clientY - state.panY) / state.scale;
                     const newNode = createNode(x, y);
-                    createConnection(state.connectingFrom, newNode.id, '', state.pendingConnectionType || '');
+                    const customType = state.pendingConnectionCustomType || '';
+                    createConnection(state.connectingFrom, newNode.id, '', state.pendingConnectionType || '', customType);
                     state.connectingFrom = null;
                     state.pendingConnectionType = null;
+                    state.pendingConnectionCustomType = null;
                     const tempLine = document.getElementById('pending-connection');
                     if (tempLine) tempLine.remove();
                     modeIndicator.classList.remove('active');
@@ -7662,6 +7800,7 @@ function getNodeEdgePoint(node, targetNode) {
                     items.push({ text: '接続モードをキャンセル', icon: '❌', action: () => {
                         state.connectingFrom = null;
                         state.pendingConnectionType = null;
+                        state.pendingConnectionCustomType = null;
                         const tempLine = document.getElementById('pending-connection');
                         if (tempLine) tempLine.remove();
                         modeIndicator.classList.remove('active');
@@ -7777,6 +7916,7 @@ function getNodeEdgePoint(node, targetNode) {
             if (e.key === 'Escape') {
                 state.connectingFrom = null;
                 state.pendingConnectionType = null;
+                state.pendingConnectionCustomType = null;
                 const tempLine = document.getElementById('pending-connection');
                 if (tempLine) tempLine.remove();
                 modeIndicator.classList.remove('active');
