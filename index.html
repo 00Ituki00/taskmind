@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="b8d4a37">
+    <meta name="commit-id" content="ceb958b">
     <title>TaskMind</title>
     <style>
         * {
@@ -1918,8 +1918,8 @@
             const where = node.details?.where?.trim();
             const who = node.details?.who?.trim();
             const link = node.details?.link?.trim();
-            const outgoingConns = state.connections.filter(c => c.from === node.id && (c.label || c.type));
-            const incomingConns = state.connections.filter(c => c.to === node.id && (c.label || c.type));
+            const outgoingConns = state.connections.filter(c => c.from === node.id && (c.label || c.type || c.customType));
+            const incomingConns = state.connections.filter(c => c.to === node.id && (c.label || c.type || c.customType));
             
             const hasDetails = why || what || where || who || link;
             const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
@@ -4709,8 +4709,8 @@ function getNodeEdgePoint(node, targetNode) {
                     const what = node.details?.what?.trim();
                     const where = node.details?.where?.trim();
                     const who = node.details?.who?.trim();
-                    const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
-                    const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
+                    const outgoingConns = state.connections.filter(c => c.from === node.id && (c.label || c.type || c.customType));
+                    const incomingConns = state.connections.filter(c => c.to === node.id && (c.label || c.type || c.customType));
                     
                     const hasDetails = why || what || where || who;
                     const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
@@ -4724,7 +4724,7 @@ function getNodeEdgePoint(node, targetNode) {
                             const source = state.nodes.find(n => n.id === conn.from);
                             const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                             const sourceColor = source ? source.color : '#4a90d9';
-                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.label)}</div>`;
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.customType || conn.label || conn.type || '')}</div>`;
                         });
                     }
                     
@@ -4752,7 +4752,7 @@ function getNodeEdgePoint(node, targetNode) {
                             const target = state.nodes.find(n => n.id === conn.to);
                             const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                             const targetColor = target ? target.color : '#e67e22';
-                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.label)} → ${targetTitle}</div>`;
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.customType || conn.label || conn.type || '')} → ${targetTitle}</div>`;
                         });
                         if (hasDetails || incomingConns.length > 0) html += '</div>';
                     }
@@ -5409,8 +5409,8 @@ function getNodeEdgePoint(node, targetNode) {
                 const what = node.details?.what?.trim();
                 const where = node.details?.where?.trim();
                 const who = node.details?.who?.trim();
-                const outgoingConns = state.connections.filter(c => c.from === node.id && c.label);
-                const incomingConns = state.connections.filter(c => c.to === node.id && c.label);
+                const outgoingConns = state.connections.filter(c => c.from === node.id && (c.label || c.type || c.customType));
+                const incomingConns = state.connections.filter(c => c.to === node.id && (c.label || c.type || c.customType));
 
                 const hasDetails = why || what || where || who;
                 const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
@@ -5422,7 +5422,7 @@ function getNodeEdgePoint(node, targetNode) {
                         const source = state.nodes.find(n => n.id === conn.from);
                         const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                         const sourceColor = source ? source.color : '#4a90d9';
-                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;"\u003e${sourceTitle} → ${escapeHtml(conn.label)}</div\u003e`;
+                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;"\u003e${sourceTitle} → ${escapeHtml(conn.customType || conn.label || conn.type || '')}</div\u003e`;
                     });
                 }
                 const fields = [];
@@ -5445,7 +5445,7 @@ function getNodeEdgePoint(node, targetNode) {
                         const target = state.nodes.find(n => n.id === conn.to);
                         const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                         const targetColor = target ? target.color : '#e67e22';
-                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;"\u003e${escapeHtml(conn.label)} → ${targetTitle}</div\u003e`;
+                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;"\u003e${escapeHtml(conn.customType || conn.label || conn.type || '')} → ${targetTitle}</div\u003e`;
                     });
                     if (hasDetails || incomingConns.length > 0) html += '</div\u003e';
                 }
