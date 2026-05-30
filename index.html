@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="bfe0f55">
+    <meta name="commit-id" content="185e4fb">
     <title>TaskMind</title>
     <style>
         * {
@@ -1588,6 +1588,7 @@
             selectionStartY: 0,
             connectingFrom: null,
             pendingConnectionType: null,
+            pendingConnectionCustomType: null,
             dragNode: null,
             dragOffsetX: 0,
             dragOffsetY: 0,
@@ -1620,7 +1621,10 @@
                     task: true,
                     asap: true
                 }
-            }
+            },
+            customConnectionTypes: [
+                // { label: string, color: string }
+            ]
         };
 
         // ==================== DOM refs ====================
@@ -2211,6 +2215,7 @@
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     state.pendingConnectionType = t.key;
+                    state.pendingConnectionCustomType = null;
                     state.connectingFrom = fromNodeId;
                     state.mode = 'connect';
                     modeIndicator.textContent = '接続モード: 終了ノードを選択';
@@ -2219,6 +2224,54 @@
                 });
                 popup.appendChild(btn);
             });
+
+            // カスタム接続線タイプ一覧
+            if (state.customConnectionTypes && state.customConnectionTypes.length > 0) {
+                const divider = document.createElement('div');
+                divider.style.cssText = 'border-top:1px solid #eee; margin:4px 0;';
+                popup.appendChild(divider);
+
+                state.customConnectionTypes.forEach(ct => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; align-items:center; gap:4px; padding:2px 0;';
+
+                    const btn = document.createElement('button');
+                    btn.style.cssText = `
+                        border:none; background:none; padding:6px 8px; border-radius:4px;
+                        cursor:pointer; text-align:left; font-size:13px; flex:1;
+                        display:flex; align-items:center; gap:6px;
+                    `;
+                    btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${ct.color};display:inline-block;"></span> ${escapeHtml(ct.label)}`;
+                    btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
+                    btn.addEventListener('mouseleave', () => btn.style.background = 'none');
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        state.pendingConnectionType = '';
+                        state.pendingConnectionCustomType = ct.label;
+                        state.connectingFrom = fromNodeId;
+                        state.mode = 'connect';
+                        modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                        modeIndicator.classList.add('active');
+                        popup.remove();
+                    });
+                    row.appendChild(btn);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = '×';
+                    delBtn.style.cssText = 'border:none; background:none; padding:4px 6px; border-radius:4px; cursor:pointer; font-size:14px; color:#999; line-height:1;';
+                    delBtn.addEventListener('mouseenter', () => delBtn.style.color = '#d32f2f');
+                    delBtn.addEventListener('mouseleave', () => delBtn.style.color = '#999');
+                    delBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        state.customConnectionTypes = state.customConnectionTypes.filter(c => c.label !== ct.label);
+                        row.remove();
+                        if (state.customConnectionTypes.length === 0) divider.remove();
+                    });
+                    row.appendChild(delBtn);
+
+                    popup.appendChild(row);
+                });
+            }
 
             // 自由入力ボタン
             const customBtn = document.createElement('button');
@@ -2279,7 +2332,7 @@
                 background:white; border:1px solid #ddd; border-radius:8px;
                 padding:10px; box-shadow:0 4px 16px rgba(0,0,0,0.15);
                 z-index:10000; display:flex; flex-direction:column; gap:6px;
-                font-size:13px; min-width:160px;
+                font-size:13px; min-width:200px;
             `;
 
             const title = document.createElement('div');
@@ -2295,6 +2348,33 @@
                 input.value = target.customType || target.type || '';
             }
             popup.appendChild(input);
+
+            // 色選択
+            const colorLabel = document.createElement('div');
+            colorLabel.style.cssText = 'font-size:12px; color:#666; margin-top:4px;';
+            colorLabel.textContent = '色を選択';
+            popup.appendChild(colorLabel);
+
+            const colorPicker = document.createElement('div');
+            colorPicker.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; padding:2px 0;';
+            let selectedColor = state.colors[0];
+            // 編集時は既存のカスタムタイプの色を探す
+            if (mode === 'edit' && target.customType) {
+                const existingCt = state.customConnectionTypes.find(ct => ct.label === target.customType);
+                if (existingCt) selectedColor = existingCt.color;
+            }
+            state.colors.forEach(c => {
+                const swatch = document.createElement('div');
+                swatch.style.cssText = `width:20px;height:20px;border-radius:4px;background:${c};cursor:pointer;border:2px solid ${c === selectedColor ? '#333' : 'transparent'};`;
+                swatch.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectedColor = c;
+                    colorPicker.querySelectorAll('div').forEach(s => s.style.border = '2px solid transparent');
+                    swatch.style.border = '2px solid #333';
+                });
+                colorPicker.appendChild(swatch);
+            });
+            popup.appendChild(colorPicker);
 
             const btnRow = document.createElement('div');
             btnRow.style.cssText = 'display:flex; justify-content:flex-end; gap:6px; margin-top:4px;';
@@ -2314,6 +2394,14 @@
                 e.stopPropagation();
                 const val = input.value.trim();
                 if (val) {
+                    // カスタムタイプを登録/更新
+                    const existingIdx = state.customConnectionTypes.findIndex(ct => ct.label === val);
+                    if (existingIdx >= 0) {
+                        state.customConnectionTypes[existingIdx].color = selectedColor;
+                    } else {
+                        state.customConnectionTypes.push({ label: val, color: selectedColor });
+                    }
+
                     if (mode === 'edit') {
                         target.customType = val;
                         target.type = '';
@@ -2407,6 +2495,49 @@
                 });
                 popup.appendChild(btn);
             });
+
+            // カスタム接続線タイプ一覧
+            if (state.customConnectionTypes && state.customConnectionTypes.length > 0) {
+                const divider = document.createElement('div');
+                divider.style.cssText = 'border-top:1px solid #eee; margin:4px 0;';
+                popup.appendChild(divider);
+
+                state.customConnectionTypes.forEach(ct => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; align-items:center; gap:4px; padding:2px 0;';
+
+                    const btn = document.createElement('button');
+                    const isCurrent = conn.customType === ct.label;
+                    btn.style.cssText = `border:none; background:${isCurrent ? '#f0f0f0' : 'none'}; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; flex:1; display:flex; align-items:center; gap:6px; font-weight:${isCurrent ? '600' : 'normal'};`;
+                    btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${ct.color};display:inline-block;"></span> ${escapeHtml(ct.label)} ${isCurrent ? '✓' : ''}`;
+                    btn.addEventListener('mouseenter', () => { if (!isCurrent) btn.style.background = '#f5f5f5'; });
+                    btn.addEventListener('mouseleave', () => { if (!isCurrent) btn.style.background = 'none'; });
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        conn.type = '';
+                        conn.customType = ct.label;
+                        conn.label = '';
+                        renderConnections();
+                        popup.remove();
+                    });
+                    row.appendChild(btn);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = '×';
+                    delBtn.style.cssText = 'border:none; background:none; padding:4px 6px; border-radius:4px; cursor:pointer; font-size:14px; color:#999; line-height:1;';
+                    delBtn.addEventListener('mouseenter', () => delBtn.style.color = '#d32f2f');
+                    delBtn.addEventListener('mouseleave', () => delBtn.style.color = '#999');
+                    delBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        state.customConnectionTypes = state.customConnectionTypes.filter(c => c.label !== ct.label);
+                        row.remove();
+                        if (state.customConnectionTypes.length === 0) divider.remove();
+                    });
+                    row.appendChild(delBtn);
+
+                    popup.appendChild(row);
+                });
+            }
 
             // 自由入力ボタン
             const customBtn = document.createElement('button');
@@ -6004,7 +6135,19 @@ function getNodeEdgePoint(node, targetNode) {
                         'Therefore': '#e91e63'
                     };
                     const labelText = conn.customType ? conn.customType : (conn.type ? (typeLabels[conn.type] || conn.type) : conn.label);
-                    const labelColor = conn.type ? (typeColors[conn.type] || '#888') : '#555';
+                    let labelColor = conn.type ? (typeColors[conn.type] || '#888') : '#555';
+                    // カスタム接続線の色設定
+                    if (conn.customType && !conn.type) {
+                        const customType = state.customConnectionTypes.find(ct => ct.label === conn.customType);
+                        if (customType) {
+                            labelColor = customType.color;
+                        } else {
+                            // 未登録カスタムタイプは既存の接続線の色から推定（ハッシュベース）
+                            const hash = conn.customType.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+                            const fallbackColors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e91e63','#34495e'];
+                            labelColor = fallbackColors[hash % fallbackColors.length];
+                        }
+                    }
 
                     if (labelText) {
                         // Calculate bezier midpoint for accurate label placement
@@ -7943,7 +8086,8 @@ function getNodeEdgePoint(node, targetNode) {
                 version: 2,
                 nodes: state.nodes,
                 connections: state.connections,
-                nextId: state.nextId
+                nextId: state.nextId,
+                customConnectionTypes: state.customConnectionTypes
             };
             const json = JSON.stringify(data, null, 2);
 
@@ -8071,6 +8215,7 @@ function getNodeEdgePoint(node, targetNode) {
                         });
                         state.connections = data.connections || [];
                         state.nextId = data.nextId || 1;
+                        state.customConnectionTypes = data.customConnectionTypes || [];
 
                         renderNodes();
                         renderConnections();
