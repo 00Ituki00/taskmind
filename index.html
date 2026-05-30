@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="185e4fb">
+    <meta name="commit-id" content="c548056">
     <title>TaskMind</title>
     <style>
         * {
@@ -1525,6 +1525,7 @@
         <button class="tool-btn" id="btn-notify" title="通知許可 (ブラウザ通知を有効化)">🔔</button>
         <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-layout" title="レイアウト切替 (フリー↔タイムライン)">📅</button>
+        <button class="tool-btn" id="btn-new" title="新規作成">🗑️</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
         <span id="file-info" style="margin-left:8px; font-size:12px; color:#888;"></span>
@@ -8090,6 +8091,13 @@ function getNodeEdgePoint(node, targetNode) {
                 customConnectionTypes: state.customConnectionTypes
             };
             const json = JSON.stringify(data, null, 2);
+            
+            // Auto-save to localStorage for reload recovery
+            try {
+                localStorage.setItem('taskmind_autosave', json);
+            } catch(e) {
+                console.warn('Failed to autosave to localStorage:', e);
+            }
 
             // Try File System Access API for overwrite save
             if (overwrite && state.lastFileHandle) {
@@ -8182,6 +8190,14 @@ function getNodeEdgePoint(node, targetNode) {
                 reader.onload = (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
+                        
+                        // Auto-save to localStorage for reload recovery
+                        try {
+                            localStorage.setItem('taskmind_autosave', e.target.result);
+                        } catch(lsErr) {
+                            console.warn('Failed to autosave to localStorage:', lsErr);
+                        }
+                        
                         state.nodes = (data.nodes || []).map(n => {
                             const node = {
                                 ...n,
@@ -8737,6 +8753,46 @@ function getNodeEdgePoint(node, targetNode) {
         nUnset.details.what = 'アイデア置き場';
 
         fitToView();
+        
+        // Auto-restore from localStorage on reload
+        function loadAutosave() {
+            try {
+                const saved = localStorage.getItem('taskmind_autosave');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    if (data.nodes && data.nodes.length > 0) {
+                        // Directly restore state without using FileReader
+                        state.nodes = (data.nodes || []).map(n => {
+                            const node = { ...n, completed: n.completed ?? false };
+                            if (typeof node.priority !== 'number') node.priority = 0;
+                            if (!node.details || typeof node.details !== 'object') {
+                                node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '', link: '' };
+                            }
+                            if (!node.children) node.children = [];
+                            return node;
+                        });
+                        state.connections = (data.connections || []).map(c => ({
+                            ...c,
+                            collapsed: c.collapsed ?? false,
+                            originalToPos: c.originalToPos || null
+                        }));
+                        state.nextId = data.nextId || 1;
+                        state.customConnectionTypes = data.customConnectionTypes || [];
+                        renderNodes();
+                        renderConnections();
+                        showToast('自動保存データを復元しました');
+                        return true;
+                    }
+                }
+            } catch(e) {
+                console.warn('Failed to load autosave:', e);
+            }
+            return false;
+        }
+        
+        // Attempt auto-restore; if no autosave, keep demo data
+        const restored = loadAutosave();
+        
         // fetch Last-Modified header to show file update time and commit id
         (function updateFileInfo() {
             const el = document.getElementById('file-info');
