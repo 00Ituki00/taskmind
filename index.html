@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="ceb958b">
+    <meta name="commit-id" content="bfe0f55">
     <title>TaskMind</title>
     <style>
         * {
@@ -5984,7 +5984,7 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 // Label with decoration
-                if ((conn.label || conn.type) && !conn.collapsed) {
+                if ((conn.label || conn.type || conn.customType) && !conn.collapsed) {
                     const typeLabels = {
                         'Why': '🔍 なぜ？',
                         'How': '🔧 どうやって？',
