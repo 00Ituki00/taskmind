@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="c1ae8eb">
+    <meta name="commit-id" content="2663928">
     <title>TaskMind</title>
     <style>
         * {
@@ -6076,7 +6076,7 @@ function getNodeEdgePoint(node, targetNode) {
 
                         const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
                         fo.setAttribute('x', bezierMid.x - 50);
-                        fo.setAttribute('y', bezierMid.y - 25);
+                        fo.setAttribute('y', bezierMid.y - 15);
                         fo.setAttribute('width', '100');
                         fo.setAttribute('height', '30');
                         fo.style.pointerEvents = 'none';
@@ -6088,6 +6088,7 @@ function getNodeEdgePoint(node, targetNode) {
                             color:${labelColor}; border:1.5px solid ${labelColor};
                             background:rgba(255,255,255,0.95); text-align:center; white-space:nowrap;
                             box-shadow:0 1px 4px rgba(0,0,0,0.1);
+                            position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
                         `;
                         div.textContent = labelText;
 
