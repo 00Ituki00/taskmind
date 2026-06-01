@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="8e7969d">
+    <meta name="commit-id" content="2e46b7a">
     <title>TaskMind</title>
     <style>
         * {
@@ -1945,24 +1945,8 @@
                     const source = state.nodes.find(n => n.id === conn.from);
                     const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                     const sourceColor = source ? source.color : '#4a90d9';
-                    const typeLabels = {
-                        'Why': '🔍 なぜ？',
-                        'How': '🔧 どうやって？',
-                        'Problem': '⚠️ しかし',
-                        'Result': '✅ つまり',
-                        'Alternative': '🔀 代わりに',
-                        'Caution': '❗ ただし',
-                        'Therefore': '➡️ だから'
-                    };
-                    const typeColors = {
-                        'Why': '#e74c3c',
-                        'How': '#3498db',
-                        'Problem': '#e67e22',
-                        'Result': '#2ecc71',
-                        'Alternative': '#9b59b6',
-                        'Caution': '#f39c12',
-                        'Therefore': '#e91e63'
-                    };
+                    const typeLabels = {}; // プリセット廃止: カスタムタイプのみ使用
+                    const typeColors = {};
                     const displayType = conn.customType || conn.type || '';
                     const typeTag = displayType ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[displayType] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[displayType] || displayType)}</span>` : '';
                     html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${typeTag}${sourceTitle}</div>`;
@@ -1994,24 +1978,8 @@
                     const target = state.nodes.find(n => n.id === conn.to);
                     const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                     const targetColor = target ? target.color : '#e67e22';
-                    const typeLabels = {
-                        'Why': '🔍 なぜ？',
-                        'How': '🔧 どうやって？',
-                        'Problem': '⚠️ しかし',
-                        'Result': '✅ つまり',
-                        'Alternative': '🔀 代わりに',
-                        'Caution': '❗ ただし',
-                        'Therefore': '➡️ だから'
-                    };
-                    const typeColors = {
-                        'Why': '#e74c3c',
-                        'How': '#3498db',
-                        'Problem': '#e67e22',
-                        'Result': '#2ecc71',
-                        'Alternative': '#9b59b6',
-                        'Caution': '#f39c12',
-                        'Therefore': '#e91e63'
-                    };
+                    const typeLabels = {}; // プリセット廃止: カスタムタイプのみ使用
+                    const typeColors = {};
                     const displayType = conn.customType || conn.type || '';
                     const typeTag = displayType ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[displayType] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[displayType] || displayType)}</span>` : '';
                     html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${typeTag}${targetTitle}</div>`;
@@ -2230,54 +2198,6 @@
                         e.stopPropagation();
                         state.customConnectionTypes = state.customConnectionTypes.filter(c => c.label !== ct.label);
                         row.remove();
-                    });
-                    row.appendChild(delBtn);
-
-                    popup.appendChild(row);
-                });
-            }
-
-            // カスタム接続線タイプ一覧
-            if (state.customConnectionTypes && state.customConnectionTypes.length > 0) {
-                const divider = document.createElement('div');
-                divider.style.cssText = 'border-top:1px solid #eee; margin:4px 0;';
-                popup.appendChild(divider);
-
-                state.customConnectionTypes.forEach(ct => {
-                    const row = document.createElement('div');
-                    row.style.cssText = 'display:flex; align-items:center; gap:4px; padding:2px 0;';
-
-                    const btn = document.createElement('button');
-                    btn.style.cssText = `
-                        border:none; background:none; padding:6px 8px; border-radius:4px;
-                        cursor:pointer; text-align:left; font-size:13px; flex:1;
-                        display:flex; align-items:center; gap:6px;
-                    `;
-                    btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${ct.color};display:inline-block;"></span> ${escapeHtml(ct.label)}`;
-                    btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
-                    btn.addEventListener('mouseleave', () => btn.style.background = 'none');
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        state.pendingConnectionType = '';
-                        state.pendingConnectionCustomType = ct.label;
-                        state.connectingFrom = fromNodeId;
-                        state.mode = 'connect';
-                        modeIndicator.textContent = '接続モード: 終了ノードを選択';
-                        modeIndicator.classList.add('active');
-                        popup.remove();
-                    });
-                    row.appendChild(btn);
-
-                    const delBtn = document.createElement('button');
-                    delBtn.textContent = '×';
-                    delBtn.style.cssText = 'border:none; background:none; padding:4px 6px; border-radius:4px; cursor:pointer; font-size:14px; color:#999; line-height:1;';
-                    delBtn.addEventListener('mouseenter', () => delBtn.style.color = '#d32f2f');
-                    delBtn.addEventListener('mouseleave', () => delBtn.style.color = '#999');
-                    delBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        state.customConnectionTypes = state.customConnectionTypes.filter(c => c.label !== ct.label);
-                        row.remove();
-                        if (state.customConnectionTypes.length === 0) divider.remove();
                     });
                     row.appendChild(delBtn);
 
@@ -5858,15 +5778,7 @@ function getNodeEdgePoint(node, targetNode) {
                 hitPath.style.cursor = 'pointer';
 
                 // Connection type colors (for label decoration only, not line color)
-                const typeColors = {
-                    'Why': '#e74c3c',
-                    'How': '#3498db',
-                    'Problem': '#e67e22',
-                    'Result': '#2ecc71',
-                    'Alternative': '#9b59b6',
-                        'Caution': '#f39c12',
-                        'Therefore': '#e91e63'
-                };
+                const typeColors = {};
 
                 // Use original gradient for line color (unified)
                 const lineStroke = `url(#${gradId})`;
@@ -6119,24 +6031,8 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Label with decoration
                 if ((conn.label || conn.type || conn.customType) && !conn.collapsed) {
-                    const typeLabels = {
-                        'Why': '🔍 なぜ？',
-                        'How': '🔧 どうやって？',
-                        'Problem': '⚠️ しかし',
-                        'Result': '✅ つまり',
-                        'Alternative': '🔀 代わりに',
-                        'Caution': '❗ ただし',
-                        'Therefore': '➡️ だから'
-                    };
-                    const typeColors = {
-                        'Why': '#e74c3c',
-                        'How': '#3498db',
-                        'Problem': '#e67e22',
-                        'Result': '#2ecc71',
-                        'Alternative': '#9b59b6',
-                        'Caution': '#f39c12',
-                        'Therefore': '#e91e63'
-                    };
+                    const typeLabels = {}; // プリセット廃止: カスタムタイプのみ使用
+                    const typeColors = {};
                     const labelText = conn.customType || conn.label || '';
                     let labelColor = '#555';
                     // カスタム接続線の色設定
