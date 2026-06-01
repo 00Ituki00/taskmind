@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="2e46b7a">
+    <meta name="commit-id" content="c8e0b1e">
     <title>TaskMind</title>
     <style>
         * {
@@ -2281,17 +2281,15 @@
             }
             popup.appendChild(input);
 
-            // アイコン入力
+            // アイコン選択
             const iconLabel = document.createElement('div');
             iconLabel.style.cssText = 'font-size:12px; color:#666; margin-top:4px;';
-            iconLabel.textContent = 'アイコン（絵文字1文字）';
+            iconLabel.textContent = 'アイコンを選択';
             popup.appendChild(iconLabel);
 
-            const iconInput = document.createElement('input');
-            iconInput.type = 'text';
-            iconInput.placeholder = '例: 🔍, ⚠️, ✅';
-            iconInput.maxLength = 2;
-            iconInput.style.cssText = 'width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:13px; box-sizing:border-box;';
+            const iconGrid = document.createElement('div');
+            iconGrid.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; padding:2px 0;';
+            const icons = ['','🔍','🔧','⚠️','✅','🔀','❗','➡️','📌','📎','💡','⭐','📝','📋','🔔','⚡','🔥','💎','🎯','🚀','❤️','💚','💙','💛','🧡','💜','🖤','🤍','🤎'];
             let selectedIcon = '';
             if (mode === 'edit' && target.customType) {
                 const existingCt = state.customConnectionTypes.find(ct => ct.label === target.customType);
@@ -2299,8 +2297,24 @@
                     selectedIcon = existingCt.icon || '';
                 }
             }
-            iconInput.value = selectedIcon;
-            popup.appendChild(iconInput);
+            icons.forEach(ic => {
+                const btn = document.createElement('button');
+                const isSelected = selectedIcon === ic;
+                btn.textContent = ic || '─';
+                btn.style.cssText = `width:28px;height:28px;border:2px solid ${isSelected ? '#333' : '#ddd'};border-radius:4px;background:${isSelected ? '#e3f2fd' : '#fff'};cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0;`;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectedIcon = ic;
+                    iconGrid.querySelectorAll('button').forEach(b => {
+                        b.style.border = '2px solid #ddd';
+                        b.style.background = '#fff';
+                    });
+                    btn.style.border = '2px solid #333';
+                    btn.style.background = '#e3f2fd';
+                });
+                iconGrid.appendChild(btn);
+            });
+            popup.appendChild(iconGrid);
 
             // 色選択
             const colorLabel = document.createElement('div');
@@ -2316,7 +2330,6 @@
                 const existingCt = state.customConnectionTypes.find(ct => ct.label === target.customType);
                 if (existingCt) {
                     selectedColor = existingCt.color;
-                    selectedIcon = existingCt.icon || '';
                 }
             }
             state.colors.forEach(c => {
@@ -2349,7 +2362,7 @@
             saveBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const val = input.value.trim();
-                const iconVal = iconInput.value.trim();
+                const iconVal = selectedIcon;
                 if (val) {
                     // カスタムタイプを登録/更新
                     const existingIdx = state.customConnectionTypes.findIndex(ct => ct.label === val);
