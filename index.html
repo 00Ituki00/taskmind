@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="32e6e21">
+    <meta name="commit-id" content="85cc34b">
     <title>TaskMind</title>
     <style>
         * {
@@ -7999,7 +7999,8 @@ function getNodeEdgePoint(node, targetNode) {
                 nodes: state.nodes,
                 connections: state.connections,
                 nextId: state.nextId,
-                customConnectionTypes: state.customConnectionTypes
+                customConnectionTypes: state.customConnectionTypes,
+                lastFileName: state.lastFileName
             };
             const json = JSON.stringify(data, null, 2);
             
@@ -8736,6 +8737,7 @@ function getNodeEdgePoint(node, targetNode) {
                         }));
                         state.nextId = data.nextId || 1;
                         state.customConnectionTypes = data.customConnectionTypes || [];
+                        state.lastFileName = data.lastFileName || null;
                         renderNodes();
                         renderConnections();
                         showToast('自動保存データを復元しました');
