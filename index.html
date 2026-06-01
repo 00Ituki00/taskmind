@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="303b0d8">
+    <meta name="commit-id" content="8f42a70">
     <title>TaskMind</title>
     <style>
         * {
@@ -1624,7 +1624,13 @@
                 }
             },
             customConnectionTypes: [
-                // { label: string, color: string }
+                { label: 'なぜ？', color: '#e74c3c', icon: '🔍' },
+                { label: 'どうやって？', color: '#3498db', icon: '🔧' },
+                { label: 'しかし', color: '#e67e22', icon: '⚠️' },
+                { label: 'つまり', color: '#2ecc71', icon: '✅' },
+                { label: '代わりに', color: '#9b59b6', icon: '🔀' },
+                { label: 'ただし', color: '#f39c12', icon: '❗' },
+                { label: 'だから', color: '#e91e63', icon: '➡️' }
             ]
         };
 
@@ -2153,17 +2159,10 @@
             renderConnections();
         }
 
-        // Connection type colors (global)
-        const typeColors = {
-            'Why': '#e74c3c',
-            'How': '#3498db',
-            'Problem': '#e67e22',
-            'Result': '#2ecc71',
-            'Alternative': '#9b59b6',
-                        'Caution': '#f39c12',
-                        'Therefore': '#e91e63',
-            'Custom': '#888888'
-        };
+        // Connection type colors helper
+        function getCustomTypeInfo(label) {
+            return state.customConnectionTypes.find(ct => ct.label === label) || { color: '#888888', icon: '' };
+        }
         function createConnection(from, to, label = '', type = '', customType = '') {
             const exists = state.connections.some(c => c.from === from && c.to === to);
             if (exists) return;
@@ -2193,38 +2192,49 @@
                 font-size:13px; min-width:120px;
             `;
 
-            const types = [
-                { key: 'Why', label: '🔍 なぜ？', color: '#e74c3c' },
-                { key: 'How', label: '🔧 どうやって？', color: '#3498db' },
-                { key: 'Problem', label: '⚠️ しかし', color: '#e67e22' },
-                { key: 'Result', label: '✅ つまり', color: '#2ecc71' },
-                { key: 'Alternative', label: '🔀 代わりに', color: '#9b59b6' },
-                { key: 'Caution', label: '❗ ただし', color: '#f39c12' },
-                { key: 'Therefore', label: '➡️ だから', color: '#e91e63' },
-            ];
+            // カスタム接続線タイプ一覧
+            if (state.customConnectionTypes && state.customConnectionTypes.length > 0) {
+                state.customConnectionTypes.forEach(ct => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; align-items:center; gap:4px; padding:2px 0;';
 
-            types.forEach(t => {
-                const btn = document.createElement('button');
-                btn.style.cssText = `
-                    border:none; background:none; padding:6px 8px; border-radius:4px;
-                    cursor:pointer; text-align:left; font-size:13px;
-                    display:flex; align-items:center; gap:6px;
-                `;
-                btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;"\u003e</span\u003e ${escapeHtml(t.label)}`;
-                btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
-                btn.addEventListener('mouseleave', () => btn.style.background = 'none');
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    state.pendingConnectionType = t.key;
-                    state.pendingConnectionCustomType = null;
-                    state.connectingFrom = fromNodeId;
-                    state.mode = 'connect';
-                    modeIndicator.textContent = '接続モード: 終了ノードを選択';
-                    modeIndicator.classList.add('active');
-                    popup.remove();
+                    const btn = document.createElement('button');
+                    btn.style.cssText = `
+                        border:none; background:none; padding:6px 8px; border-radius:4px;
+                        cursor:pointer; text-align:left; font-size:13px; flex:1;
+                        display:flex; align-items:center; gap:6px;
+                    `;
+                    const icon = ct.icon || '';
+                    btn.innerHTML = `<span style=\"width:10px;height:10px;border-radius:50%;background:${ct.color};display:inline-block;\"></span> ${icon ? escapeHtml(icon) + ' ' : ''}${escapeHtml(ct.label)}`;
+                    btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
+                    btn.addEventListener('mouseleave', () => btn.style.background = 'none');
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        state.pendingConnectionType = '';
+                        state.pendingConnectionCustomType = ct.label;
+                        state.connectingFrom = fromNodeId;
+                        state.mode = 'connect';
+                        modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                        modeIndicator.classList.add('active');
+                        popup.remove();
+                    });
+                    row.appendChild(btn);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = '×';
+                    delBtn.style.cssText = 'border:none; background:none; padding:4px 6px; border-radius:4px; cursor:pointer; font-size:14px; color:#999; line-height:1;';
+                    delBtn.addEventListener('mouseenter', () => delBtn.style.color = '#d32f2f');
+                    delBtn.addEventListener('mouseleave', () => delBtn.style.color = '#999');
+                    delBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        state.customConnectionTypes = state.customConnectionTypes.filter(c => c.label !== ct.label);
+                        row.remove();
+                    });
+                    row.appendChild(delBtn);
+
+                    popup.appendChild(row);
                 });
-                popup.appendChild(btn);
-            });
+            }
 
             // カスタム接続線タイプ一覧
             if (state.customConnectionTypes && state.customConnectionTypes.length > 0) {
@@ -2346,9 +2356,30 @@
             input.placeholder = '例: 関連, 前提, 派生...';
             input.style.cssText = 'width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:13px; box-sizing:border-box;';
             if (mode === 'edit') {
-                input.value = target.customType || target.type || '';
+                input.value = target.customType || '';
             }
             popup.appendChild(input);
+
+            // アイコン入力
+            const iconLabel = document.createElement('div');
+            iconLabel.style.cssText = 'font-size:12px; color:#666; margin-top:4px;';
+            iconLabel.textContent = 'アイコン（絵文字1文字）';
+            popup.appendChild(iconLabel);
+
+            const iconInput = document.createElement('input');
+            iconInput.type = 'text';
+            iconInput.placeholder = '例: 🔍, ⚠️, ✅';
+            iconInput.maxLength = 2;
+            iconInput.style.cssText = 'width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:13px; box-sizing:border-box;';
+            let selectedIcon = '';
+            if (mode === 'edit' && target.customType) {
+                const existingCt = state.customConnectionTypes.find(ct => ct.label === target.customType);
+                if (existingCt) {
+                    selectedIcon = existingCt.icon || '';
+                }
+            }
+            iconInput.value = selectedIcon;
+            popup.appendChild(iconInput);
 
             // 色選択
             const colorLabel = document.createElement('div');
@@ -2362,7 +2393,10 @@
             // 編集時は既存のカスタムタイプの色を探す
             if (mode === 'edit' && target.customType) {
                 const existingCt = state.customConnectionTypes.find(ct => ct.label === target.customType);
-                if (existingCt) selectedColor = existingCt.color;
+                if (existingCt) {
+                    selectedColor = existingCt.color;
+                    selectedIcon = existingCt.icon || '';
+                }
             }
             state.colors.forEach(c => {
                 const swatch = document.createElement('div');
@@ -2394,13 +2428,15 @@
             saveBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const val = input.value.trim();
+                const iconVal = iconInput.value.trim();
                 if (val) {
                     // カスタムタイプを登録/更新
                     const existingIdx = state.customConnectionTypes.findIndex(ct => ct.label === val);
                     if (existingIdx >= 0) {
                         state.customConnectionTypes[existingIdx].color = selectedColor;
+                        state.customConnectionTypes[existingIdx].icon = iconVal;
                     } else {
-                        state.customConnectionTypes.push({ label: val, color: selectedColor });
+                        state.customConnectionTypes.push({ label: val, color: selectedColor, icon: iconVal });
                     }
 
                     if (mode === 'edit') {
@@ -2465,44 +2501,8 @@
                 font-size:13px; min-width:120px;
             `;
 
-            const types = [
-                { key: 'Why', label: '🔍 なぜ？', color: '#e74c3c' },
-                { key: 'How', label: '🔧 どうやって？', color: '#3498db' },
-                { key: 'Problem', label: '⚠️ しかし', color: '#e67e22' },
-                { key: 'Result', label: '✅ つまり', color: '#2ecc71' },
-                { key: 'Alternative', label: '🔀 代わりに', color: '#9b59b6' },
-                { key: 'Caution', label: '❗ ただし', color: '#f39c12' },
-                { key: 'Therefore', label: '➡️ だから', color: '#e91e63' },
-            ];
-
-            types.forEach(t => {
-                const btn = document.createElement('button');
-                const isCurrent = conn.type === t.key;
-                btn.style.cssText = `
-                    border:none; background:${isCurrent ? '#f0f0f0' : 'none'}; padding:6px 8px; border-radius:4px;
-                    cursor:pointer; text-align:left; font-size:13px;
-                    display:flex; align-items:center; gap:6px;
-                    font-weight:${isCurrent ? '600' : 'normal'};
-                `;
-                btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;"></span> ${escapeHtml(t.label)} ${isCurrent ? '✓' : ''}`;
-                btn.addEventListener('mouseenter', () => { if (!isCurrent) btn.style.background = '#f5f5f5'; });
-                btn.addEventListener('mouseleave', () => { if (!isCurrent) btn.style.background = 'none'; });
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    conn.type = t.key;
-                    conn.label = '';
-                    renderConnections();
-                    popup.remove();
-                });
-                popup.appendChild(btn);
-            });
-
             // カスタム接続線タイプ一覧
             if (state.customConnectionTypes && state.customConnectionTypes.length > 0) {
-                const divider = document.createElement('div');
-                divider.style.cssText = 'border-top:1px solid #eee; margin:4px 0;';
-                popup.appendChild(divider);
-
                 state.customConnectionTypes.forEach(ct => {
                     const row = document.createElement('div');
                     row.style.cssText = 'display:flex; align-items:center; gap:4px; padding:2px 0;';
@@ -2510,7 +2510,8 @@
                     const btn = document.createElement('button');
                     const isCurrent = conn.customType === ct.label;
                     btn.style.cssText = `border:none; background:${isCurrent ? '#f0f0f0' : 'none'}; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; flex:1; display:flex; align-items:center; gap:6px; font-weight:${isCurrent ? '600' : 'normal'};`;
-                    btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${ct.color};display:inline-block;"></span> ${escapeHtml(ct.label)} ${isCurrent ? '✓' : ''}`;
+                    const icon = ct.icon || '';
+                    btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${ct.color};display:inline-block;"></span> ${icon ? escapeHtml(icon) + ' ' : ''}${escapeHtml(ct.label)} ${isCurrent ? '✓' : ''}`;
                     btn.addEventListener('mouseenter', () => { if (!isCurrent) btn.style.background = '#f5f5f5'; });
                     btn.addEventListener('mouseleave', () => { if (!isCurrent) btn.style.background = 'none'; });
                     btn.addEventListener('click', (e) => {
@@ -2532,7 +2533,7 @@
                         e.stopPropagation();
                         state.customConnectionTypes = state.customConnectionTypes.filter(c => c.label !== ct.label);
                         row.remove();
-                        if (state.customConnectionTypes.length === 0) divider.remove();
+                        if (state.customConnectionTypes.length === 0) popup.remove();
                     });
                     row.appendChild(delBtn);
 
@@ -2542,7 +2543,7 @@
 
             // 自由入力ボタン
             const customBtn = document.createElement('button');
-            const isCustom = !conn.type || !['Why','How','Problem','Result','Alternative','Caution','Therefore'].includes(conn.type);
+            const isCustom = !conn.customType;
             customBtn.style.cssText = `
                 border:none; background:${isCustom ? '#f0f0f0' : 'none'}; padding:6px 8px; border-radius:4px;
                 cursor:pointer; text-align:left; font-size:13px;
@@ -4856,7 +4857,7 @@ function getNodeEdgePoint(node, targetNode) {
                             const source = state.nodes.find(n => n.id === conn.from);
                             const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                             const sourceColor = source ? source.color : '#4a90d9';
-                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.customType || conn.label || conn.type || '')}</div>`;
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.customType || conn.label || '')}</div>`;
                         });
                     }
                     
@@ -4884,7 +4885,7 @@ function getNodeEdgePoint(node, targetNode) {
                             const target = state.nodes.find(n => n.id === conn.to);
                             const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                             const targetColor = target ? target.color : '#e67e22';
-                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.customType || conn.label || conn.type || '')} → ${targetTitle}</div>`;
+                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.customType || conn.label || '')} → ${targetTitle}</div>`;
                         });
                         if (hasDetails || incomingConns.length > 0) html += '</div>';
                     }
@@ -5554,7 +5555,7 @@ function getNodeEdgePoint(node, targetNode) {
                         const source = state.nodes.find(n => n.id === conn.from);
                         const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                         const sourceColor = source ? source.color : '#4a90d9';
-                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;"\u003e${sourceTitle} → ${escapeHtml(conn.customType || conn.label || conn.type || '')}</div\u003e`;
+                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;"\u003e${sourceTitle} → ${escapeHtml(conn.customType || conn.label || '')}</div\u003e`;
                     });
                 }
                 const fields = [];
@@ -5577,7 +5578,7 @@ function getNodeEdgePoint(node, targetNode) {
                         const target = state.nodes.find(n => n.id === conn.to);
                         const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                         const targetColor = target ? target.color : '#e67e22';
-                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;"\u003e${escapeHtml(conn.customType || conn.label || conn.type || '')} → ${targetTitle}</div\u003e`;
+                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;"\u003e${escapeHtml(conn.customType || conn.label || '')} → ${targetTitle}</div\u003e`;
                     });
                     if (hasDetails || incomingConns.length > 0) html += '</div\u003e';
                 }
@@ -6135,10 +6136,10 @@ function getNodeEdgePoint(node, targetNode) {
                         'Caution': '#f39c12',
                         'Therefore': '#e91e63'
                     };
-                    const labelText = conn.customType ? conn.customType : (conn.type ? (typeLabels[conn.type] || conn.type) : conn.label);
-                    let labelColor = conn.type ? (typeColors[conn.type] || '#888') : '#555';
+                    const labelText = conn.customType || conn.label || '';
+                    let labelColor = '#555';
                     // カスタム接続線の色設定
-                    if (conn.customType && !conn.type) {
+                    if (conn.customType) {
                         const customType = state.customConnectionTypes.find(ct => ct.label === conn.customType);
                         if (customType) {
                             labelColor = customType.color;
