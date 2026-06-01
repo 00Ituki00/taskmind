@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="fd596fe">
+    <meta name="commit-id" content="8e7969d">
     <title>TaskMind</title>
     <style>
         * {
@@ -1526,6 +1526,7 @@
         <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-layout" title="レイアウト切替 (フリー↔タイムライン)">📅</button>
         <button class="tool-btn" id="btn-new" title="新規作成">🗑️</button>
+        <button class="tool-btn" id="btn-autoload" title="自動読み込み">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
         <span id="file-info" style="margin-left:8px; font-size:12px; color:#888;"></span>
@@ -8251,7 +8252,30 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
-        let saveInProgress = false;
+        // 自動読み込み設定
+        const AUTOLOAD_KEY = 'taskmind_autoload';
+        function isAutoloadEnabled() {
+            const v = localStorage.getItem(AUTOLOAD_KEY);
+            return v === null || v === 'true'; // デフォルトON
+        }
+        function setAutoloadEnabled(val) {
+            localStorage.setItem(AUTOLOAD_KEY, val ? 'true' : 'false');
+        }
+        function updateAutoloadButton() {
+            const btn = document.getElementById('btn-autoload');
+            if (!btn) return;
+            const on = isAutoloadEnabled();
+            btn.textContent = on ? '🔄' : '⏸️';
+            btn.title = on ? '自動読み込み: ON（クリックでOFF）' : '自動読み込み: OFF（クリックでON）';
+            btn.style.opacity = on ? '1' : '0.5';
+        }
+        document.getElementById('btn-autoload').addEventListener('click', () => {
+            const newVal = !isAutoloadEnabled();
+            setAutoloadEnabled(newVal);
+            updateAutoloadButton();
+            showToast(newVal ? '自動読み込みをONにしました' : '自動読み込みをOFFにしました');
+        });
+        updateAutoloadButton();
         document.getElementById('btn-new').addEventListener('click', () => {
             state.nodes = [];
             state.connections = [];
@@ -8815,8 +8839,8 @@ function getNodeEdgePoint(node, targetNode) {
             return false;
         }
         
-        // Attempt auto-restore; if no autosave, keep demo data
-        const restored = loadAutosave();
+        // Attempt auto-restore only if enabled
+        const restored = isAutoloadEnabled() ? loadAutosave() : false;
         
         // fetch Last-Modified header to show file update time and commit id
         (function updateFileInfo() {
