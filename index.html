@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="8f42a70">
+    <meta name="commit-id" content="fd596fe">
     <title>TaskMind</title>
     <style>
         * {
@@ -8252,6 +8252,30 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         let saveInProgress = false;
+        document.getElementById('btn-new').addEventListener('click', () => {
+            state.nodes = [];
+            state.connections = [];
+            state.nextId = 1;
+            state.zoom = 1;
+            state.panX = 0;
+            state.panY = 0;
+            state.scale = 1;
+            state.rootId = null;
+            state.customConnectionTypes = [
+                { label: 'なぜ？', color: '#e74c3c', icon: '🔍' },
+                { label: 'どうやって？', color: '#3498db', icon: '🔧' },
+                { label: 'しかし', color: '#e67e22', icon: '⚠️' },
+                { label: 'つまり', color: '#2ecc71', icon: '✅' },
+                { label: '代わりに', color: '#9b59b6', icon: '🔀' },
+                { label: 'ただし', color: '#f39c12', icon: '❗' },
+                { label: 'だから', color: '#e91e63', icon: '➡️' }
+            ];
+            localStorage.removeItem('taskmind_autosave');
+            createNode(400, 300, '新規ノード');
+            renderNodes();
+            renderConnections();
+            showToast('新規作成しました');
+        });
         document.getElementById('btn-save').addEventListener('click', () => {
             if (saveInProgress) return;
             saveInProgress = true;
