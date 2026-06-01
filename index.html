@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="2663928">
+    <meta name="commit-id" content="6bf48bd">
     <title>TaskMind</title>
     <style>
         * {
@@ -6048,11 +6048,13 @@ function getNodeEdgePoint(node, targetNode) {
                     const typeColors = {};
                     const labelText = conn.customType || conn.label || '';
                     let labelColor = '#555';
-                    // カスタム接続線の色設定
+                    let icon = '';
+                    // カスタム接続線の色とアイコン設定
                     if (conn.customType) {
                         const customType = state.customConnectionTypes.find(ct => ct.label === conn.customType);
                         if (customType) {
                             labelColor = customType.color;
+                            icon = customType.icon || '';
                         } else {
                             // 未登録カスタムタイプは既存の接続線の色から推定（ハッシュベース）
                             const hash = conn.customType.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -6090,7 +6092,7 @@ function getNodeEdgePoint(node, targetNode) {
                             box-shadow:0 1px 4px rgba(0,0,0,0.1);
                             position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
                         `;
-                        div.textContent = labelText;
+                        div.textContent = (icon ? icon + ' ' : '') + labelText;
 
                         div.addEventListener('dblclick', (e) => {
                             e.stopPropagation();
