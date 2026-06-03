@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="commit-id" content="e055e83">
+    <meta name="version" content="v1.0.0">
     <title>TaskMind</title>
     <style>
         * {
@@ -8759,20 +8759,20 @@ function getNodeEdgePoint(node, targetNode) {
         // fetch Last-Modified header to show file update time and commit id
         (function updateFileInfo() {
             const el = document.getElementById('file-info');
-            const metaCommit = document.querySelector('meta[name="commit-id"]')?.content;
-            const commitText = metaCommit ? ' · ' + metaCommit : '';
+            const metaVersion = document.querySelector('meta[name="version"]')?.content;
+            const versionText = metaVersion ? ' · ' + metaVersion : '';
             fetch('index.html', { method: 'HEAD', cache: 'no-store' })
                 .then(r => {
                     const lm = r.headers.get('Last-Modified');
                     if (el && lm) {
                         const d = new Date(lm);
                         const pad = n => String(n).padStart(2, '0');
-                        el.textContent = '🕐 ' + d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + commitText;
-                    } else if (el && commitText) {
-                        el.textContent = '🕐 ---' + commitText;
+                        el.textContent = '🕐 ' + d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + versionText;
+                    } else if (el && versionText) {
+                        el.textContent = '🕐 ---' + versionText;
                     }
                 })
-                .catch(() => { if (el && commitText) el.textContent = '🕐 ---' + commitText; });
+                .catch(() => { if (el && versionText) el.textContent = '🕐 ---' + versionText; });
         })();
 
         // ==================== When Recalculation ====================
