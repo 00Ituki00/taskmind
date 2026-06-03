@@ -8782,6 +8782,19 @@ function getNodeEdgePoint(node, targetNode) {
          * - 次回日時を再計算してnextDateを更新
          * @returns {number} 再有効化したノード数
          */
+        function calculateDeadlineDate(when, baseDate) {
+            if (!when || !baseDate) return null;
+            if (when.deadlineType === 'absolute' && when.deadlineDate) {
+                return new Date(when.deadlineDate);
+            } else {
+                const [dlHours, dlMinutes] = (when.deadlineTime || '18:00').split(':');
+                const deadlineDate = new Date(baseDate);
+                deadlineDate.setDate(deadlineDate.getDate() + (when.deadlineDays || 0));
+                deadlineDate.setHours(parseInt(dlHours), parseInt(dlMinutes), 0, 0);
+                return deadlineDate;
+            }
+        }
+
         function recalculateWhenDates() {
             const now = new Date();
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -8811,6 +8824,13 @@ function getNodeEdgePoint(node, targetNode) {
                         startedNodes.push({ title: node.title, date: nextDate });
                         console.log(`[When] ノード「${node.title}」の開始時刻を通過(${nextDate.toLocaleString('ja-JP')})`);
                     }
+                }
+
+                // 期限が過ぎていて未完了の場合は nextDate を更新しない（期限切れ表示を維持）
+                const deadlineDate = calculateDeadlineDate(w, nextDate);
+                if (!node.completed && deadlineDate && now > deadlineDate) {
+                    console.log(`[When] ノード「${node.title}」は期限切れのため次回日時を更新しません`);
+                    return;
                 }
 
                 // 次回日時を再計算(有効化・通知の有無に関わらず)
