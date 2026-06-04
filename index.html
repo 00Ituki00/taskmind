@@ -2099,8 +2099,26 @@
             });
         }
 
+        function saveChildPosition(node) {
+            const parent = node.parentId !== null ? state.nodes.find(n => n.id === node.parentId) : null;
+            if (parent && parent.children) {
+                node._prevChildIndex = parent.children.indexOf(node.id);
+            }
+        }
+
+        function restoreChildPosition(node) {
+            if (node._prevChildIndex === undefined) return;
+            const parent = node.parentId !== null ? state.nodes.find(n => n.id === node.parentId) : null;
+            if (!parent || !parent.children) { delete node._prevChildIndex; return; }
+            const idx = parent.children.indexOf(node.id);
+            if (idx < 0) { delete node._prevChildIndex; return; }
+            parent.children.splice(idx, 1);
+            const targetIndex = Math.min(node._prevChildIndex, parent.children.length);
+            parent.children.splice(targetIndex, 0, node.id);
+            delete node._prevChildIndex;
+        }
+
         function deleteNode(nodeId) {
-            const deletedNode = state.nodes.find(n => n.id === nodeId);
 
             // Remove from parent's children array if it's a child node
             if (deletedNode && deletedNode.parentId !== null) {
@@ -4359,9 +4377,11 @@ function getNodeEdgePoint(node, targetNode) {
                         child.completed = !child.completed;
                         child.completedAt = child.completed ? new Date().toISOString() : null;
                         if (child.completed) {
+                            saveChildPosition(child);
                             updateWhenOnComplete(child);
                         } else if (wasCompleted) {
                             undoWhenComplete(child);
+                            restoreChildPosition(child);
                         }
                         renderNodes();
                     });
@@ -4627,11 +4647,14 @@ function getNodeEdgePoint(node, targetNode) {
                         node.completed = !node.completed;
                         node.completedAt = node.completed ? new Date().toISOString() : null;
                         if (node.completed) {
+                            saveChildPosition(node);
                             updateWhenOnComplete(node);
                         } else if (wasCompleted) {
                             // Undo completion: restore previous nextDate if available
                             undoWhenComplete(node);
+                            restoreChildPosition(node);
                         }
+                        renderNodes();
                     });
                     checkbox.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
@@ -4679,9 +4702,11 @@ function getNodeEdgePoint(node, targetNode) {
                     node.completed = !node.completed;
                     node.completedAt = node.completed ? new Date().toISOString() : null;
                     if (node.completed) {
+                        saveChildPosition(node);
                         updateWhenOnComplete(node);
                     } else if (wasCompleted) {
                         undoWhenComplete(node);
+                        restoreChildPosition(node);
                     }
                     renderNodes();
                 });
@@ -5420,9 +5445,11 @@ function getNodeEdgePoint(node, targetNode) {
                 node.completed = !node.completed;
                 node.completedAt = node.completed ? new Date().toISOString() : null;
                 if (node.completed) {
+                    saveChildPosition(node);
                     updateWhenOnComplete(node);
                 } else if (wasCompleted) {
                     undoWhenComplete(node);
+                    restoreChildPosition(node);
                 }
                 renderNodes();
             });
