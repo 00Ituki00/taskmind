@@ -8892,47 +8892,67 @@ function getNodeEdgePoint(node, targetNode) {
         // When周期タスク完了時にbaseDateTimeとnextDateを更新
         function updateWhenOnComplete(node) {
             const w = node.details?.when;
-            if (!w || w.repeatType === 'none' || w.repeatType === 'once') return;
+            if (!w || !w.repeatType || w.repeatType === 'disabled') return;
             
             const now = new Date();
             
-            // nextDateが存在し、未来なら更新不要（まだ開始前）
-            if (w.nextDate) {
-                const nextDate = new Date(w.nextDate);
-                if (nextDate > now) return;
+            // 一度だけのタスクは完了で次回日時をクリア
+            if (w.repeatType === 'none') {
+                w._prevNextDate = w.nextDate || null;
+                w.nextDate = null;
+                w.lastCompleted = now.toISOString();
+                return;
             }
             
-            // 完了前の値を保存（取消用）
-            w._prevNextDate = w.nextDate || null;
-            w._prevBaseDateTime = w.baseDateTime || null;
-            w._prevBaseTime = w.baseTime || null;
-            
-            // baseDateTimeを現在日時に更新（時刻は維持）
-            let hours, minutes;
-            if (w.baseDateTime) {
-                const baseDate = new Date(w.baseDateTime);
-                hours = baseDate.getHours();
-                minutes = baseDate.getMinutes();
-            } else if (w.baseTime) {
-                const [h, m] = w.baseTime.split(':');
-                hours = parseInt(h);
-                minutes = parseInt(m);
+            // 期限超過判定
+            let deadlineDate = null;
+            if (w.deadlineType === 'absolute' && w.deadlineDate) {
+                deadlineDate = new Date(w.deadlineDate);
             } else {
-                hours = 9;
-                minutes = 0;
+                const baseDate = new Date(w.nextDate || w.baseDateTime || now);
+                const [dlHours, dlMinutes] = (w.deadlineTime || '18:00').split(':');
+                deadlineDate = new Date(baseDate);
+                deadlineDate.setDate(deadlineDate.getDate() + (w.deadlineDays || 0));
+                deadlineDate.setHours(parseInt(dlHours), parseInt(dlMinutes), 0, 0);
             }
             
-            const newBase = new Date(now);
-            newBase.setHours(hours, minutes, 0, 0);
-            w.baseDateTime = newBase.toISOString();
-            w.baseTime = `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}`;
+            const isOverdue = deadlineDate && now > deadlineDate;
             
-            // nextDateを再計算
-            const next = calculateNextDate(w);
-            w.nextDate = next ? next.toISOString() : null;
-            w.lastCompleted = now.toISOString();
-            
-            console.log(`[When] 「${node.title}」完了更新: baseDateTime=${w.baseDateTime}, nextDate=${w.nextDate}`);
+            // 繰り返しタスク: 完了したら常に次回日時に進める
+            // 期限超過していようが、期限内だろうが、利用シーンとして完了→次回が自然
+            // 日次/週次/月次/年次タスクは完了したら次回日時に更新
+            if (true) {
+                // 完了前の値を保存（取消用）
+                w._prevNextDate = w.nextDate || null;
+                w._prevBaseDateTime = w.baseDateTime || null;
+                w._prevBaseTime = w.baseTime || null;
+                
+                // baseDateTimeを現在日時に更新（時刻は維持）
+                let hours, minutes;
+                if (w.baseDateTime) {
+                    const baseDate = new Date(w.baseDateTime);
+                    hours = baseDate.getHours();
+                    minutes = baseDate.getMinutes();
+                } else if (w.baseTime) {
+                    const [h, m] = w.baseTime.split(':');
+                    hours = parseInt(h);
+                    minutes = parseInt(m);
+                } else {
+                    hours = 9;
+                    minutes = 0;
+                }
+                
+                const newBase = new Date(now);
+                newBase.setHours(hours, minutes, 0, 0);
+                w.baseDateTime = newBase.toISOString();
+                w.baseTime = `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}`;
+                
+                // nextDateを再計算
+                const next = calculateNextDate(w);
+                w.nextDate = next ? next.toISOString() : null;
+                w.lastCompleted = now.toISOString();
+                console.log(`[When] 「${node.title}」完了更新: baseDateTime=${w.baseDateTime}, nextDate=${w.nextDate}`);
+            }
         }
 
         /**
