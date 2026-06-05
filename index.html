@@ -1526,7 +1526,6 @@
         <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-layout" title="レイアウト切替 (フリー↔タイムライン)">📅</button>
         <button class="tool-btn" id="btn-new" title="新規作成">🗑️</button>
-        <button class="tool-btn" id="btn-merge" title="親ノードに統合 (M)">⏏️</button>
         <button class="tool-btn" id="btn-autoload" title="自動読み込み">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
@@ -1923,22 +1922,6 @@
                 // ツールバーボタンのイベントリスナー設定
         document.querySelectorAll('.tool-btn[data-mode]').forEach(btn => {
             btn.addEventListener('click', () => setMode(btn.dataset.mode));
-        });
-
-        document.getElementById('btn-merge').addEventListener('click', () => {
-            if (state.selectedNodeId) {
-                mergeChildToParent(state.selectedNodeId);
-            } else {
-                showToast('統合するノードを選択してください');
-            }
-        });
-
-        document.getElementById('btn-merge').addEventListener('click', () => {
-            if (state.selectedNodeId) {
-                mergeChildToParent(state.selectedNodeId);
-            } else {
-                showToast('統合するノードを選択してください');
-            }
         });
 
         // Build tooltip HTML for any node (shared by root and child nodes)
