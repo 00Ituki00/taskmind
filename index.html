@@ -1526,6 +1526,7 @@
         <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-layout" title="レイアウト切替 (フリー↔タイムライン)">📅</button>
         <button class="tool-btn" id="btn-new" title="新規作成">🗑️</button>
+        <button class="tool-btn" id="btn-merge" title="親ノードに統合 (M)">⏏️</button>
         <button class="tool-btn" id="btn-autoload" title="自動読み込み">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
@@ -1923,6 +1924,14 @@
             btn.addEventListener('click', () => setMode(btn.dataset.mode));
         });
 
+        document.getElementById('btn-merge').addEventListener('click', () => {
+            if (state.selectedNodeId) {
+                mergeChildToParent(state.selectedNodeId);
+            } else {
+                showToast('統合するノードを選択してください');
+            }
+        });
+
         // Build tooltip HTML for any node (shared by root and child nodes)
         function buildNodeTooltipHtml(node) {
             const why = node.details?.why?.trim();
@@ -2116,6 +2125,68 @@
             const targetIndex = Math.min(node._prevChildIndex, parent.children.length);
             parent.children.splice(targetIndex, 0, node.id);
             delete node._prevChildIndex;
+        }
+
+        function mergeChildToParent(nodeId) {
+            const childNode = state.nodes.find(n => n.id === nodeId);
+            if (!childNode || childNode.parentId === null) return;
+
+            const parentNode = state.nodes.find(n => n.id === childNode.parentId);
+            if (!parentNode) return;
+
+            // 1. Append child's title to parent's details.what
+            const childTitle = childNode.title || '';
+            const parentWhat = parentNode.details?.what || '';
+            const newWhat = parentWhat ? parentWhat + '\n- ' + childTitle : '- ' + childTitle;
+            if (!parentNode.details) parentNode.details = {};
+            parentNode.details.what = newWhat;
+
+            // 2. Merge other details from child (when, who, where, why, link)
+            const childDetails = childNode.details || {};
+            const mergeFields = ['when', 'who', 'where', 'why', 'link'];
+            mergeFields.forEach(field => {
+                if (childDetails[field] && !parentNode.details[field]) {
+                    parentNode.details[field] = childDetails[field];
+                }
+            });
+
+            // 3. Move child's children to parent (if any)
+            if (childNode.children && childNode.children.length > 0) {
+                childNode.children.forEach(childId => {
+                    const grandChild = state.nodes.find(n => n.id === childId);
+                    if (grandChild) {
+                        grandChild.parentId = parentNode.id;
+                    }
+                });
+                if (!parentNode.children) parentNode.children = [];
+                parentNode.children = parentNode.children.concat(childNode.children);
+            }
+
+            // 4. Move connections from child to parent
+            state.connections.forEach(conn => {
+                if (conn.from === childNode.id) {
+                    conn.from = parentNode.id;
+                }
+                if (conn.to === childNode.id) {
+                    conn.to = parentNode.id;
+                }
+            });
+            // Remove duplicate connections that may have been created
+            state.connections = state.connections.filter((conn, index, self) => {
+                return index === self.findIndex(c => c.from === conn.from && c.to === conn.to);
+            });
+
+            // 5. Remove child from parent's children array
+            if (parentNode.children) {
+                parentNode.children = parentNode.children.filter(id => id !== childNode.id);
+            }
+
+            // 6. Delete child node
+            deleteNode(childNode.id);
+
+            renderNodes();
+            renderConnections();
+            showToast('子ノードを親に統合しました');
         }
 
         function deleteNode(nodeId) {
