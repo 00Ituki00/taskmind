@@ -7881,6 +7881,14 @@ function getNodeEdgePoint(node, targetNode) {
                 const node = state.nodes.find(n => n.id === nodeId);
                 const titleEl = targetNode.querySelector('.node-title') || targetNode.querySelector('.task-text');
 
+                // Merge to parent option (only for child nodes)
+                if (node.parentId !== null) {
+                    items.push({ text: 'Merge to parent', icon: 'M', action: () => {
+                        menu.remove();
+                        mergeChildToParent(nodeId);
+                    }});
+                }
+
                 items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
                     console.log('Root title edit clicked', titleEl, node);
                     menu.remove();
