@@ -1920,8 +1920,17 @@
             renderNodes();
         }
 
+                // ツールバーボタンのイベントリスナー設定
         document.querySelectorAll('.tool-btn[data-mode]').forEach(btn => {
             btn.addEventListener('click', () => setMode(btn.dataset.mode));
+        });
+
+        document.getElementById('btn-merge').addEventListener('click', () => {
+            if (state.selectedNodeId) {
+                mergeChildToParent(state.selectedNodeId);
+            } else {
+                showToast('統合するノードを選択してください');
+            }
         });
 
         document.getElementById('btn-merge').addEventListener('click', () => {
