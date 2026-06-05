@@ -2119,6 +2119,7 @@
         }
 
         function deleteNode(nodeId) {
+            const deletedNode = state.nodes.find(n => n.id === nodeId);
 
             // Remove from parent's children array if it's a child node
             if (deletedNode && deletedNode.parentId !== null) {
