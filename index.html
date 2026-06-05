@@ -7853,6 +7853,10 @@ function getNodeEdgePoint(node, targetNode) {
                             renderConnections();
                         }
                     }});
+                    items.push({ text: '親ノードに統合', icon: '⏏️', action: () => {
+                        menu.remove();
+                        mergeChildToParent(childId);
+                    }});
                     items.push({ text: '詳細情報を編集', icon: '📋', action: () => {
                         menu.remove();
                         openBulkDetailEditor(childNode);
