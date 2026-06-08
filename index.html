@@ -3385,14 +3385,14 @@ function getNodeEdgePoint(node, targetNode) {
                 if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
                 // Save when data from integrated editor
                 if (whenEditor) {
-                    const originalNextDate = node.details.when?.nextDate || null;
+                    const oldWhen = node.details.when || null;
                     const newWhen = whenEditor.getValue();
                     if (newWhen === null) {
                         if (node.details) delete node.details.when;
                     } else {
                         node.details.when = newWhen;
-                        const hasManualNextDate = newWhen.nextDate && (!originalNextDate || newWhen.nextDate !== originalNextDate);
-                        if (!hasManualNextDate || !newWhen.nextDate) {
+                        // Only recalculate nextDate if schedule parameters changed
+                        if (didScheduleChange(oldWhen, newWhen) || !newWhen.nextDate) {
                             node.details.when.nextDate = calculateNextDate(node.details.when);
                         }
                     }
@@ -3959,15 +3959,14 @@ function getNodeEdgePoint(node, targetNode) {
             saveBtn.className = 'when-btn save';
             saveBtn.textContent = '保存';
             saveBtn.addEventListener('click', () => {
-                const originalNextDate = node.details.when?.nextDate || null;
+                const oldWhen = node.details.when || null;
                 const newWhen = editor.getValue();
                 if (newWhen === null) {
                     if (node.details) delete node.details.when;
                 } else {
                     node.details.when = newWhen;
-                    // 手動設定されたnextDateがない場合のみ自動計算
-                    const hasManualNextDate = newWhen.nextDate && (!originalNextDate || newWhen.nextDate !== originalNextDate);
-                    if (!hasManualNextDate || !newWhen.nextDate) {
+                    // Only recalculate nextDate if schedule parameters changed
+                    if (didScheduleChange(oldWhen, newWhen) || !newWhen.nextDate) {
                         node.details.when.nextDate = calculateNextDate(node.details.when);
                     }
                 }
@@ -4001,11 +4000,13 @@ function getNodeEdgePoint(node, targetNode) {
         // Returns HTMLElement or null
         function createWhenProgressBar(node) {
             const w = node.details?.when;
-            if (!w || !w.repeatType || !w.nextDate) return null;
-            if (node.completed) return null; // 完了済みは非表示
+            if (!w || !w.repeatType) return null;
+            const isCompleted = node.completed;
+            const hasNextDate = !!w.nextDate;
 
             const now = new Date();
-            const nextDate = new Date(w.nextDate);
+            const nextDate = hasNextDate ? new Date(w.nextDate) : null;
+            const baseForDeadline = nextDate || (w.baseDateTime ? new Date(w.baseDateTime) : new Date());
 
             // Calculate deadline date
             let deadlineDate;
@@ -4013,7 +4014,7 @@ function getNodeEdgePoint(node, targetNode) {
                 deadlineDate = new Date(w.deadlineDate);
             } else {
                 const [dlHours, dlMinutes] = (w.deadlineTime || '18:00').split(':');
-                deadlineDate = new Date(nextDate);
+                deadlineDate = new Date(baseForDeadline);
                 deadlineDate.setDate(deadlineDate.getDate() + (w.deadlineDays || 0));
                 deadlineDate.setHours(parseInt(dlHours), parseInt(dlMinutes), 0, 0);
             }
@@ -4022,133 +4023,167 @@ function getNodeEdgePoint(node, targetNode) {
             container.className = 'when-progress-container';
             container.style.cssText = 'padding:2px 8px 4px;font-size:11px;';
 
-            // Info row
-            const infoRow = document.createElement('div');
-            infoRow.style.cssText = 'display:flex;justify-content:space-between;gap:4px;color:#666;margin-bottom:6px;white-space:nowrap;overflow:hidden;font-size:10px;';
+            // Info row (only for non-completed tasks with nextDate)
+            if (hasNextDate && !isCompleted) {
+                const infoRow = document.createElement('div');
+                infoRow.style.cssText = 'display:flex;justify-content:space-between;gap:4px;color:#666;margin-bottom:6px;white-space:nowrap;overflow:hidden;font-size:10px;';
 
-            const leftInfo = document.createElement('span');
-            leftInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex-shrink:0;';
-            const centerInfo = document.createElement('span');
-            centerInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;text-align:center;flex:1;';
-            const rightInfo = document.createElement('span');
-            rightInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex-shrink:0;text-align:right;';
+                const leftInfo = document.createElement('span');
+                leftInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex-shrink:0;';
+                const centerInfo = document.createElement('span');
+                centerInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;text-align:center;flex:1;';
+                const rightInfo = document.createElement('span');
+                rightInfo.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex-shrink:0;text-align:right;';
 
-            // Time formatting helper
-            const fmtHM = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-            const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
+                // Time formatting helper
+                const fmtHM = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
 
-            if (now < nextDate) {
-                // Before start
-                const diffMs = nextDate - now;
-                const diffH = Math.floor(diffMs / 3600000);
-                const diffM = Math.floor((diffMs % 3600000) / 60000);
-                const until = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
-                leftInfo.textContent = `▶${until}`;
-                centerInfo.textContent = `開始 ${fmtHM(nextDate)}`;
-                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
-                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                if (now < nextDate) {
+                    // Before start
+                    const diffMs = nextDate - now;
+                    const diffH = Math.floor(diffMs / 3600000);
+                    const diffM = Math.floor((diffMs % 3600000) / 60000);
+                    const until = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
+                    leftInfo.textContent = `▶${until}`;
+                    centerInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                    if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
+                        rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                    } else {
+                        rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                    }
+                } else if (now < deadlineDate) {
+                    // Between start and deadline
+                    const diffMs = deadlineDate - now;
+                    const diffH = Math.floor(diffMs / 3600000);
+                    const diffM = Math.floor((diffMs % 3600000) / 60000);
+                    const remain = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
+                    leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                    centerInfo.textContent = `残り ${remain}`;
+                    if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
+                        rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                    } else {
+                        rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                    }
                 } else {
-                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                    // After deadline
+                    leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                    centerInfo.textContent = '期限切れ';
+                    if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
+                        rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
+                    } else {
+                        rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+                    }
                 }
-            } else if (now < deadlineDate) {
-                // Between start and deadline
-                const diffMs = deadlineDate - now;
-                const diffH = Math.floor(diffMs / 3600000);
-                const diffM = Math.floor((diffMs % 3600000) / 60000);
-                const remain = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
-                leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
-                centerInfo.textContent = `残り ${remain}`;
-                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
-                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
-                } else {
-                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+
+                infoRow.appendChild(leftInfo);
+                infoRow.appendChild(centerInfo);
+                infoRow.appendChild(rightInfo);
+                container.appendChild(infoRow);
+
+                // Progress bar: left edge = 8:00 today, now marker moves right over time
+                const barTrack = document.createElement('div');
+                barTrack.style.cssText = 'height:10px;border-radius:5px;position:relative;margin-top:2px;background:#f5f5f5;overflow:visible;';
+
+                // Time scale starts at 8:00 today
+                const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
+                const maxDist = Math.max(now - dayStart, nextDate - dayStart, deadlineDate - dayStart);
+                const scaleMs = Math.max(maxDist, 3600000) * 1.15; // at least 1h visible + 15% margin
+
+                // Positions relative to 8:00
+                const startPct = Math.min(100, Math.max(0, ((nextDate - dayStart) / scaleMs) * 100));
+                const deadlinePct = Math.min(100, Math.max(0, ((deadlineDate - dayStart) / scaleMs) * 100));
+                const nowPct = Math.min(100, Math.max(0, ((now - dayStart) / scaleMs) * 100));
+
+                // Determine active zone color
+                let activeColor = '#4caf50';
+                if (now >= deadlineDate) {
+                    activeColor = '#f44336';
+                } else if (now >= nextDate) {
+                    const totalActiveMs = deadlineDate - nextDate;
+                    const elapsedMs = now - nextDate;
+                    const remainingPct = totalActiveMs > 0 ? 100 - (elapsedMs / totalActiveMs * 100) : 0;
+                    if (remainingPct <= 20) activeColor = '#f44336';
+                    else if (remainingPct <= 50) activeColor = '#ff9800';
+                    else activeColor = '#4caf50';
                 }
-            } else {
-                // After deadline
-                leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
-                centerInfo.textContent = '期限切れ';
-                if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
-                    rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
-                } else {
-                    rightInfo.textContent = `期限 ${fmtHM(deadlineDate)}`;
+
+                // 1. Zone before start: grey striped
+                if (startPct > 0) {
+                    const beforeStart = document.createElement('div');
+                    beforeStart.style.cssText = `position:absolute;left:0;top:0;height:100%;width:${startPct}%;background:repeating-linear-gradient(90deg,#ddd 0px,#ddd 3px,transparent 3px,transparent 6px);border-radius:5px 0 0 5px;opacity:0.5;`;
+                    barTrack.appendChild(beforeStart);
                 }
-            }
 
-            infoRow.appendChild(leftInfo);
-            infoRow.appendChild(centerInfo);
-            infoRow.appendChild(rightInfo);
-            container.appendChild(infoRow);
-
-            // Progress bar: left edge = 8:00 today, now marker moves right over time
-            const barTrack = document.createElement('div');
-            barTrack.style.cssText = 'height:10px;border-radius:5px;position:relative;margin-top:2px;background:#f5f5f5;overflow:visible;';
-
-            // Time scale starts at 8:00 today
-            const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
-            const maxDist = Math.max(now - dayStart, nextDate - dayStart, deadlineDate - dayStart);
-            const scaleMs = Math.max(maxDist, 3600000) * 1.15; // at least 1h visible + 15% margin
-
-            // Positions relative to 8:00
-            const startPct = Math.min(100, Math.max(0, ((nextDate - dayStart) / scaleMs) * 100));
-            const deadlinePct = Math.min(100, Math.max(0, ((deadlineDate - dayStart) / scaleMs) * 100));
-            const nowPct = Math.min(100, Math.max(0, ((now - dayStart) / scaleMs) * 100));
-
-            // Determine active zone color
-            let activeColor = '#4caf50';
-            if (now >= deadlineDate) {
-                activeColor = '#f44336';
-            } else if (now >= nextDate) {
-                const totalActiveMs = deadlineDate - nextDate;
-                const elapsedMs = now - nextDate;
-                const remainingPct = totalActiveMs > 0 ? 100 - (elapsedMs / totalActiveMs * 100) : 0;
-                if (remainingPct <= 20) activeColor = '#f44336';
-                else if (remainingPct <= 50) activeColor = '#ff9800';
-                else activeColor = '#4caf50';
-            }
-
-            // 1. Zone before start: grey striped
-            if (startPct > 0) {
-                const beforeStart = document.createElement('div');
-                beforeStart.style.cssText = `position:absolute;left:0;top:0;height:100%;width:${startPct}%;background:repeating-linear-gradient(90deg,#ddd 0px,#ddd 3px,transparent 3px,transparent 6px);border-radius:5px 0 0 5px;opacity:0.5;`;
-                barTrack.appendChild(beforeStart);
-            }
-
-            // 2. Active zone (start to deadline): colored bar
-            if (nextDate < deadlineDate) {
-                const activeStart = startPct;
-                const activeEnd = Math.min(100, deadlinePct);
-                const activeWidth = activeEnd - activeStart;
-                if (activeWidth > 0) {
-                    const activeBar = document.createElement('div');
-                    activeBar.style.cssText = `position:absolute;left:${activeStart}%;top:0;height:100%;width:${activeWidth}%;background:${activeColor};opacity:${now >= nextDate ? 1 : 0.3};transition:opacity 0.3s ease;`;
-                    barTrack.appendChild(activeBar);
+                // 2. Active zone (start to deadline): colored bar
+                if (nextDate < deadlineDate) {
+                    const activeStart = startPct;
+                    const activeEnd = Math.min(100, deadlinePct);
+                    const activeWidth = activeEnd - activeStart;
+                    if (activeWidth > 0) {
+                        const activeBar = document.createElement('div');
+                        activeBar.style.cssText = `position:absolute;left:${activeStart}%;top:0;height:100%;width:${activeWidth}%;background:${activeColor};opacity:${now >= nextDate ? 1 : 0.3};transition:opacity 0.3s ease;`;
+                        barTrack.appendChild(activeBar);
+                    }
                 }
+
+                // 3. Start marker: white vertical line
+                if (startPct >= 0 && startPct <= 100) {
+                    const startLine = document.createElement('div');
+                    startLine.style.cssText = `position:absolute;left:${startPct}%;top:0;width:2px;height:100%;background:rgba(255,255,255,0.9);transform:translateX(-50%);`;
+                    barTrack.appendChild(startLine);
+                }
+
+                // 4. Deadline marker: dark vertical line
+                if (deadlinePct >= 0 && deadlinePct <= 100) {
+                    const dlLine = document.createElement('div');
+                    dlLine.style.cssText = `position:absolute;left:${deadlinePct}%;top:-1px;width:2px;height:12px;background:#555;border-radius:1px;transform:translateX(-50%);`;
+                    barTrack.appendChild(dlLine);
+                }
+
+                // 5. Now marker: triangle that moves right over time
+                const nowClamped = Math.min(100, Math.max(0, nowPct));
+                const nowMarker = document.createElement('div');
+                nowMarker.style.cssText = `position:absolute;left:${nowClamped}%;top:-5px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #333;transform:translateX(-50%);z-index:3;`;
+                barTrack.appendChild(nowMarker);
+
+                // Now marker tooltip (shown on hover)
+                nowMarker.title = `現在 ${fmtHM(now)}`;
+
+                container.appendChild(barTrack);
+            } else if (isCompleted) {
+                // Completed status row
+                const statusRow = document.createElement('div');
+                statusRow.style.cssText = 'display:flex;justify-content:space-between;gap:4px;color:#888;margin-bottom:4px;white-space:nowrap;overflow:hidden;font-size:10px;';
+                const statusLeft = document.createElement('span');
+                statusLeft.textContent = '✓ 完了';
+                statusRow.appendChild(statusLeft);
+                container.appendChild(statusRow);
             }
 
-            // 3. Start marker: white vertical line
-            if (startPct >= 0 && startPct <= 100) {
-                const startLine = document.createElement('div');
-                startLine.style.cssText = `position:absolute;left:${startPct}%;top:0;width:2px;height:100%;background:rgba(255,255,255,0.9);transform:translateX(-50%);`;
-                barTrack.appendChild(startLine);
+            // 5 date fields display (登録/開始/締切/次回/完了)
+            const dateInfoRow = document.createElement('div');
+            dateInfoRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 8px;color:#888;font-size:9px;margin-top:4px;';
+            const fmtCompact = dateStr => formatCompactDate(dateStr);
+
+            const fields = [
+                { label: '登録', value: fmtCompact(node.createdAt) },
+                { label: '開始', value: fmtCompact(w.baseDateTime) },
+                { label: '締切', value: fmtCompact(w.deadlineDate) || (deadlineDate ? fmtCompact(deadlineDate.toISOString()) : null) },
+                { label: '次回', value: fmtCompact(w.nextDate) },
+                { label: '完了', value: fmtCompact(w.lastCompleted) }
+            ];
+
+            fields.forEach(f => {
+                if (!f.value) return;
+                const span = document.createElement('span');
+                span.textContent = `${f.label}:${f.value}`;
+                dateInfoRow.appendChild(span);
+            });
+
+            if (dateInfoRow.childNodes.length > 0) {
+                container.appendChild(dateInfoRow);
             }
-
-            // 4. Deadline marker: dark vertical line
-            if (deadlinePct >= 0 && deadlinePct <= 100) {
-                const dlLine = document.createElement('div');
-                dlLine.style.cssText = `position:absolute;left:${deadlinePct}%;top:-1px;width:2px;height:12px;background:#555;border-radius:1px;transform:translateX(-50%);`;
-                barTrack.appendChild(dlLine);
-            }
-
-            // 5. Now marker: triangle that moves right over time
-            const nowClamped = Math.min(100, Math.max(0, nowPct));
-            const nowMarker = document.createElement('div');
-            nowMarker.style.cssText = `position:absolute;left:${nowClamped}%;top:-5px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #333;transform:translateX(-50%);z-index:3;`;
-            barTrack.appendChild(nowMarker);
-
-            // Now marker tooltip (shown on hover)
-            nowMarker.title = `現在 ${fmtHM(now)}`;
-
-            container.appendChild(barTrack);
 
             return container;
         }
@@ -4190,7 +4225,21 @@ function getNodeEdgePoint(node, targetNode) {
                     const daysToAdd = Math.floor((now - next) / (24 * 60 * 60 * 1000)) + 1;
                     next.setDate(next.getDate() + daysToAdd);
                 }
-            } else if (repeatType === 'weekly') {
+            }
+
+            // Fast-forward old baseDateTime to near now for weekly/monthly/yearly
+            // to prevent bounded search loops from failing on very old dates
+            if (repeatType !== 'none' && repeatType !== 'daily') {
+                if (next <= now) {
+                    const daysDiff = Math.floor((now - next) / (24 * 60 * 60 * 1000));
+                    const buffer = repeatType === 'weekly' ? 30 : repeatType === 'monthly' ? 60 : 365;
+                    if (daysDiff > buffer) {
+                        next.setDate(next.getDate() + daysDiff - buffer);
+                    }
+                }
+            }
+
+            if (repeatType === 'weekly') {
                 const targetDays = when.daysOfWeek || (when.dayOfWeek !== undefined ? [when.dayOfWeek] : [0]);
                 const weekOfMonth = when.weekOfMonth || 'all';
                 if (targetDays.length === 0) return null;
@@ -4214,8 +4263,7 @@ function getNodeEdgePoint(node, targetNode) {
                         } else {
                             weekNum = Math.floor((date - 1) / 7) + 1;
                         }
-                        if (weekNum !== weekOfMonth) continue;
-                    }
+                        if (String(weekNum) !== String(weekOfMonth)) continue;
 
                     if (check > now) {
                         next = check;
@@ -4255,7 +4303,7 @@ function getNodeEdgePoint(node, targetNode) {
                             } else {
                                 weekNum = Math.floor((date - 1) / 7) + 1;
                             }
-                            if (weekNum !== weekOfMonth) continue;
+                            if (String(weekNum) !== String(weekOfMonth)) continue;
 
                             const checkTime = new Date(check);
                             checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
@@ -4308,7 +4356,7 @@ function getNodeEdgePoint(node, targetNode) {
                             } else {
                                 weekNum = Math.floor((date - 1) / 7) + 1;
                             }
-                            if (weekNum !== weekOfMonth) continue;
+                            if (String(weekNum) !== String(weekOfMonth)) continue;
 
                             const checkTime = new Date(check);
                             checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
@@ -8898,6 +8946,36 @@ function getNodeEdgePoint(node, targetNode) {
                 deadlineDate.setHours(parseInt(dlHours), parseInt(dlMinutes), 0, 0);
                 return deadlineDate;
             }
+        }
+
+        // Check if schedule parameters changed between old and new when data
+        function didScheduleChange(oldWhen, newWhen) {
+            if (!oldWhen || !newWhen) return true;
+            const oldDays = (oldWhen.daysOfWeek || []).slice().sort().join(',');
+            const newDays = (newWhen.daysOfWeek || []).slice().sort().join(',');
+            return (
+                oldWhen.repeatType !== newWhen.repeatType ||
+                oldWhen.baseDateTime !== newWhen.baseDateTime ||
+                oldWhen.baseTime !== newWhen.baseTime ||
+                oldDays !== newDays ||
+                oldWhen.weekOfMonth !== newWhen.weekOfMonth ||
+                oldWhen.monthDay !== newWhen.monthDay ||
+                oldWhen.yearMonth !== newWhen.yearMonth ||
+                oldWhen.yearDay !== newWhen.yearDay ||
+                oldWhen.monthlyMode !== newWhen.monthlyMode ||
+                oldWhen.yearlyMode !== newWhen.yearlyMode ||
+                oldWhen.deadlineType !== newWhen.deadlineType ||
+                oldWhen.deadlineDays !== newWhen.deadlineDays ||
+                oldWhen.deadlineTime !== newWhen.deadlineTime ||
+                oldWhen.deadlineDate !== newWhen.deadlineDate
+            );
+        }
+
+        function formatCompactDate(dateStr) {
+            if (!dateStr) return null;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return null;
+            return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
         }
 
         function recalculateWhenDates() {
