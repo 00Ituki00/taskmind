@@ -4186,37 +4186,25 @@ function getNodeEdgePoint(node, targetNode) {
 
                 container.appendChild(barTrack);
             } else if (isCompleted) {
-                // Completed status row
-                const statusRow = document.createElement('div');
-                statusRow.style.cssText = 'display:flex;justify-content:space-between;gap:4px;color:#888;margin-bottom:4px;white-space:nowrap;overflow:hidden;font-size:10px;';
-                const statusLeft = document.createElement('span');
-                statusLeft.textContent = '✓ 完了';
-                statusRow.appendChild(statusLeft);
-                container.appendChild(statusRow);
+                // 完了時：コンパクト表示（チェックマーク+次回日時は下部で統一）
+                // 進捗バー自体は非表示、下部のコンパクト行のみ表示
             }
 
-            // 5 date fields display (登録/開始/締切/次回/完了)
-            const dateInfoRow = document.createElement('div');
-            dateInfoRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 8px;color:#888;font-size:9px;margin-top:4px;';
-            const fmtCompact = dateStr => formatCompactDate(dateStr);
-
-            const fields = [
-                { label: '登録', value: fmtCompact(node.createdAt) },
-                { label: '開始', value: fmtCompact(w.baseDateTime) },
-                { label: '締切', value: fmtCompact(w.deadlineDate) || (deadlineDate ? fmtCompact(deadlineDate.toISOString()) : null) },
-                { label: '次回', value: fmtCompact(w.nextDate) },
-                { label: '完了', value: fmtCompact(w.lastCompleted) }
-            ];
-
-            fields.forEach(f => {
-                if (!f.value) return;
-                const span = document.createElement('span');
-                span.textContent = `${f.label}:${f.value}`;
-                dateInfoRow.appendChild(span);
-            });
-
-            if (dateInfoRow.childNodes.length > 0) {
-                container.appendChild(dateInfoRow);
+            // 日時表示エリア
+            if (isCompleted) {
+                // 完了時：チェックマーク + 次回日時のみ（コンパクト）
+                const compactRow = document.createElement('div');
+                compactRow.style.cssText = 'display:flex;align-items:center;gap:4px;color:#888;font-size:10px;margin-top:2px;';
+                const checkmark = document.createElement('span');
+                checkmark.textContent = '✓';
+                checkmark.style.color = '#4caf50';
+                compactRow.appendChild(checkmark);
+                if (w.nextDate) {
+                    const nextText = document.createElement('span');
+                    nextText.textContent = `次回:${formatCompactDate(w.nextDate)}`;
+                    compactRow.appendChild(nextText);
+                }
+                container.appendChild(compactRow);
             }
 
             return container;
