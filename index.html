@@ -3331,7 +3331,7 @@ function getNodeEdgePoint(node, targetNode) {
 
             const whenEditor = createWhenEditorUI(node.details.when, (newWhen) => {
                 node.details.when = newWhen;
-            });
+            }, node.createdAt);
             wSection.appendChild(whenEditor.el);
             modal.appendChild(wSection);
 
@@ -3417,7 +3417,7 @@ function getNodeEdgePoint(node, targetNode) {
         // Unified When Editor UI Generator
         // Returns { el, getValue, updatePreview }
         // UI types: none | daily | weekly | monthly-day | monthly-week | yearly-date | yearly-week
-        function createWhenEditorUI(whenData, onChange) {
+        function createWhenEditorUI(whenData, onChange, createdAt) {
             const w = whenData || {};
             const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
             const weekOptions = [
@@ -3777,6 +3777,19 @@ function getNodeEdgePoint(node, targetNode) {
             nextDateSection.appendChild(nextDateRow);
             container.appendChild(nextDateSection);
 
+            // --- 日時情報(5項目) ---
+            const dateInfoSection = document.createElement('div');
+            dateInfoSection.className = 'when-section';
+            dateInfoSection.style.cssText = 'background:#f8f9fa;border-radius:6px;padding:8px 10px;font-size:11px;color:#555;line-height:1.6;';
+            const dateInfoTitle = document.createElement('div');
+            dateInfoTitle.style.cssText = 'font-weight:600;margin-bottom:4px;color:#333;font-size:12px;';
+            dateInfoTitle.textContent = '📅 日時情報';
+            dateInfoSection.appendChild(dateInfoTitle);
+            const dateInfoContent = document.createElement('div');
+            dateInfoContent.id = 'when-date-info-' + Math.random().toString(36).slice(2, 8);
+            dateInfoSection.appendChild(dateInfoContent);
+            container.appendChild(dateInfoSection);
+
             // --- プレビュー ---
             const previewSection = document.createElement('div');
             previewSection.className = 'when-section';
@@ -3909,6 +3922,27 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 preview.innerHTML = text.replace(/\n/g, '<br>');
+
+                // 日時情報更新
+                const fmt = dateStr => {
+                    if (!dateStr) return null;
+                    const d = new Date(dateStr);
+                    if (isNaN(d.getTime())) return null;
+                    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                };
+                const baseDt = timeInput.value ? new Date(timeInput.value).toISOString() : null;
+                const dlDate = deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null;
+                const nextDt = w.nextDate || null;
+                const lastDt = w.lastCompleted || null;
+
+                let dateInfoHtml = '';
+                if (createdAt) dateInfoHtml += `<div>📝 登録: ${fmt(createdAt)}</div>`;
+                if (baseDt) dateInfoHtml += `<div>▶ 開始: ${fmt(baseDt)}</div>`;
+                if (dlDate) dateInfoHtml += `<div>⏰ 締切: ${fmt(dlDate)}</div>`;
+                if (nextDt) dateInfoHtml += `<div>📌 次回: ${fmt(nextDt)}</div>`;
+                if (lastDt) dateInfoHtml += `<div>✓ 完了: ${fmt(lastDt)}</div>`;
+
+                dateInfoContent.innerHTML = dateInfoHtml || '<div style="color:#999;">日時情報なし</div>';
             }
 
             updatePreview();
@@ -3937,7 +3971,7 @@ function getNodeEdgePoint(node, targetNode) {
             title.innerHTML = '🕐 When(周期・期限)';
             popup.appendChild(title);
 
-            const editor = createWhenEditorUI(node.details.when);
+            const editor = createWhenEditorUI(node.details.when, null, node.createdAt);
             popup.appendChild(editor.el);
 
             // --- ボタン ---
@@ -9088,12 +9122,26 @@ function getNodeEdgePoint(node, targetNode) {
                 return;
             }
             
-            // 繰り返しタスク: baseDateTimeは変更せず、nextDateのみ再計算
-            // baseDateTime=開始日時（元のスケジュール基点）、createdAt=登録日時、nextDate=次回日時
+            // 繰り返しタスク: 完了日時が開始日時を超過している場合、baseDateTimeを再計算
             w._prevNextDate = w.nextDate || null;
             w.lastCompleted = now.toISOString();
             
-            // nextDateを再計算（baseDateTimeを基点として変更しない）
+            // 完了日時が開始日時を超過している場合、baseDateTimeを次回に合わせて更新
+            const baseDt = w.baseDateTime ? new Date(w.baseDateTime) : null;
+            if (baseDt && now > baseDt) {
+                w._prevBaseDateTime = w.baseDateTime;
+                w._prevBaseTime = w.baseTime;
+                
+                // 開始日時を次回日時に更新（完了時点で適切な次回に追いつかせる）
+                const nextBase = calculateNextDate(w);
+                if (nextBase) {
+                    w.baseDateTime = nextBase.toISOString();
+                    w.baseTime = `${String(nextBase.getHours()).padStart(2,'0')}:${String(nextBase.getMinutes()).padStart(2,'0')}`;
+                    console.log(`[When] 「${node.title}」開始日時更新: baseDateTime=${w.baseDateTime}`);
+                }
+            }
+            
+            // nextDateを再計算（更新されたbaseDateTimeを基点）
             const next = calculateNextDate(w);
             if (next) {
                 w.nextDate = next.toISOString();
