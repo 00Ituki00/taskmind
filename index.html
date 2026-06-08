@@ -4720,7 +4720,7 @@ function getNodeEdgePoint(node, targetNode) {
             // Render root nodes
             state.nodes.forEach(node => {
                 // Skip child nodes unless they are being actively dragged
-                if (node.parentId !== null && !(state.dragNode?.id === node.id && state.isDragging)) return;
+                if (node.parentId != null && !(state.dragNode?.id === node.id && state.isDragging)) return;
                 // Skip completed nodes when hideCompleted is enabled
                 if (state.hideCompleted && node.completed) return;
 
@@ -8919,6 +8919,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '', link: '' };
                             }
                             if (!node.children) node.children = [];
+                            if (node.parentId === undefined) node.parentId = null;
                             return node;
                         });
                         state.connections = (data.connections || []).map(c => ({
