@@ -3930,15 +3930,15 @@ function getNodeEdgePoint(node, targetNode) {
                     if (isNaN(d.getTime())) return null;
                     return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
                 };
-                const baseDt = timeInput.value ? new Date(timeInput.value).toISOString() : null;
-                const dlDate = deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null;
+                const baseDtIso = timeInput.value ? new Date(timeInput.value).toISOString() : null;
+                const dlDateIso = deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null;
                 const nextDt = w.nextDate || null;
                 const lastDt = w.lastCompleted || null;
 
                 let dateInfoHtml = '';
                 if (createdAt) dateInfoHtml += `<div>📝 登録: ${fmt(createdAt)}</div>`;
-                if (baseDt) dateInfoHtml += `<div>▶ 開始: ${fmt(baseDt)}</div>`;
-                if (dlDate) dateInfoHtml += `<div>⏰ 締切: ${fmt(dlDate)}</div>`;
+                if (baseDtIso) dateInfoHtml += `<div>▶ 開始: ${fmt(baseDtIso)}</div>`;
+                if (dlDateIso) dateInfoHtml += `<div>⏰ 締切: ${fmt(dlDateIso)}</div>`;
                 if (nextDt) dateInfoHtml += `<div>📌 次回: ${fmt(nextDt)}</div>`;
                 if (lastDt) dateInfoHtml += `<div>✓ 完了: ${fmt(lastDt)}</div>`;
 
