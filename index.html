@@ -6555,6 +6555,78 @@ function getNodeEdgePoint(node, targetNode) {
 
             tempLine.setAttribute('d', pathD);
         }
+        function showTypePicker(e, node) {
+            const existing = document.querySelector('.type-picker');
+            if (existing) existing.remove();
+
+            const picker = document.createElement('div');
+            picker.className = 'type-picker';
+            picker.style.cssText = `
+                position: fixed;
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 8px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+                z-index: 10000;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            `;
+            picker.style.left = e.clientX + 'px';
+            picker.style.top = e.clientY + 'px';
+
+            const typeOptions = [
+                { value: 'task', label: '✓ タスク', color: '#4a90d9' },
+                { value: 'condition', label: '❓ 条件', color: '#f5a623' },
+                { value: 'memo', label: '📝 メモ', color: '#f0e040' },
+                { value: 'startend', label: '▶ 開始/終了', color: '#4a90d9' }
+            ];
+
+            typeOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 6px 12px;
+                    border: none;
+                    border-radius: 4px;
+                    background: transparent;
+                    cursor: pointer;
+                    font-size: 13px;
+                    color: #333;
+                    transition: background 0.15s;
+                `;
+                btn.innerHTML = `<span style="font-size:14px;">${opt.label.split(' ')[0]}</span><span>${opt.label.split(' ')[1]}</span>`;
+                if (node.type === opt.value || (!node.type && opt.value === 'task')) {
+                    btn.style.background = '#f0f0f0';
+                    btn.style.fontWeight = '600';
+                }
+                btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
+                btn.addEventListener('mouseleave', () => {
+                    if (node.type !== opt.value) btn.style.background = 'transparent';
+                });
+                btn.addEventListener('click', () => {
+                    node.type = opt.value;
+                    renderNodes();
+                    picker.remove();
+                    showToast(`ノードタイプを「${opt.label.split(' ')[1]}」に変更しました`);
+                });
+                picker.appendChild(btn);
+            });
+
+            document.body.appendChild(picker);
+
+            const close = (e) => {
+                if (!picker.contains(e.target)) {
+                    picker.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
         function showColorPicker(e, node) {
             const existing = document.querySelector('.color-picker');
             if (existing) existing.remove();
@@ -8033,6 +8105,14 @@ function getNodeEdgePoint(node, targetNode) {
                             console.error('Error in enableTitleEdit:', err);
                         }
                     }});
+                    items.push({ text: 'ノードタイプ変更', icon: '📌', action: () => {
+                        menu.remove();
+                        showTypePicker(e, childNode);
+                    }});
+                    items.push({ text: 'カラー変更', icon: '🎨', action: () => {
+                        menu.remove();
+                        showColorPicker(e, childNode);
+                    }});
                     items.push({ text: '接続作成', icon: '🔗', action: () => {
                         menu.remove();
                         showConnectionTypeSelectorAtStart(childId, x, y);
@@ -8085,6 +8165,14 @@ function getNodeEdgePoint(node, targetNode) {
                             console.error('Error in enableTitleEdit:', err);
                         }
                     }
+                }});
+                items.push({ text: 'ノードタイプ変更', icon: '📌', action: () => {
+                    menu.remove();
+                    showTypePicker(e, node);
+                }});
+                items.push({ text: 'カラー変更', icon: '🎨', action: () => {
+                    menu.remove();
+                    showColorPicker(e, node);
                 }});
                 items.push({ text: '接続作成', icon: '🔗', action: () => {
                     menu.remove();
