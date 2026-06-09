@@ -6270,36 +6270,56 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 // Connection point on "from" node (draggable to change source)
-                const fromPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                fromPoint.setAttribute('class', 'conn-point');
-                fromPoint.setAttribute('cx', x1);
-                fromPoint.setAttribute('cy', y1);
-                fromPoint.setAttribute('r', '6');
-                fromPoint.style.fill = fromColor;
-                fromPoint.addEventListener('mousedown', (e) => {
+                // Hit area: larger invisible circle for easier grabbing
+                const fromHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromHitArea.setAttribute('cx', x1);
+                fromHitArea.setAttribute('cy', y1);
+                fromHitArea.setAttribute('r', '18');
+                fromHitArea.setAttribute('fill', 'rgba(0,0,0,0)');
+                fromHitArea.style.cursor = 'pointer';
+                fromHitArea.addEventListener('mousedown', (e) => {
                     e.stopPropagation();
                     e.preventDefault();
                     state.draggingConn = conn;
                     state.draggingConn.isSource = true;
                     fromPoint.classList.add('dragging');
                 });
+                group.appendChild(fromHitArea);
+
+                const fromPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromPoint.setAttribute('class', 'conn-point');
+                fromPoint.setAttribute('cx', x1);
+                fromPoint.setAttribute('cy', y1);
+                fromPoint.setAttribute('r', '6');
+                fromPoint.style.fill = fromColor;
+                fromPoint.setAttribute('pointer-events', 'none');
                 group.appendChild(fromPoint);
 
                 // Connection point on "to" node (draggable to change destination) - hidden when collapsed
                 if (!conn.collapsed) {
-                    const toPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    toPoint.setAttribute('class', 'conn-point');
-                    toPoint.setAttribute('cx', x2);
-                    toPoint.setAttribute('cy', y2);
-                    toPoint.setAttribute('r', '6');
-                    toPoint.style.fill = toColor;
-                    toPoint.addEventListener('mousedown', (e) => {
+                    // Hit area: larger invisible circle for easier grabbing
+                    const toHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    toHitArea.setAttribute('cx', x2);
+                    toHitArea.setAttribute('cy', y2);
+                    toHitArea.setAttribute('r', '18');
+                    toHitArea.setAttribute('fill', 'rgba(0,0,0,0)');
+                    toHitArea.style.cursor = 'pointer';
+                    toHitArea.addEventListener('mousedown', (e) => {
                         e.stopPropagation();
                         e.preventDefault();
                         state.draggingConn = conn;
                         state.draggingConn.isSource = false;
                         toPoint.classList.add('dragging');
                     });
+                    group.appendChild(toHitArea);
+
+                    const toPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    toPoint.setAttribute('class', 'conn-point');
+                    toPoint.setAttribute('cx', x2);
+                    toPoint.setAttribute('cy', y2);
+                    toPoint.setAttribute('r', '6');
+                    toPoint.style.fill = toColor;
+                    toPoint.setAttribute('pointer-events', 'none');
                     group.appendChild(toPoint);
                 }
 
