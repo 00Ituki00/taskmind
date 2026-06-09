@@ -5996,6 +5996,14 @@ function getNodeEdgePoint(node, targetNode) {
                 // mousedown-based double-click detection for SVG reliability
                 hitPath.addEventListener('mousedown', (e) => {
                     if (e.button !== 0) return;
+                    
+                    // Skip if clicking on endpoint drag area (priority: endpoint > connection line)
+                    const mouseX = (e.clientX - state.panX) / state.scale;
+                    const mouseY = (e.clientY - state.panY) / state.scale;
+                    const distFrom = Math.hypot(mouseX - x1, mouseY - y1);
+                    const distTo = Math.hypot(mouseX - x2, mouseY - y2);
+                    if (distFrom < 24 || distTo < 24) return;
+                    
                     const now = Date.now();
                     const dx = e.clientX - connMouseDownPos.x;
                     const dy = e.clientY - connMouseDownPos.y;
@@ -6274,9 +6282,10 @@ function getNodeEdgePoint(node, targetNode) {
                 const fromHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 fromHitArea.setAttribute('cx', x1);
                 fromHitArea.setAttribute('cy', y1);
-                fromHitArea.setAttribute('r', '18');
-                fromHitArea.setAttribute('fill', 'rgba(0,0,0,0)');
+                fromHitArea.setAttribute('r', '24');
+                fromHitArea.setAttribute('fill', 'rgba(0,0,0,0.01)');
                 fromHitArea.style.cursor = 'pointer';
+                fromHitArea.style.pointerEvents = 'all';
                 fromHitArea.addEventListener('mousedown', (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -6301,9 +6310,10 @@ function getNodeEdgePoint(node, targetNode) {
                     const toHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     toHitArea.setAttribute('cx', x2);
                     toHitArea.setAttribute('cy', y2);
-                    toHitArea.setAttribute('r', '18');
-                    toHitArea.setAttribute('fill', 'rgba(0,0,0,0)');
+                    toHitArea.setAttribute('r', '24');
+                    toHitArea.setAttribute('fill', 'rgba(0,0,0,0.01)');
                     toHitArea.style.cursor = 'pointer';
+                    toHitArea.style.pointerEvents = 'all';
                     toHitArea.addEventListener('mousedown', (e) => {
                         e.stopPropagation();
                         e.preventDefault();
