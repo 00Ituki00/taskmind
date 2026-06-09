@@ -8107,11 +8107,11 @@ function getNodeEdgePoint(node, targetNode) {
                     }});
                     items.push({ text: 'ノードタイプ変更', icon: '📌', action: () => {
                         menu.remove();
-                        showTypePicker(e, childNode);
+                        showTypePicker({ clientX: x, clientY: y }, childNode);
                     }});
                     items.push({ text: 'カラー変更', icon: '🎨', action: () => {
                         menu.remove();
-                        showColorPicker(e, childNode);
+                        showColorPicker({ clientX: x, clientY: y }, childNode);
                     }});
                     items.push({ text: '接続作成', icon: '🔗', action: () => {
                         menu.remove();
@@ -8168,11 +8168,11 @@ function getNodeEdgePoint(node, targetNode) {
                 }});
                 items.push({ text: 'ノードタイプ変更', icon: '📌', action: () => {
                     menu.remove();
-                    showTypePicker(e, node);
+                    showTypePicker({ clientX: x, clientY: y }, node);
                 }});
                 items.push({ text: 'カラー変更', icon: '🎨', action: () => {
                     menu.remove();
-                    showColorPicker(e, node);
+                    showColorPicker({ clientX: x, clientY: y }, node);
                 }});
                 items.push({ text: '接続作成', icon: '🔗', action: () => {
                     menu.remove();
