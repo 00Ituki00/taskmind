@@ -121,6 +121,9 @@
             flex-shrink: 0;
         }
 
+        .node .node-color {
+            display: inline-flex;
+        }
         .node.type-condition .node-color,
         .node.type-memo .node-color,
         .node.type-startend .node-color {
@@ -4585,7 +4588,7 @@ function getNodeEdgePoint(node, targetNode) {
 
                     const childCheckbox = document.createElement('span');
                     childCheckbox.className = 'node-color';
-                    childCheckbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${child.color || '#4a90d9'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;margin-right:4px;`;
+                    childCheckbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${child.color || '#4a90d9'};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;margin-right:4px;`;
                     childCheckbox.textContent = child.completed ? '✓' : '';
                     childCheckbox.addEventListener('mousedown', (e) => {
                         e.preventDefault();
@@ -4864,7 +4867,7 @@ function getNodeEdgePoint(node, targetNode) {
 
                     const checkbox = document.createElement('span');
                     checkbox.className = 'node-color';
-                    checkbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${node.color || '#4a90d9'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;`;
+                    checkbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${node.color || '#4a90d9'};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;`;
                     checkbox.textContent = node.completed ? '✓' : '';
                     checkbox.addEventListener('mousedown', (e) => {
                         e.preventDefault();
