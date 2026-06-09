@@ -84,6 +84,43 @@
             background: rgba(255,255,255,0.9);
         }
 
+        .node.type-condition {
+            border-radius: 4px;
+            background: #fef9f3;
+            border: 1.5px solid #f5a623;
+        }
+        .node.type-condition .node-header {
+            border-bottom-color: #f5d99c;
+        }
+        .node.type-memo {
+            border-radius: 0 12px 12px 12px;
+            background: #fffef5;
+            border: 1.5px solid #f0e040;
+        }
+        .node.type-memo .node-header {
+            border-bottom-color: #f0e8a0;
+        }
+        .node.type-startend {
+            border-radius: 50px;
+            background: #f5f9ff;
+            border: 1.5px solid #4a90d9;
+            min-width: 140px;
+            text-align: center;
+        }
+        .node.type-startend .node-header {
+            border-bottom: none;
+            justify-content: center;
+        }
+        .node.type-startend .node-title {
+            text-align: center;
+        }
+        .node-type-icon {
+            font-size: 12px;
+            margin-right: 2px;
+            opacity: 0.7;
+            flex-shrink: 0;
+        }
+
         .node {
             position: absolute;
             background: white;
@@ -2016,13 +2053,14 @@
             return Math.max(160, Math.min(400, textWidth + overhead));
         }
 
-        function createNode(x, y, title = '新規ノード') {
+        function createNode(x, y, title = '新規ノード', type = 'task') {
             const now = new Date().toISOString();
             const node = {
                 id: state.nextId++,
                 x: x,
                 y: y,
                 title: title,
+                type: type,
                 color: state.colors[Math.floor(Math.random() * state.colors.length)],
                 completed: false,
                 completedAt: null,
@@ -3318,6 +3356,31 @@ function getNodeEdgePoint(node, targetNode) {
             pRow.appendChild(pSelect);
             modal.appendChild(pRow);
 
+            // Node Type
+            const tRow = document.createElement('div');
+            tRow.style.cssText = 'margin-bottom:12px;';
+            const tLbl = document.createElement('label');
+            tLbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
+            tLbl.textContent = '📌 ノードタイプ';
+            tRow.appendChild(tLbl);
+            const tSelect = document.createElement('select');
+            tSelect.style.cssText = 'width:100%;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;';
+            const typeOptions = [
+                { value: 'task', label: '✓ タスク' },
+                { value: 'condition', label: '❓ 条件' },
+                { value: 'memo', label: '📝 メモ' },
+                { value: 'startend', label: '▶ 開始/終了' }
+            ];
+            typeOptions.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                if ((node.type || 'task') === opt.value) option.selected = true;
+                tSelect.appendChild(option);
+            });
+            tRow.appendChild(tSelect);
+            modal.appendChild(tRow);
+
             // When (統合エディタ)
             const wSection = document.createElement('div');
             wSection.style.cssText = 'margin-bottom:12px;border:1px solid #e0e0e0;border-radius:8px;padding:12px;';
@@ -3382,6 +3445,7 @@ function getNodeEdgePoint(node, targetNode) {
                 e.stopPropagation();
                 e.preventDefault();
                 node.priority = parseInt(pSelect.value);
+                node.type = tSelect.value;
                 if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
                 // Save when data from integrated editor
                 if (whenEditor) {
@@ -4467,7 +4531,7 @@ function getNodeEdgePoint(node, targetNode) {
                     if (hiddenNodeIds.has(child.id)) return;
 
                     const childEl = document.createElement('div');
-                    childEl.className = 'node'
+                    childEl.className = 'node type-' + (child.type || 'task')
                         + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
                         + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
                         + (child.completed ? ' completed' : '')
@@ -4559,6 +4623,14 @@ function getNodeEdgePoint(node, targetNode) {
                     badge.dataset.badge = 'true';
 
                     childEl.appendChild(childCheckbox);
+
+                    // Type icon for child nodes
+                    const childTypeIcon = document.createElement('span');
+                    childTypeIcon.className = 'node-type-icon';
+                    const childTypeIcons = { task: '✓', condition: '❓', memo: '📝', startend: '▶' };
+                    childTypeIcon.textContent = childTypeIcons[child.type || 'task'] || '✓';
+                    childEl.appendChild(childTypeIcon);
+
                     childEl.appendChild(childTitle);
 
                     // Link icon for child nodes (shown when link is set) - placed right after title
@@ -4713,7 +4785,8 @@ function getNodeEdgePoint(node, targetNode) {
                 if (state.hideCompleted && node.completed) return;
 
                 const el = document.createElement('div');
-                el.className = 'node' + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
+                el.className = 'node type-' + (node.type || 'task')
+                    + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
                     + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
                     + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '');
 
@@ -4875,6 +4948,14 @@ function getNodeEdgePoint(node, targetNode) {
                 });
 
                 header.appendChild(color);
+
+                // Type icon for root nodes
+                const typeIcon = document.createElement('span');
+                typeIcon.className = 'node-type-icon';
+                const typeIcons = { task: '✓', condition: '❓', memo: '📝', startend: '▶' };
+                typeIcon.textContent = typeIcons[node.type || 'task'] || '✓';
+                header.appendChild(typeIcon);
+
                 header.appendChild(title);
 
                 // Link icon (shown when link is set) - placed right after title
@@ -8326,6 +8407,7 @@ function getNodeEdgePoint(node, targetNode) {
                             };
                             // Inject missing 5W1H fields for backward compatibility
                             if (typeof node.priority !== 'number') node.priority = 0;
+                            if (!node.type) node.type = 'task';
                             if (!node.details || typeof node.details !== 'object') {
                                 node.details = {
                                     when: { cycle: '', startDate: '', deadline: '' },
@@ -8933,6 +9015,7 @@ function getNodeEdgePoint(node, targetNode) {
                         state.nodes = (data.nodes || []).map(n => {
                             const node = { ...n, completed: n.completed ?? false };
                             if (typeof node.priority !== 'number') node.priority = 0;
+                            if (!node.type) node.type = 'task';
                             if (!node.details || typeof node.details !== 'object') {
                                 node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '', link: '' };
                             }
