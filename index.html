@@ -121,6 +121,21 @@
             flex-shrink: 0;
         }
 
+        .node.type-condition .node-color,
+        .node.type-memo .node-color,
+        .node.type-startend .node-color {
+            display: none;
+        }
+        .node.type-condition .node-type-icon,
+        .node.type-memo .node-type-icon,
+        .node.type-startend .node-type-icon {
+            display: inline-flex;
+            margin-right: 4px;
+        }
+        .node.type-task .node-type-icon {
+            display: none;
+        }
+
         .node {
             position: absolute;
             background: white;
