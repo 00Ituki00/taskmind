@@ -363,17 +363,17 @@
         }
         @keyframes blink-opacity {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+            50% { opacity: 0.15; }
         }
-        @keyframes blink-red-white {
-            0%, 100% { background: white; }
-            50% { background: #ffe0e0; }
+        @keyframes blink-red-border {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+            50% { box-shadow: 0 0 20px 4px rgba(231, 76, 60, 0.6); }
         }
         .node.started {
             animation: blink-opacity 1s ease-in-out infinite;
         }
         .node.expired {
-            animation: blink-red-white 1s ease-in-out infinite;
+            animation: blink-red-border 1s ease-in-out infinite;
         }
         .node .node-tasks .node:hover {
             background: rgba(0,0,0,0.03);
