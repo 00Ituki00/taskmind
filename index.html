@@ -885,8 +885,15 @@
             background: #f0f0f0;
         }
 
-        .context-item.delete {
+        .context-item.disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .context-item.delete.disabled {
             color: #d32f2f;
+            opacity: 0.35;
         }
 
         .context-separator {
@@ -8050,6 +8057,7 @@ function getNodeEdgePoint(node, targetNode) {
             menu.style.top = y + 'px';
 
             const items = [];
+            const isMultiSelect = state.selectedNodeIds && state.selectedNodeIds.length > 1;
 
             // Node-specific items
             const targetNode = clickEvent?.target?.closest('.node');
@@ -8102,7 +8110,7 @@ function getNodeEdgePoint(node, targetNode) {
                 const childTitleEl = targetChildNode.querySelector('.node-title');
 
                     if (childNode && childTitleEl) {
-                    items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
+                    items.push({ text: 'タイトル編集', icon: '✏️', disabled: isMultiSelect, action: () => {
                         console.log('Child title edit clicked', childTitleEl, childNode);
                         menu.remove();
                         try {
@@ -8111,19 +8119,19 @@ function getNodeEdgePoint(node, targetNode) {
                             console.error('Error in enableTitleEdit:', err);
                         }
                     }});
-                    items.push({ text: 'ノードタイプ変更', icon: '📌', action: () => {
+                    items.push({ text: 'ノードタイプ変更', icon: '📌', disabled: isMultiSelect, action: () => {
                         menu.remove();
                         showTypePicker({ clientX: x, clientY: y }, childNode);
                     }});
-                    items.push({ text: 'カラー変更', icon: '🎨', action: () => {
+                    items.push({ text: 'カラー変更', icon: '🎨', disabled: isMultiSelect, action: () => {
                         menu.remove();
                         showColorPicker({ clientX: x, clientY: y }, childNode);
                     }});
-                    items.push({ text: '接続作成', icon: '🔗', action: () => {
+                    items.push({ text: '接続作成', icon: '🔗', disabled: isMultiSelect, action: () => {
                         menu.remove();
                         showConnectionTypeSelectorAtStart(childId, x, y);
                     }});
-                    items.push({ text: '子ノードを削除', icon: '🗑️', class: 'delete', action: () => {
+                    items.push({ text: '子ノードを削除', icon: '🗑️', class: 'delete', disabled: isMultiSelect, action: () => {
                         if (confirm('この子ノードを削除しますか?')) {
                             const parent = state.nodes.find(n => n.id === childNode.parentId);
                             if (parent) {
@@ -8138,11 +8146,11 @@ function getNodeEdgePoint(node, targetNode) {
                             renderConnections();
                         }
                     }});
-                    items.push({ text: '親ノードに統合', icon: '⏏️', action: () => {
+                    items.push({ text: '親ノードに統合', icon: '⏏️', disabled: isMultiSelect, action: () => {
                         menu.remove();
                         mergeChildToParent(childId);
                     }});
-                    items.push({ text: '詳細情報を編集', icon: '📋', action: () => {
+                    items.push({ text: '詳細情報を編集', icon: '📋', disabled: isMultiSelect, action: () => {
                         menu.remove();
                         openBulkDetailEditor(childNode);
                     }});
@@ -8155,13 +8163,13 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Merge to parent option (only for child nodes)
                 if (node.parentId !== null) {
-                    items.push({ text: 'Merge to parent', icon: 'M', action: () => {
+                    items.push({ text: 'Merge to parent', icon: 'M', disabled: isMultiSelect, action: () => {
                         menu.remove();
                         mergeChildToParent(nodeId);
                     }});
                 }
 
-                items.push({ text: 'タイトル編集', icon: '✏️', action: () => {
+                items.push({ text: 'タイトル編集', icon: '✏️', disabled: isMultiSelect, action: () => {
                     console.log('Root title edit clicked', titleEl, node);
                     menu.remove();
                     if (titleEl) {
@@ -8172,28 +8180,28 @@ function getNodeEdgePoint(node, targetNode) {
                         }
                     }
                 }});
-                items.push({ text: 'ノードタイプ変更', icon: '📌', action: () => {
+                items.push({ text: 'ノードタイプ変更', icon: '📌', disabled: isMultiSelect, action: () => {
                     menu.remove();
                     showTypePicker({ clientX: x, clientY: y }, node);
                 }});
-                items.push({ text: 'カラー変更', icon: '🎨', action: () => {
+                items.push({ text: 'カラー変更', icon: '🎨', disabled: isMultiSelect, action: () => {
                     menu.remove();
                     showColorPicker({ clientX: x, clientY: y }, node);
                 }});
-                items.push({ text: '接続作成', icon: '🔗', action: () => {
+                items.push({ text: '接続作成', icon: '🔗', disabled: isMultiSelect, action: () => {
                     menu.remove();
                     showConnectionTypeSelectorAtStart(nodeId, x, y);
                 }});
-                items.push({ text: node?.expanded ? '子ノードを折りたたむ' : '子ノードを展開', icon: '📂', action: () => {
+                items.push({ text: node?.expanded ? '子ノードを折りたたむ' : '子ノードを展開', icon: '📂', disabled: isMultiSelect, action: () => {
                     node.expanded = !node.expanded;
                     renderNodes();
                 }});
-                items.push({ text: '詳細情報を編集', icon: '📋', action: () => {
+                items.push({ text: '詳細情報を編集', icon: '📋', disabled: isMultiSelect, action: () => {
                     menu.remove();
                     openBulkDetailEditor(node);
                 }});
                 addIndicatorToolbar(node);
-                items.push({ text: '子ノードをソート', icon: '📊', action: () => {
+                items.push({ text: '子ノードをソート', icon: '📊', disabled: isMultiSelect, action: () => {
                     if (node.children && node.children.length > 1) {
                         sortNodeChildren(node);
                         showToast('子ノードをソートしました');
@@ -8208,7 +8216,7 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Ungroup option for child nodes
                 if (node?.parentId !== null) {
-                    items.push({ text: '親子関係を解除', icon: '⬆️', action: () => {
+                    items.push({ text: '親子関係を解除', icon: '⬆️', disabled: isMultiSelect, action: () => {
                         const oldParent = state.nodes.find(n => n.id === node.parentId);
                         if (oldParent && oldParent.children) {
                             oldParent.children = oldParent.children.filter(id => id !== node.id);
@@ -8292,10 +8300,11 @@ function getNodeEdgePoint(node, targetNode) {
                     menu.appendChild(sep);
                 } else {
                     const el = document.createElement('div');
-                    el.className = 'context-item' + (item.class ? ' ' + item.class : '');
+                    el.className = 'context-item' + (item.class ? ' ' + item.class : '') + (item.disabled ? ' disabled' : '');
                     el.innerHTML = `${item.icon} ${item.text}`;
                     el.addEventListener('click', (e) => {
                         e.stopPropagation();
+                        if (item.disabled) return;
                         try {
                             item.action();
                         } catch (err) {
