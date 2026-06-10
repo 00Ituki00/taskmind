@@ -6616,7 +6616,6 @@ function getNodeEdgePoint(node, targetNode) {
                 btn.addEventListener('click', () => {
                     node.type = opt.value;
                     renderNodes();
-                    saveToFile();
                     picker.remove();
                     showToast(`ノードタイプを「${opt.label.split(' ')[1]}」に変更しました`);
                 });
