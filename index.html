@@ -9409,19 +9409,21 @@ function getNodeEdgePoint(node, targetNode) {
                 if (!nextDate) return;
 
                 const nextDateStart = new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
+                let isStarted = false;
 
                 if (node.completed) {
                     // 完了状態で開始日を過ぎていれば有効化(日付のみ比較)
                     if (nextDateStart <= todayStart) {
                         node.completed = false;
                         node.completedAt = null;
-                        activatedNodes.push({ title: node.title, date: nextDate });
+                        activatedNodes.push({ id: node.id, title: node.title, date: nextDate });
                         console.log(`[When] ノード「${node.title}」を有効化(開始日: ${nextDate.toLocaleDateString('ja-JP')})`);
                     }
                 } else {
                     // 有効状態で開始日時を通過していれば通知
                     if (nextDate <= now) {
-                        startedNodes.push({ title: node.title, date: nextDate });
+                        startedNodes.push({ id: node.id, title: node.title, date: nextDate });
+                        isStarted = true;
                         console.log(`[When] ノード「${node.title}」の開始時刻を通過(${nextDate.toLocaleString('ja-JP')})`);
                     }
                 }
@@ -9434,9 +9436,12 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 // 次回日時を再計算(有効化・通知の有無に関わらず)
-                const newNextDate = calculateNextDate(w);
-                if (newNextDate) {
-                    w.nextDate = newNextDate.toISOString();
+                // 開始時刻を通過したノードは次回日時を更新しない（started状態を維持）
+                if (!isStarted) {
+                    const newNextDate = calculateNextDate(w);
+                    if (newNextDate) {
+                        w.nextDate = newNextDate.toISOString();
+                    }
                 }
             });
 
