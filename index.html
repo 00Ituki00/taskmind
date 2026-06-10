@@ -2103,7 +2103,11 @@
                 y: y,
                 title: title,
                 type: type,
-                color: state.colors[Math.floor(Math.random() * state.colors.length)],
+                color: (() => {
+                    const excludedColors = ['#fff176'];
+                    const available = state.colors.filter(c => !excludedColors.includes(c));
+                    return available[Math.floor(Math.random() * available.length)];
+                })(),
                 completed: false,
                 completedAt: null,
                 createdAt: now,
