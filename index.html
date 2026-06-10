@@ -8288,6 +8288,14 @@ function getNodeEdgePoint(node, targetNode) {
 
             }
 
+            if (isMultiSelect && (targetNode || targetChildNode)) {
+                items.push({ text: '一括変更', icon: '📋', action: () => {
+                    menu.remove();
+                    openBulkEditDialog();
+                }});
+                items.push({ text: '', class: 'context-separator' });
+            }
+
             items.push({ text: '', class: 'context-separator' });
             items.push({ text: '全体表示', icon: '⬛', action: fitToView });
 
@@ -8330,6 +8338,126 @@ function getNodeEdgePoint(node, targetNode) {
                 }
             };
             setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        function openBulkEditDialog() {
+            const selectedIds = state.selectedNodeIds || [];
+            if (selectedIds.length < 2) return;
+
+            const existing = document.querySelector('.bulk-edit-dialog');
+            if (existing) existing.remove();
+
+            const dialog = document.createElement('div');
+            dialog.className = 'bulk-edit-dialog';
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+                z-index: 10001;
+                min-width: 280px;
+                font-family: inherit;
+            `;
+
+            dialog.innerHTML = `
+                <div style="font-weight:600;font-size:15px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+                    📋 一括変更 (${selectedIds.length}個のノード)
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div>
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">タイプ</label>
+                        <select class="bulk-type" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                            <option value="">変更しない</option>
+                            <option value="task">✓ タスク</option>
+                            <option value="condition">❓ 条件</option>
+                            <option value="memo">📝 メモ</option>
+                            <option value="startend">▶ 開始/終了</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">カラー</label>
+                        <div class="bulk-colors" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+                        <div style="font-size:11px;color:#999;margin-top:2px;">※選択しない場合は変更されません</div>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">優先度</label>
+                        <select class="bulk-priority" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                            <option value="">変更しない</option>
+                            <option value="0">☆ なし</option>
+                            <option value="1">★ 1</option>
+                            <option value="2">★★ 2</option>
+                            <option value="3">★★★ 3</option>
+                            <option value="4">★★★★ 4</option>
+                            <option value="5">★★★★★ 5</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">担当</label>
+                        <input type="text" class="bulk-who" placeholder="変更しない" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">場所</label>
+                        <input type="text" class="bulk-where" placeholder="変更しない" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+                    <button class="bulk-cancel" style="padding:6px 12px;border:1px solid #ddd;background:#f5f5f5;border-radius:4px;cursor:pointer;font-size:13px;">キャンセル</button>
+                    <button class="bulk-apply" style="padding:6px 12px;border:none;background:#4a90d9;color:white;border-radius:4px;cursor:pointer;font-size:13px;">適用</button>
+                </div>
+            `;
+
+            const colorContainer = dialog.querySelector('.bulk-colors');
+            let selectedColor = '';
+            const colors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#9b59b6', '#34495e', '#95a5a6', '#d35400'];
+            colors.forEach(c => {
+                const opt = document.createElement('div');
+                opt.style.cssText = `width:24px;height:24px;border-radius:4px;background:${c};cursor:pointer;border:2px solid transparent;`;
+                opt.addEventListener('click', () => {
+                    selectedColor = selectedColor === c ? '' : c;
+                    colorContainer.querySelectorAll('div').forEach(el => {
+                        el.style.border = el.style.background === c ? '2px solid #333' : '2px solid transparent';
+                    });
+                });
+                colorContainer.appendChild(opt);
+            });
+
+            dialog.querySelector('.bulk-cancel').addEventListener('click', () => dialog.remove());
+            dialog.querySelector('.bulk-apply').addEventListener('click', () => {
+                const type = dialog.querySelector('.bulk-type').value;
+                const priority = dialog.querySelector('.bulk-priority').value;
+                const who = dialog.querySelector('.bulk-who').value.trim();
+                const where = dialog.querySelector('.bulk-where').value.trim();
+
+                let changed = 0;
+                selectedIds.forEach(id => {
+                    const node = state.nodes.find(n => n.id === id);
+                    if (!node) return;
+                    if (type) { node.type = type; changed++; }
+                    if (selectedColor) { node.color = selectedColor; changed++; }
+                    if (priority !== '') { node.priority = parseInt(priority); changed++; }
+                    if (who) {
+                        if (!node.details) node.details = {};
+                        node.details.who = who;
+                        changed++;
+                    }
+                    if (where) {
+                        if (!node.details) node.details = {};
+                        node.details.where = where;
+                        changed++;
+                    }
+                });
+
+                renderNodes();
+                dialog.remove();
+                showToast(`${selectedIds.length}個のノードを一括変更しました`);
+            });
+
+            document.body.appendChild(dialog);
         }
 
         // ==================== Keyboard Shortcuts ====================
