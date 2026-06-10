@@ -361,6 +361,20 @@
             from { opacity: 0.6; transform: scaleX(0.95); }
             to { opacity: 1; transform: scaleX(1); }
         }
+        @keyframes blink-opacity {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        @keyframes blink-red-white {
+            0%, 100% { background: white; }
+            50% { background: #ffe0e0; }
+        }
+        .node.started {
+            animation: blink-opacity 1s ease-in-out infinite;
+        }
+        .node.expired {
+            animation: blink-red-white 1s ease-in-out infinite;
+        }
         .node .node-tasks .node:hover {
             background: rgba(0,0,0,0.03);
             box-shadow: none;
@@ -4503,6 +4517,19 @@ function getNodeEdgePoint(node, targetNode) {
             return next;
         }
 
+        function getNodeWhenStatus(node) {
+            const w = node.details?.when;
+            if (!w || !w.repeatType || w.repeatType === 'none') return null;
+            if (node.completed) return null;
+            const nextDate = w.nextDate ? new Date(w.nextDate) : null;
+            if (!nextDate) return null;
+            const now = new Date();
+            const deadlineDate = calculateDeadlineDate(w, nextDate);
+            if (deadlineDate && now > deadlineDate) return 'expired';
+            if (nextDate <= now) return 'started';
+            return null;
+        }
+
         function renderNodes() {
             // Save timeline scroll position before clearing
             const oldTimelineContainer = document.querySelector('.timeline-container');
@@ -4563,7 +4590,8 @@ function getNodeEdgePoint(node, targetNode) {
                         + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
                         + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
                         + (child.completed ? ' completed' : '')
-                        + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '');
+                        + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '')
+                        + (getNodeWhenStatus(child) ? ' ' + getNodeWhenStatus(child) : '');
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
                     // Priority border styling for child nodes (0-5), skip if completed
@@ -4816,7 +4844,8 @@ function getNodeEdgePoint(node, targetNode) {
                 el.className = 'node type-' + (node.type || 'task')
                     + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
                     + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
-                    + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '');
+                    + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '')
+                    + (getNodeWhenStatus(node) ? ' ' + getNodeWhenStatus(node) : '');
 
                 // Use absolute position for actively dragged child nodes only
                 if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
