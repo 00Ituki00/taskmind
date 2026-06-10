@@ -5210,6 +5210,15 @@ function getNodeEdgePoint(node, targetNode) {
 
                 el.appendChild(header);
 
+                // Completed date display
+                if (node.completed && node.completedAt) {
+                    const completedDate = new Date(node.completedAt);
+                    const completedLabel = document.createElement('div');
+                    completedLabel.style.cssText = 'font-size:10px;color:#999;padding:2px 0 4px 22px;font-style:italic;';
+                    completedLabel.textContent = `完了: ${completedDate.getMonth()+1}/${completedDate.getDate()} ${String(completedDate.getHours()).padStart(2,'0')}:${String(completedDate.getMinutes()).padStart(2,'0')}`;
+                    el.appendChild(completedLabel);
+                }
+
                 // When progress bar
                 const whenProgress = createWhenProgressBar(node);
                 if (whenProgress) el.appendChild(whenProgress);
