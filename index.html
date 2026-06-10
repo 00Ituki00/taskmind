@@ -4519,14 +4519,19 @@ function getNodeEdgePoint(node, targetNode) {
 
         function getNodeWhenStatus(node) {
             const w = node.details?.when;
-            if (!w || !w.repeatType || w.repeatType === 'none') return null;
+            if (!w) return null;
             if (node.completed) return null;
-            const nextDate = w.nextDate ? new Date(w.nextDate) : null;
-            if (!nextDate) return null;
             const now = new Date();
-            const deadlineDate = calculateDeadlineDate(w, nextDate);
+            let startDate = null;
+            if (w.repeatType && w.repeatType !== 'none') {
+                startDate = w.nextDate ? new Date(w.nextDate) : null;
+            } else {
+                startDate = w.baseDateTime ? new Date(w.baseDateTime) : null;
+            }
+            if (!startDate) return null;
+            const deadlineDate = calculateDeadlineDate(w, startDate);
             if (deadlineDate && now > deadlineDate) return 'expired';
-            if (nextDate <= now) return 'started';
+            if (startDate <= now) return 'started';
             return null;
         }
 
