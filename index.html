@@ -2104,7 +2104,7 @@
                 title: title,
                 type: type,
                 color: (() => {
-                    const excludedColors = ['#fff176'];
+                    const excludedColors = ['#fff176', '#dce775'];
                     const available = state.colors.filter(c => !excludedColors.includes(c));
                     return available[Math.floor(Math.random() * available.length)];
                 })(),
