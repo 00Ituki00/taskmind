@@ -8456,7 +8456,7 @@ function getNodeEdgePoint(node, targetNode) {
             const isMultiSelect = state.selectedNodeIds && state.selectedNodeIds.length > 1;
 
             // Node-specific items
-            const targetNode = clickEvent?.target?.closest('.node, .timeline-node');
+            const targetNode = clickEvent?.target?.closest('.node, .timeline-node, .timeline-undated-node');
             const targetChildNode = clickEvent?.target?.closest('.node .node-tasks .node');
 
             // Helper: add indicator toolbar to context menu (horizontal icons)
