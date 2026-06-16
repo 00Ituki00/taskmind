@@ -5656,7 +5656,11 @@ function getNodeEdgePoint(node, targetNode) {
                 if (hasExplicitDate) {
                     datedNodes.push(node);
                 } else {
-                    undatedNodes.push(node);
+                    // Only include task-type nodes in undated panel
+                    const isTaskType = node.type === 'task' || !node.type;
+                    if (isTaskType) {
+                        undatedNodes.push(node);
+                    }
                 }
             });
             
