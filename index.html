@@ -5660,6 +5660,20 @@ function getNodeEdgePoint(node, targetNode) {
                 }
             });
             
+            // Filter undated nodes: only top-level nodes (no parent)
+            const childNodeIds = new Set();
+            state.nodes.forEach(node => {
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => {
+                        const childId = typeof child === 'object' && child.id ? child.id : child;
+                        childNodeIds.add(childId);
+                    });
+                }
+            });
+            
+            // Keep only undated nodes that are NOT children (top-level only)
+            const topLevelUndatedNodes = undatedNodes.filter(node => !childNodeIds.has(node.id));
+            
             // Add task-type parent nodes without explicit dates to undated panel
             taskParentNodes.forEach(node => {
                 const when = node.details?.when;
@@ -5773,20 +5787,20 @@ function getNodeEdgePoint(node, targetNode) {
             lanesEl.appendChild(laneEl);
             container.appendChild(lanesEl);
 
-            // Undated nodes panel (bottom pane)
-            if (undatedNodes.length > 0) {
+            // Undated nodes panel (bottom pane) - only top-level nodes
+            if (topLevelUndatedNodes.length > 0) {
                 const undatedPanel = document.createElement('div');
                 undatedPanel.className = 'timeline-undated-panel';
                 
                 const undatedHeader = document.createElement('div');
                 undatedHeader.className = 'timeline-undated-header';
-                undatedHeader.textContent = `期限なし (${undatedNodes.length})`;
+                undatedHeader.textContent = `期限なし (${topLevelUndatedNodes.length})`;
                 undatedPanel.appendChild(undatedHeader);
 
                 const undatedList = document.createElement('div');
                 undatedList.className = 'timeline-undated-list';
                 
-                undatedNodes.forEach(node => {
+                topLevelUndatedNodes.forEach(node => {
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
                     nodeEl.textContent = node.title;
