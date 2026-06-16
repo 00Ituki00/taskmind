@@ -5616,8 +5616,10 @@ function getNodeEdgePoint(node, targetNode) {
             const undatedNodes = [];
             
             allTimelineNodes.forEach(node => {
-                const startDate = getNodeTimelineStartDate(node);
-                if (startDate) {
+                const when = node.details?.when;
+                // Has explicit date: baseDateTime or deadlineDate
+                const hasExplicitDate = when && (when.baseDateTime || when.deadlineDate);
+                if (hasExplicitDate) {
                     datedNodes.push(node);
                 } else {
                     undatedNodes.push(node);
