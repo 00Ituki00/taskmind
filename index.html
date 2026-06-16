@@ -5678,9 +5678,9 @@ function getNodeEdgePoint(node, targetNode) {
             taskParentNodes.forEach(node => {
                 const when = node.details?.when;
                 const hasExplicitDate = when && (when.baseDateTime || when.deadlineDate);
-                if (!hasExplicitDate && !undatedNodes.find(n => n.id === node.id)) {
+                if (!hasExplicitDate && !topLevelUndatedNodes.find(n => n.id === node.id)) {
                     if (!state.hideCompleted || !node.completed) {
-                        undatedNodes.push(node);
+                        topLevelUndatedNodes.push(node);
                     }
                 }
             });
