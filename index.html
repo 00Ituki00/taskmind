@@ -981,7 +981,7 @@
             display: block;
         }
 
-        /* Timeline Layout */
+        /* Timeline Layout - Unified Single Lane */
         .timeline-container {
             position: absolute;
             top: 0;
@@ -990,7 +990,7 @@
             height: 100%;
             overflow: auto;
             cursor: grab;
-            padding-top: 60px;
+            padding-top: 40px;
         }
 
         .timeline-container.panning {
@@ -1008,7 +1008,6 @@
             font-size: 12px;
             color: #495057;
             min-width: fit-content;
-            padding-left: 120px;
         }
 
         .timeline-day-header {
@@ -1018,63 +1017,25 @@
             align-items: center;
             justify-content: center;
             font-weight: 500;
+            width: 120px;
         }
 
         .timeline-lanes {
             display: flex;
             flex-direction: column;
-        }
-
-        .timeline-lane {
-            border-bottom: 1px solid #e9ecef;
             position: relative;
         }
 
-        .timeline-lane-header {
-            height: 32px;
-            background: #f1f3f5;
-            display: flex;
-            align-items: center;
-            padding: 0 12px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #495057;
-            cursor: pointer;
-            user-select: none;
-            position: sticky;
-            left: 0;
-            z-index: 50;
-            width: 120px;
-            flex-shrink: 0;
-            border-right: 1px solid #ddd;
-        }
-
-        .timeline-lane-header:hover {
-            background: #e9ecef;
-        }
-
-        .timeline-lane-content {
+        .timeline-unified-lane {
             position: relative;
-            min-height: 48px;
-            padding: 4px 0;
-        }
-
-        .timeline-lane.collapsed .timeline-lane-content {
-            display: none;
-        }
-
-        .timeline-lane.collapsed .timeline-lane-header::after {
-            content: ' ▶';
-        }
-
-        .timeline-lane:not(.collapsed) .timeline-lane-header::after {
-            content: ' ▼';
+            min-height: 60px;
+            padding: 8px 0;
         }
 
         .timeline-grid {
             position: absolute;
             top: 0;
-            left: 120px;
+            left: 0;
             right: 0;
             bottom: 0;
             display: flex;
@@ -1085,54 +1046,129 @@
             flex-shrink: 0;
             border-right: 1px solid #e9ecef;
             height: 100%;
+            width: 120px;
         }
 
         .timeline-grid-line.weekend {
             background: rgba(0,0,0,0.02);
         }
 
+        /* Compact Bar-style Nodes */
         .timeline-node {
             position: absolute;
-            min-width: 80px;
-            max-width: none;
-            transform: scale(0.85);
-            transform-origin: left top;
-        }
-
-        .timeline-node .timeline-node-inner.node {
-            position: relative !important;
-            width: 100% !important;
-            min-width: auto !important;
-            max-width: none !important;
-        }
-
-        .timeline-node .node-header {
-            overflow: hidden;
-            white-space: nowrap;
-        }
-
-        .timeline-node .node-title {
+            height: 24px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            cursor: pointer;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            font-size: clamp(10px, 2.5vw, 14px);
-            flex-shrink: 1;
-            min-width: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            transition: box-shadow 0.2s, transform 0.2s;
+            z-index: 10;
         }
 
-        .timeline-node .node {
-            position: relative;
+        .timeline-node:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            transform: translateY(-1px);
+            z-index: 20;
+        }
+
+        /* Node type colors */
+        .timeline-node.type-schedule {
+            background: #e3f2fd;
+            border-left: 3px solid #4a90d9;
+            color: #1565c0;
+        }
+
+        .timeline-node.type-task {
+            background: #e8f5e9;
+            border-left: 3px solid #50c878;
+            color: #2e7d32;
+        }
+
+        .timeline-node.type-daily {
+            background: #fff3e0;
+            border-left: 3px solid #f5a623;
+            color: #e65100;
+        }
+
+        .timeline-node.type-monthly {
+            background: #fce4ec;
+            border-left: 3px solid #e74c3c;
+            color: #c62828;
+        }
+
+        .timeline-node.type-condition {
+            background: #fef9f3;
+            border-left: 3px solid #f5a623;
+            color: #e65100;
+        }
+
+        .timeline-node.type-memo {
+            background: #fffef5;
+            border-left: 3px solid #f0e040;
+            color: #f57f17;
+        }
+
+        .timeline-node.type-startend {
+            background: #f5f9ff;
+            border-left: 3px solid #4a90d9;
+            color: #1565c0;
+            border-radius: 12px;
+        }
+
+        /* Node tooltip */
+        .timeline-node-tooltip {
+            position: fixed;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            padding: 12px 16px;
+            z-index: 1000;
+            min-width: 200px;
+            max-width: 300px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .timeline-node-tooltip.visible {
+            opacity: 1;
+        }
+
+        .timeline-node-tooltip .tooltip-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
             margin-bottom: 4px;
         }
 
-        .timeline-node-children {
-            padding-left: 16px;
-            margin-top: 4px;
+        .timeline-node-tooltip .tooltip-dates {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 4px;
         }
 
-        .timeline-node-children .node {
-            transform: scale(0.92);
-            transform-origin: left top;
+        .timeline-node-tooltip .tooltip-priority {
+            color: #f5a623;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .timeline-node-tooltip .tooltip-desc {
+            color: #555;
+            font-size: 12px;
+            border-top: 1px solid #eee;
+            padding-top: 4px;
+            margin-top: 4px;
+            word-break: break-word;
         }
 
         .timeline-empty-lane {
@@ -5391,12 +5427,12 @@ function getNodeEdgePoint(node, targetNode) {
             // Container
             const container = document.createElement('div');
             container.className = 'timeline-container';
-            container.style.width = Math.max(totalWidth + 200 + 120, window.innerWidth) + 'px';
+            container.style.width = Math.max(totalWidth, window.innerWidth) + 'px';
 
             // Date header
             const header = document.createElement('div');
             header.className = 'timeline-header';
-            header.style.width = Math.max(totalWidth + 200 + 120, window.innerWidth) + 'px';
+            header.style.width = Math.max(totalWidth, window.innerWidth) + 'px';
             for (let i = 0; i < days; i++) {
                 const d = new Date(viewStart);
                 d.setDate(d.getDate() + i);
@@ -5411,156 +5447,129 @@ function getNodeEdgePoint(node, targetNode) {
             }
             container.appendChild(header);
 
-            // Lane definitions - include ALL nodes based on their own when data
-            // Supports both normalized ('monthly'/'yearly') and legacy UI types ('monthly-day', etc.)
-            const laneDefs = [
-                { key: 'daily', label: '毎日', match: n => n.details?.when?.repeatType === 'daily' },
-                { key: 'weekly', label: '毎週', match: n => n.details?.when?.repeatType === 'weekly' },
-                { key: 'monthly', label: '毎月', match: n => {
-                    const rt = n.details?.when?.repeatType;
-                    return rt === 'monthly' || rt === 'monthly-day' || rt === 'monthly-week';
-                }},
-                { key: 'yearly', label: '毎年', match: n => {
-                    const rt = n.details?.when?.repeatType;
-                    return rt === 'yearly' || rt === 'yearly-date' || rt === 'yearly-week';
-                }},
-                { key: 'task', label: '単発', match: n => {
-                    const w = n.details?.when;
-                    const rt = w?.repeatType;
-                    return rt === 'none' && w?.deadlineDate;
-                }},
-                { key: 'asap', label: '随時', match: n => {
-                    const w = n.details?.when;
-                    const rt = w?.repeatType;
-                    return !rt || (rt === 'none' && !w?.deadlineDate);
-                }}
-            ];
+            // Collect all nodes with timeline dates (including children as independent nodes)
+            const allTimelineNodes = [];
+            state.nodes.forEach(node => {
+                // Add parent node
+                const startDate = getNodeTimelineStartDate(node);
+                if (startDate) {
+                    allTimelineNodes.push(node);
+                }
+                // Add children as independent nodes
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => {
+                        const childStart = getNodeTimelineStartDate(child);
+                        if (childStart) {
+                            allTimelineNodes.push(child);
+                        }
+                    });
+                }
+            });
 
-            // Build lanes
+            if (state.hideCompleted) {
+                allTimelineNodes = allTimelineNodes.filter(n => !n.completed);
+            }
+
+            // Unified lane
             const lanesEl = document.createElement('div');
             lanesEl.className = 'timeline-lanes';
 
-            laneDefs.forEach(laneDef => {
-                const laneNodes = state.nodes.filter(n => laneDef.match(n));
-                if (state.hideCompleted) {
-                    laneNodes = laneNodes.filter(n => !n.completed);
-                }
+            const laneEl = document.createElement('div');
+            laneEl.className = 'timeline-unified-lane';
 
-                const laneEl = document.createElement('div');
-                laneEl.className = 'timeline-lane' + (timeline.expandedLanes[laneDef.key] ? '' : ' collapsed');
+            // Grid lines
+            const grid = document.createElement('div');
+            grid.className = 'timeline-grid';
+            for (let i = 0; i < days; i++) {
+                const d = new Date(viewStart);
+                d.setDate(d.getDate() + i);
+                const line = document.createElement('div');
+                line.className = 'timeline-grid-line' + ((d.getDay() === 0 || d.getDay() === 6) ? ' weekend' : '');
+                line.style.width = dayWidth + 'px';
+                grid.appendChild(line);
+            }
+            laneEl.appendChild(grid);
 
-                // Lane header
-                const laneHeader = document.createElement('div');
-                laneHeader.className = 'timeline-lane-header';
-                laneHeader.textContent = `${laneDef.label} (${laneNodes.length})`;
-                laneHeader.addEventListener('click', () => {
-                    timeline.expandedLanes[laneDef.key] = !timeline.expandedLanes[laneDef.key];
-                    renderNodes();
+            // Place nodes
+            if (allTimelineNodes.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'timeline-empty-lane';
+                empty.textContent = 'ノードがありません';
+                laneEl.appendChild(empty);
+            } else {
+                // Sort by start date
+                allTimelineNodes.sort((a, b) => {
+                    const da = getNodeTimelineStartDate(a);
+                    const db = getNodeTimelineStartDate(b);
+                    return new Date(da) - new Date(db);
                 });
-                laneEl.appendChild(laneHeader);
 
-                // Lane content
-                const content = document.createElement('div');
-                content.className = 'timeline-lane-content';
-                content.style.minHeight = timeline.laneHeight + 'px';
+                // Layout nodes with overlap detection - stack vertically when overlapping
+                const rowHeight = 28; // Compact row height
+                const rows = []; // Each row tracks the endX of the last placed node
 
-                // Grid lines
-                const grid = document.createElement('div');
-                grid.className = 'timeline-grid';
-                for (let i = 0; i < days; i++) {
-                    const d = new Date(viewStart);
-                    d.setDate(d.getDate() + i);
-                    const line = document.createElement('div');
-                    line.className = 'timeline-grid-line' + ((d.getDay() === 0 || d.getDay() === 6) ? ' weekend' : '');
-                    line.style.width = dayWidth + 'px';
-                    grid.appendChild(line);
-                }
-                content.appendChild(grid);
+                allTimelineNodes.forEach(node => {
+                    const startDate = getNodeTimelineStartDate(node);
+                    const endDate = getNodeTimelineEndDate(node, startDate);
 
-                // Place nodes
-                if (laneNodes.length === 0) {
-                    const empty = document.createElement('div');
-                    empty.className = 'timeline-empty-lane';
-                    empty.textContent = 'ノードがありません';
-                    content.appendChild(empty);
-                } else {
-                    // Sort by date
-                    laneNodes.sort((a, b) => {
-                        const da = getNodeTimelineDate(a);
-                        const db = getNodeTimelineDate(b);
-                        if (!da && !db) return 0;
-                        if (!da) return 1;
-                        if (!db) return -1;
-                        return new Date(da) - new Date(db);
-                    });
+                    const startX = ((new Date(startDate) - viewStart) / (1000 * 60 * 60 * 24)) * dayWidth;
+                    const duration = endDate ? Math.max(0.5, (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) : 1;
+                    const nodeWidth = Math.max(60, duration * dayWidth - 4);
+                    const nodeEndX = startX + nodeWidth + 4;
 
-                    // Layout nodes with overlap detection - stack vertically when overlapping
-                    const rowHeight = 48; // Compact row height for timeline
-                    const rows = []; // Each row tracks the endX of the last placed node
-
-                    // Sort nodes by startX
-                    const sortedNodes = [...laneNodes].sort((a, b) => {
-                        const aStart = getNodeTimelineStartDate(a);
-                        const bStart = getNodeTimelineStartDate(b);
-                        return (aStart ? new Date(aStart) : 0) - (bStart ? new Date(bStart) : 0);
-                    });
-
-                    sortedNodes.forEach(node => {
-                        const startDate = getNodeTimelineStartDate(node);
-                        const endDate = getNodeTimelineEndDate(node, startDate);
-
-                        const startX = startDate ? ((new Date(startDate) - viewStart) / (1000 * 60 * 60 * 24)) * dayWidth : 0;
-                        const duration = startDate && endDate ? Math.max(0.5, (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) : 1;
-                        const nodeWidth = Math.max(80, duration * dayWidth - 16);
-                        const nodeEndX = startX + nodeWidth + 120;
-
-                        // Find a row where this node doesn't overlap
-                        let rowIndex = 0;
-                        for (; rowIndex < rows.length; rowIndex++) {
-                            if (rows[rowIndex] <= startX + 8 + 120) {
-                                break; // Found non-overlapping row
-                            }
+                    // Find a row where this node doesn't overlap
+                    let rowIndex = 0;
+                    for (; rowIndex < rows.length; rowIndex++) {
+                        if (rows[rowIndex] <= startX + 2) {
+                            break; // Found non-overlapping row
                         }
+                    }
 
-                        // Place in found row or create new row
-                        if (rowIndex >= rows.length) {
-                            rows.push(nodeEndX);
-                        } else {
-                            rows[rowIndex] = nodeEndX;
-                        }
+                    // Place in found row or create new row
+                    if (rowIndex >= rows.length) {
+                        rows.push(nodeEndX);
+                    } else {
+                        rows[rowIndex] = nodeEndX;
+                    }
 
-                        const wrapper = document.createElement('div');
-                        wrapper.className = 'timeline-node';
-                        wrapper.style.left = (startX + 8 + 120) + 'px';
-                        wrapper.style.top = (rowIndex * rowHeight) + 'px';
-                        wrapper.style.width = nodeWidth + 'px';
-                        wrapper.dataset.id = node.id;
+                    const nodeEl = document.createElement('div');
+                    nodeEl.className = 'timeline-node type-' + (node.type || 'task');
+                    nodeEl.style.left = (startX + 2) + 'px';
+                    nodeEl.style.top = (rowIndex * rowHeight + 8) + 'px';
+                    nodeEl.style.width = nodeWidth + 'px';
+                    nodeEl.dataset.id = node.id;
+                    nodeEl.textContent = node.title;
+                    nodeEl.title = node.title; // Native tooltip as fallback
 
-                        // Render node element (timeline version, no children nesting)
-                        const nodeEl = createTimelineNodeElement(node);
-                        wrapper.appendChild(nodeEl);
+                    // Hover tooltip
+                    nodeEl.addEventListener('mouseenter', (e) => showTimelineTooltip(e, node));
+                    nodeEl.addEventListener('mouseleave', hideTimelineTooltip);
 
-                        content.appendChild(wrapper);
-
-                        // Adjust font size to fit node width after render
-                        requestAnimationFrame(() => {
-                            if (nodeEl.timelineTitleElement) {
-                                fitTextToWidth(nodeEl.timelineTitleElement, wrapper.clientWidth, 14, 9);
-                            }
-                        });
+                    // Click to select
+                    nodeEl.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        selectNode(node.id);
                     });
 
-                    // Set lane height based on number of rows
-                    const laneHeight = Math.max(rowHeight, rows.length * rowHeight + 8);
-                    content.style.minHeight = laneHeight + 'px';
-                }
+                    laneEl.appendChild(nodeEl);
+                });
 
-                laneEl.appendChild(content);
-                lanesEl.appendChild(laneEl);
-            });
+                // Set lane height based on number of rows
+                const laneHeight = Math.max(60, rows.length * rowHeight + 16);
+                laneEl.style.minHeight = laneHeight + 'px';
+            }
 
+            lanesEl.appendChild(laneEl);
             container.appendChild(lanesEl);
             nodesEl.appendChild(container);
+
+            // Tooltip element
+            if (!document.getElementById('timeline-tooltip')) {
+                const tooltip = document.createElement('div');
+                tooltip.id = 'timeline-tooltip';
+                tooltip.className = 'timeline-node-tooltip';
+                document.body.appendChild(tooltip);
+            }
 
             // Restore previous scroll position if any
             if (state._timelineScroll) {
@@ -5605,7 +5614,7 @@ function getNodeEdgePoint(node, targetNode) {
 
             container.addEventListener('mousedown', (e) => {
                 if (e.button !== 2) return; // right-click only
-                if (e.target.closest('.timeline-node') || e.target.closest('.timeline-lane-header')) return;
+                if (e.target.closest('.timeline-node')) return;
 
                 // Track if we actually panned (moved enough) before suppressing contextmenu
                 state.timelineRightClickStart = { x: e.clientX, y: e.clientY, moved: false };
@@ -5640,8 +5649,90 @@ function getNodeEdgePoint(node, targetNode) {
             container.addEventListener('mousemove', trackPanMovement);
 
             // Update canvas size
-            canvas.style.width = Math.max(totalWidth + 200, window.innerWidth) + 'px';
+            canvas.style.width = Math.max(totalWidth, window.innerWidth) + 'px';
             canvas.style.height = Math.max(lanesEl.offsetHeight + 100, window.innerHeight) + 'px';
+        }
+
+        // Show timeline node tooltip
+        function showTimelineTooltip(e, node) {
+            const tooltip = document.getElementById('timeline-tooltip');
+            if (!tooltip) return;
+
+            const startDate = getNodeTimelineStartDate(node);
+            const endDate = getNodeTimelineEndDate(node, startDate);
+            const when = node.details?.when;
+
+            let datesText = '';
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                datesText = `${start.getMonth()+1}/${start.getDate()} 〜 ${end.getMonth()+1}/${end.getDate()}`;
+            } else if (startDate) {
+                const start = new Date(startDate);
+                datesText = `${start.getMonth()+1}/${start.getDate()}`;
+            }
+
+            let priorityText = '';
+            if (node.priority) {
+                priorityText = '優先度: ' + '★'.repeat(node.priority) + '☆'.repeat(5 - node.priority);
+            }
+
+            let descText = node.details?.description || '';
+            if (when?.repeatType && when?.repeatType !== 'none') {
+                descText = `[${getRepeatTypeLabel(when.repeatType)}] ` + descText;
+            }
+
+            tooltip.innerHTML = `
+                <div class="tooltip-title">${node.title}</div>
+                <div class="tooltip-dates">${datesText}</div>
+                ${priorityText ? `<div class="tooltip-priority">${priorityText}</div>` : ''}
+                ${descText ? `<div class="tooltip-desc">${descText}</div>` : ''}
+            `;
+
+            tooltip.classList.add('visible');
+            positionTooltip(e, tooltip);
+        }
+
+        // Position tooltip near mouse
+        function positionTooltip(e, tooltip) {
+            const rect = tooltip.getBoundingClientRect();
+            let x = e.clientX + 16;
+            let y = e.clientY + 16;
+
+            // Keep within viewport
+            if (x + rect.width > window.innerWidth) {
+                x = e.clientX - rect.width - 8;
+            }
+            if (y + rect.height > window.innerHeight) {
+                y = e.clientY - rect.height - 8;
+            }
+
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+        }
+
+        // Hide timeline tooltip
+        function hideTimelineTooltip() {
+            const tooltip = document.getElementById('timeline-tooltip');
+            if (tooltip) {
+                tooltip.classList.remove('visible');
+            }
+        }
+
+        // Get repeat type label
+        function getRepeatTypeLabel(repeatType) {
+            const labels = {
+                'daily': '毎日',
+                'weekly': '毎週',
+                'monthly': '毎月',
+                'monthly-day': '毎月（日付）',
+                'monthly-week': '毎月（週）',
+                'yearly': '毎年',
+                'yearly-date': '毎年（日付）',
+                'yearly-week': '毎年（週）',
+                'none': '単発'
+            };
+            return labels[repeatType] || repeatType;
         }
 
         // Helper: Get the start date for timeline placement
