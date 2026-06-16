@@ -2277,7 +2277,7 @@
             return Math.max(160, Math.min(400, textWidth + overhead));
         }
 
-        function createNode(x, y, title = '新規ノード', type = 'task') {
+        function createNode(x, y, title = '新規ノード', type = 'memo') {
             const now = new Date().toISOString();
             const node = {
                 id: state.nextId++,
