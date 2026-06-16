@@ -5590,24 +5590,47 @@ function getNodeEdgePoint(node, targetNode) {
 
             // Collect all nodes with timeline dates (including children as independent nodes)
             let allTimelineNodes = [];
+            const childNodeIds = new Set(); // Track child node IDs
             const taskParentNodes = []; // Track task-type parent nodes for undated panel
             
             state.nodes.forEach(node => {
-                // Add parent node
+                // Track children IDs
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(childId => {
+                        if (typeof childId === 'object' && childId.id) {
+                            childNodeIds.add(childId.id);
+                        } else {
+                            childNodeIds.add(childId);
+                        }
+                    });
+                }
+            });
+            
+            state.nodes.forEach(node => {
+                const isChild = childNodeIds.has(node.id);
+                
+                // Add parent node to timeline if it has a date (exclude children to avoid duplication)
                 const startDate = getNodeTimelineStartDate(node);
-                if (startDate) {
+                if (startDate && !isChild) {
                     allTimelineNodes.push(node);
                 }
-                // Track task-type parent nodes for undated panel
-                if (node.type === 'task' || !node.type) {
+                
+                // Track task-type PARENT nodes for undated panel (must have children)
+                const isParent = node.children && node.children.length > 0;
+                if ((node.type === 'task' || !node.type) && isParent && !isChild) {
                     taskParentNodes.push(node);
                 }
-                // Add children as independent nodes
+                
+                // Add children as independent nodes for timeline (only if they have dates)
                 if (node.children && node.children.length > 0) {
                     node.children.forEach(child => {
-                        const childStart = getNodeTimelineStartDate(child);
-                        if (childStart) {
-                            allTimelineNodes.push(child);
+                        const childId = typeof child === 'object' && child.id ? child.id : child;
+                        const childNode = state.nodes.find(n => n.id === childId);
+                        if (childNode) {
+                            const childStart = getNodeTimelineStartDate(childNode);
+                            if (childStart) {
+                                allTimelineNodes.push(childNode);
+                            }
                         }
                     });
                 }
@@ -5724,11 +5747,14 @@ function getNodeEdgePoint(node, targetNode) {
                         selectNode(node.id);
                     });
 
-                    // Right-click to show context menu (same as free layout)
+                    // Right-click to show node context menu (same as free layout node)
                     nodeEl.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        showContextMenu(e, node);
+                        // Select node first
+                        selectNode(node.id);
+                        // Show node context menu at mouse position
+                        showCanvasContextMenu(e.clientX, e.clientY, e);
                     });
 
                     laneEl.appendChild(nodeEl);
@@ -5771,11 +5797,14 @@ function getNodeEdgePoint(node, targetNode) {
                         selectNode(node.id);
                     });
                     
-                    // Right-click to show context menu (same as free layout)
+                    // Right-click to show node context menu (same as free layout node)
                     nodeEl.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        showContextMenu(e, node);
+                        // Select node first
+                        selectNode(node.id);
+                        // Show node context menu at mouse position
+                        showCanvasContextMenu(e.clientX, e.clientY, e);
                     });
                     
                     undatedList.appendChild(nodeEl);
@@ -8422,7 +8451,7 @@ function getNodeEdgePoint(node, targetNode) {
             const isMultiSelect = state.selectedNodeIds && state.selectedNodeIds.length > 1;
 
             // Node-specific items
-            const targetNode = clickEvent?.target?.closest('.node');
+            const targetNode = clickEvent?.target?.closest('.node, .timeline-node');
             const targetChildNode = clickEvent?.target?.closest('.node .node-tasks .node');
 
             // Helper: add indicator toolbar to context menu (horizontal icons)
