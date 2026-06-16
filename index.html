@@ -1071,6 +1071,41 @@
             z-index: 10;
         }
 
+        /* Priority-based emphasis */
+        .timeline-node.priority-1 {
+            border-left-width: 4px;
+            font-weight: 500;
+        }
+        .timeline-node.priority-2 {
+            border-left-width: 5px;
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .timeline-node.priority-3 {
+            border-left-width: 6px;
+            font-weight: 700;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            background-image: linear-gradient(to right, rgba(255,255,255,0.1), transparent);
+        }
+        .timeline-node.priority-4 {
+            border-left-width: 7px;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.15);
+            background-image: linear-gradient(to right, rgba(231, 76, 60, 0.05), transparent);
+        }
+        .timeline-node.priority-5 {
+            border-left-width: 8px;
+            font-weight: 800;
+            box-shadow: 0 2px 10px rgba(231, 76, 60, 0.2);
+            background-image: linear-gradient(to right, rgba(231, 76, 60, 0.1), transparent);
+            animation: pulse-priority 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-priority {
+            0%, 100% { box-shadow: 0 2px 10px rgba(231, 76, 60, 0.2); }
+            50% { box-shadow: 0 2px 14px rgba(231, 76, 60, 0.35); }
+        }
+
         .timeline-node:hover {
             box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             transform: translateY(-1px);
@@ -1171,12 +1206,118 @@
             word-break: break-word;
         }
 
-        .timeline-empty-lane {
-            text-align: center;
-            color: #adb5bd;
+        /* Undated nodes panel */
+        .timeline-undated-panel {
+            border-top: 2px solid #dee2e6;
+            background: #f8f9fa;
+            padding: 8px 0;
+            margin-top: 8px;
+        }
+
+        .timeline-undated-header {
+            padding: 4px 12px;
             font-size: 12px;
-            padding: 20px;
-            font-style: italic;
+            font-weight: 600;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timeline-undated-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 4px 12px;
+        }
+
+        .timeline-undated-node {
+            height: 24px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            transition: box-shadow 0.2s, transform 0.2s;
+            min-width: 80px;
+            max-width: 200px;
+        }
+
+        .timeline-undated-node:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            transform: translateY(-1px);
+        }
+
+        /* Priority for undated nodes */
+        .timeline-undated-node.priority-1 {
+            border-left-width: 4px;
+            font-weight: 500;
+        }
+        .timeline-undated-node.priority-2 {
+            border-left-width: 5px;
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .timeline-undated-node.priority-3 {
+            border-left-width: 6px;
+            font-weight: 700;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            background-image: linear-gradient(to right, rgba(255,255,255,0.1), transparent);
+        }
+        .timeline-undated-node.priority-4 {
+            border-left-width: 7px;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.15);
+            background-image: linear-gradient(to right, rgba(231, 76, 60, 0.05), transparent);
+        }
+        .timeline-undated-node.priority-5 {
+            border-left-width: 8px;
+            font-weight: 800;
+            box-shadow: 0 2px 10px rgba(231, 76, 60, 0.2);
+            background-image: linear-gradient(to right, rgba(231, 76, 60, 0.1), transparent);
+            animation: pulse-priority 2s ease-in-out infinite;
+        }
+
+        /* Node type colors for undated */
+        .timeline-undated-node.type-schedule {
+            background: #e3f2fd;
+            border-left: 3px solid #4a90d9;
+            color: #1565c0;
+        }
+        .timeline-undated-node.type-task {
+            background: #e8f5e9;
+            border-left: 3px solid #50c878;
+            color: #2e7d32;
+        }
+        .timeline-undated-node.type-daily {
+            background: #fff3e0;
+            border-left: 3px solid #f5a623;
+            color: #e65100;
+        }
+        .timeline-undated-node.type-monthly {
+            background: #fce4ec;
+            border-left: 3px solid #e74c3c;
+            color: #c62828;
+        }
+        .timeline-undated-node.type-condition {
+            background: #fef9f3;
+            border-left: 3px solid #f5a623;
+            color: #e65100;
+        }
+        .timeline-undated-node.type-memo {
+            background: #fffef5;
+            border-left: 3px solid #f0e040;
+            color: #f57f17;
+        }
+        .timeline-undated-node.type-startend {
+            background: #f5f9ff;
+            border-left: 3px solid #4a90d9;
+            color: #1565c0;
+            border-radius: 12px;
         }
         .node-indicators {
             display: flex;
@@ -5470,7 +5611,20 @@ function getNodeEdgePoint(node, targetNode) {
                 allTimelineNodes = allTimelineNodes.filter(n => !n.completed);
             }
 
-            // Unified lane
+            // Separate nodes with and without dates
+            const datedNodes = [];
+            const undatedNodes = [];
+            
+            allTimelineNodes.forEach(node => {
+                const startDate = getNodeTimelineStartDate(node);
+                if (startDate) {
+                    datedNodes.push(node);
+                } else {
+                    undatedNodes.push(node);
+                }
+            });
+
+            // Unified lane for dated nodes
             const lanesEl = document.createElement('div');
             lanesEl.className = 'timeline-lanes';
 
@@ -5490,15 +5644,15 @@ function getNodeEdgePoint(node, targetNode) {
             }
             laneEl.appendChild(grid);
 
-            // Place nodes
-            if (allTimelineNodes.length === 0) {
+            // Place dated nodes
+            if (datedNodes.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'timeline-empty-lane';
                 empty.textContent = 'ノードがありません';
                 laneEl.appendChild(empty);
             } else {
                 // Sort by start date
-                allTimelineNodes.sort((a, b) => {
+                datedNodes.sort((a, b) => {
                     const da = getNodeTimelineStartDate(a);
                     const db = getNodeTimelineStartDate(b);
                     return new Date(da) - new Date(db);
@@ -5508,7 +5662,7 @@ function getNodeEdgePoint(node, targetNode) {
                 const rowHeight = 28; // Compact row height
                 const rows = []; // Each row tracks the endX of the last placed node
 
-                allTimelineNodes.forEach(node => {
+                datedNodes.forEach(node => {
                     const startDate = getNodeTimelineStartDate(node);
                     const endDate = getNodeTimelineEndDate(node, startDate);
 
@@ -5533,7 +5687,7 @@ function getNodeEdgePoint(node, targetNode) {
                     }
 
                     const nodeEl = document.createElement('div');
-                    nodeEl.className = 'timeline-node type-' + (node.type || 'task');
+                    nodeEl.className = 'timeline-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
                     nodeEl.style.left = (startX + 2) + 'px';
                     nodeEl.style.top = (rowIndex * rowHeight + 8) + 'px';
                     nodeEl.style.width = nodeWidth + 'px';
@@ -5551,6 +5705,13 @@ function getNodeEdgePoint(node, targetNode) {
                         selectNode(node.id);
                     });
 
+                    // Right-click to edit
+                    nodeEl.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openInlineEditor(node, e.clientX, e.clientY);
+                    });
+
                     laneEl.appendChild(nodeEl);
                 });
 
@@ -5561,6 +5722,50 @@ function getNodeEdgePoint(node, targetNode) {
 
             lanesEl.appendChild(laneEl);
             container.appendChild(lanesEl);
+
+            // Undated nodes panel (bottom pane)
+            if (undatedNodes.length > 0) {
+                const undatedPanel = document.createElement('div');
+                undatedPanel.className = 'timeline-undated-panel';
+                
+                const undatedHeader = document.createElement('div');
+                undatedHeader.className = 'timeline-undated-header';
+                undatedHeader.textContent = `期限なし (${undatedNodes.length})`;
+                undatedPanel.appendChild(undatedHeader);
+
+                const undatedList = document.createElement('div');
+                undatedList.className = 'timeline-undated-list';
+                
+                undatedNodes.forEach(node => {
+                    const nodeEl = document.createElement('div');
+                    nodeEl.className = 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
+                    nodeEl.textContent = node.title;
+                    nodeEl.dataset.id = node.id;
+                    
+                    // Hover tooltip
+                    nodeEl.addEventListener('mouseenter', (e) => showTimelineTooltip(e, node));
+                    nodeEl.addEventListener('mouseleave', hideTimelineTooltip);
+                    
+                    // Click to select
+                    nodeEl.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        selectNode(node.id);
+                    });
+                    
+                    // Right-click to edit
+                    nodeEl.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openInlineEditor(node, e.clientX, e.clientY);
+                    });
+                    
+                    undatedList.appendChild(nodeEl);
+                });
+                
+                undatedPanel.appendChild(undatedList);
+                container.appendChild(undatedPanel);
+            }
+
             nodesEl.appendChild(container);
 
             // Tooltip element
