@@ -5661,15 +5661,7 @@ function getNodeEdgePoint(node, targetNode) {
             });
             
             // Filter undated nodes: only top-level nodes (no parent)
-            const childNodeIds = new Set();
-            state.nodes.forEach(node => {
-                if (node.children && node.children.length > 0) {
-                    node.children.forEach(child => {
-                        const childId = typeof child === 'object' && child.id ? child.id : child;
-                        childNodeIds.add(childId);
-                    });
-                }
-            });
+            // Use existing childNodeIds from earlier in the function
             
             // Keep only undated nodes that are NOT children (top-level only)
             const topLevelUndatedNodes = undatedNodes.filter(node => !childNodeIds.has(node.id));
