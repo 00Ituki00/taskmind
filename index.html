@@ -8550,7 +8550,7 @@ function getNodeEdgePoint(node, targetNode) {
             } else if (targetNode) {
                 const nodeId = parseInt(targetNode.dataset.id);
                 const node = state.nodes.find(n => n.id === nodeId);
-                const titleEl = targetNode.querySelector('.node-title') || targetNode.querySelector('.task-text');
+                const titleEl = targetNode.querySelector('.node-title') || targetNode.querySelector('.task-text') || targetNode.querySelector('.timeline-node-text');
 
                 // Merge to parent option (only for child nodes)
                 if (node.parentId !== null) {
@@ -8569,6 +8569,15 @@ function getNodeEdgePoint(node, targetNode) {
                         } catch (err) {
                             console.error('Error in enableTitleEdit:', err);
                         }
+                    } else if (targetNode) {
+                        // For timeline nodes without title element, create inline edit
+                        const textSpan = document.createElement('span');
+                        textSpan.className = 'node-title';
+                        textSpan.textContent = node.text;
+                        textSpan.style.cssText = 'display:inline-block;min-width:50px;background:#fff;border:1px solid #ccc;padding:2px 4px;';
+                        targetNode.innerHTML = '';
+                        targetNode.appendChild(textSpan);
+                        enableTitleEdit(textSpan, node);
                     }
                 }});
                 items.push({ text: 'ノードタイプ変更', icon: '📌', disabled: isMultiSelect, action: () => {
