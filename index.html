@@ -5589,12 +5589,18 @@ function getNodeEdgePoint(node, targetNode) {
             container.appendChild(header);
 
             // Collect all nodes with timeline dates (including children as independent nodes)
-            const allTimelineNodes = [];
+            let allTimelineNodes = [];
+            const taskParentNodes = []; // Track task-type parent nodes for undated panel
+            
             state.nodes.forEach(node => {
                 // Add parent node
                 const startDate = getNodeTimelineStartDate(node);
                 if (startDate) {
                     allTimelineNodes.push(node);
+                }
+                // Track task-type parent nodes for undated panel
+                if (node.type === 'task' || !node.type) {
+                    taskParentNodes.push(node);
                 }
                 // Add children as independent nodes
                 if (node.children && node.children.length > 0) {
@@ -5623,6 +5629,17 @@ function getNodeEdgePoint(node, targetNode) {
                     datedNodes.push(node);
                 } else {
                     undatedNodes.push(node);
+                }
+            });
+            
+            // Add task-type parent nodes without explicit dates to undated panel
+            taskParentNodes.forEach(node => {
+                const when = node.details?.when;
+                const hasExplicitDate = when && (when.baseDateTime || when.deadlineDate);
+                if (!hasExplicitDate && !undatedNodes.find(n => n.id === node.id)) {
+                    if (!state.hideCompleted || !node.completed) {
+                        undatedNodes.push(node);
+                    }
                 }
             });
 
@@ -5707,11 +5724,11 @@ function getNodeEdgePoint(node, targetNode) {
                         selectNode(node.id);
                     });
 
-                    // Right-click to edit
+                    // Right-click to show context menu (same as free layout)
                     nodeEl.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        openInlineEditor(node, e.clientX, e.clientY);
+                        showContextMenu(e, node);
                     });
 
                     laneEl.appendChild(nodeEl);
@@ -5754,11 +5771,11 @@ function getNodeEdgePoint(node, targetNode) {
                         selectNode(node.id);
                     });
                     
-                    // Right-click to edit
+                    // Right-click to show context menu (same as free layout)
                     nodeEl.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        openInlineEditor(node, e.clientX, e.clientY);
+                        showContextMenu(e, node);
                     });
                     
                     undatedList.appendChild(nodeEl);
