@@ -5598,6 +5598,10 @@ function getNodeEdgePoint(node, targetNode) {
 
         // Fast path: update dragged node positions directly without full re-render
         let _dragRafId = null;
+        let _lastDragMoveTime = 0;
+        let _lastDropCheckTime = 0;
+        const DRAG_THROTTLE_MS = 16; // 60fps
+        
         function updateDragVisuals() {
             // Update dragged node
             if (state.dragNode) {
@@ -5661,6 +5665,14 @@ function getNodeEdgePoint(node, targetNode) {
                 };
                 updateChildren(state.dragNode.id);
             }
+        }
+
+        // Throttled drag update: only process every 16ms (60fps)
+        function throttledDragUpdate() {
+            const now = performance.now();
+            if (now - _lastDragMoveTime < DRAG_THROTTLE_MS) return;
+            _lastDragMoveTime = now;
+            updateDragVisuals();
         }
 
         // Schedule full render on next animation frame (throttled to 60fps max)
@@ -7939,7 +7951,10 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Unified drag detection: purely visual, based on DOM header position
                 // No special handling for parent/child/sibling - all nodes are treated equally
-                if (state.dragNode && !state.selectedNodeIds.includes(state.dragNode.id)) {
+                // Throttled to 60fps to avoid excessive DOM queries during fast mouse movement
+                const now = performance.now();
+                if (state.dragNode && !state.selectedNodeIds.includes(state.dragNode.id) && now - _lastDropCheckTime >= DRAG_THROTTLE_MS) {
+                    _lastDropCheckTime = now;
                     const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
                     const mx = (e.clientX - canvasRect.left - state.panX) / state.scale;
                     const my = (e.clientY - canvasRect.top - state.panY) / state.scale;
@@ -8059,7 +8074,7 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 }
 
-                updateDragVisuals();
+                throttledDragUpdate();
                 scheduleDragRender();
             }
         });
