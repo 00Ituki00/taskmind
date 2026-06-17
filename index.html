@@ -5540,6 +5540,15 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
+        function getContrastColor(hexColor) {
+            const hex = hexColor.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.5 ? '#333333' : '#ffffff';
+        }
+
         function getNodeTypeColor(type) {
             const colors = {
                 schedule: '#4a90d9',
@@ -5760,6 +5769,9 @@ function getNodeEdgePoint(node, targetNode) {
                     nodeEl.className = 'timeline-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
                     nodeEl.style.backgroundColor = node.color || getNodeTypeColor(node.type);
                     nodeEl.style.borderLeftColor = node.color || getNodeTypeColor(node.type);
+                    nodeEl.style.color = getContrastColor(node.color || getNodeTypeColor(node.type));
+                    nodeEl.style.border = '1px solid rgba(0,0,0,0.15)';
+                    nodeEl.style.textShadow = '0 0 2px rgba(0,0,0,0.1)';
                     nodeEl.style.left = (startX + 2) + 'px';
                     nodeEl.style.top = (rowIndex * rowHeight + 8) + 'px';
                     nodeEl.style.width = nodeWidth + 'px';
@@ -5817,6 +5829,9 @@ function getNodeEdgePoint(node, targetNode) {
                     nodeEl.className = 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
                     nodeEl.style.backgroundColor = node.color || getNodeTypeColor(node.type);
                     nodeEl.style.borderLeftColor = node.color || getNodeTypeColor(node.type);
+                    nodeEl.style.color = getContrastColor(node.color || getNodeTypeColor(node.type));
+                    nodeEl.style.border = '1px solid rgba(0,0,0,0.15)';
+                    nodeEl.style.textShadow = '0 0 2px rgba(0,0,0,0.1)';
                     nodeEl.textContent = node.title;
                     
                     // Hover tooltip
