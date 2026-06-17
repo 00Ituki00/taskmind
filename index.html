@@ -5702,17 +5702,18 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         // Schedule full render on next animation frame (throttled to 60fps max)
-        // During drag, only re-render connections related to the dragged node
+        // During drag, skip all rendering - use DOM direct updates only via updateDragVisuals()
+        // Full render happens once on drag end
         function scheduleDragRender() {
             if (_dragRafId) return;
             _dragRafId = requestAnimationFrame(() => {
                 _dragRafId = null;
-                renderNodes();
-                if (state.isDragging && _draggedConnIds) {
-                    renderConnections(_draggedConnIds);
-                } else {
+                if (!state.isDragging) {
+                    renderNodes();
                     renderConnections();
                 }
+            });
+        }
             });
         }
 
