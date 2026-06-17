@@ -5767,17 +5767,23 @@ function getNodeEdgePoint(node, targetNode) {
 
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
-                    nodeEl.style.backgroundColor = node.color || getNodeTypeColor(node.type);
-                    nodeEl.style.borderLeftColor = node.color || getNodeTypeColor(node.type);
+                    const bgColor = node.color || getNodeTypeColor(node.type);
+                    const r = parseInt(bgColor.substr(1,2), 16), g = parseInt(bgColor.substr(3,2), 16), b = parseInt(bgColor.substr(5,2), 16);
+                    const bgRgba = `rgba(${r},${g},${b},0.15)`;
+                    const borderRgba = `rgba(${r},${g},${b},0.7)`;
+                    
+                    nodeEl.style.setProperty('background-color', bgRgba, 'important');
+                    nodeEl.style.borderLeft = '4px solid ' + borderRgba;
                     nodeEl.style.color = getContrastColor(node.color || getNodeTypeColor(node.type));
-                    nodeEl.style.border = '1px solid rgba(0,0,0,0.15)';
-                    nodeEl.style.textShadow = '0 0 2px rgba(0,0,0,0.1)';
+                    nodeEl.style.borderTop = '1px solid ' + borderRgba;
+                    nodeEl.style.borderRight = '1px solid ' + borderRgba;
+                    nodeEl.style.borderBottom = '1px solid ' + borderRgba;
+                    nodeEl.style.textShadow = 'none';
+                    nodeEl.style.fontWeight = '600';
                     nodeEl.style.left = (startX + 2) + 'px';
                     nodeEl.style.top = (rowIndex * rowHeight + 8) + 'px';
                     nodeEl.style.width = nodeWidth + 'px';
                     nodeEl.dataset.id = node.id;
-                    nodeEl.style.backgroundColor = node.color || getNodeTypeColor(node.type);
-                    nodeEl.style.borderLeftColor = node.color || getNodeTypeColor(node.type);
                     nodeEl.textContent = node.title;
 
                     // Hover tooltip
@@ -5827,11 +5833,18 @@ function getNodeEdgePoint(node, targetNode) {
                 topLevelUndatedNodes.forEach(node => {
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
-                    nodeEl.style.backgroundColor = node.color || getNodeTypeColor(node.type);
-                    nodeEl.style.borderLeftColor = node.color || getNodeTypeColor(node.type);
+                    const bgColor = node.color || getNodeTypeColor(node.type);
+                    const r = parseInt(bgColor.substr(1,2), 16), g = parseInt(bgColor.substr(3,2), 16), b = parseInt(bgColor.substr(5,2), 16);
+                    const bgRgba = `rgba(${r},${g},${b},0.15)`;
+                    const borderRgba = `rgba(${r},${g},${b},0.7)`;
+                    nodeEl.style.setProperty('background-color', bgRgba, 'important');
+                    nodeEl.style.borderLeft = '4px solid ' + borderRgba;
                     nodeEl.style.color = getContrastColor(node.color || getNodeTypeColor(node.type));
-                    nodeEl.style.border = '1px solid rgba(0,0,0,0.15)';
-                    nodeEl.style.textShadow = '0 0 2px rgba(0,0,0,0.1)';
+                    nodeEl.style.borderTop = '1px solid ' + borderRgba;
+                    nodeEl.style.borderRight = '1px solid ' + borderRgba;
+                    nodeEl.style.borderBottom = '1px solid ' + borderRgba;
+                    nodeEl.style.textShadow = 'none';
+                    nodeEl.style.fontWeight = '600';
                     nodeEl.textContent = node.title;
                     
                     // Hover tooltip
