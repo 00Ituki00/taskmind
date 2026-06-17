@@ -4805,39 +4805,41 @@ function getNodeEdgePoint(node, targetNode) {
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
                     
-                    // 子ノードの色を親ノードと同様に設定
+                    // 子ノードの色を設定（完了済みはグレー）
                     const childNodeColor = child.color || getNodeTypeColor(child.type);
-                    childEl.style.backgroundColor = lightenColor(childNodeColor, 0.75);
+                    const childDisplayColor = getNodeDisplayColor(child);
+                    const childDisplayBg = child.completed ? '#e0e0e0' : lightenColor(childNodeColor, 0.75);
+                    childEl.style.backgroundColor = childDisplayBg;
                     
                     // Priority border styling for child nodes (0-5), skip if completed
                     const cp = child.priority || 0;
                     if (!child.completed) {
                         if (cp >= 5) {
                             childEl.style.border = `3px solid #c0392b`;
-                            childEl.style.borderLeft = `4px solid ${childNodeColor}`;
+                            childEl.style.borderLeft = `4px solid ${childDisplayColor}`;
                         } else if (cp >= 4) {
                             childEl.style.border = `2.5px solid #e74c3c`;
-                            childEl.style.borderLeft = `4px solid ${childNodeColor}`;
+                            childEl.style.borderLeft = `4px solid ${childDisplayColor}`;
                         } else if (cp >= 3) {
                             childEl.style.border = `2px solid #e67e22`;
-                            childEl.style.borderLeft = `3px solid ${childNodeColor}`;
+                            childEl.style.borderLeft = `3px solid ${childDisplayColor}`;
                         } else if (cp >= 2) {
                             childEl.style.border = `1.5px solid #f39c12`;
-                            childEl.style.borderLeft = `3px solid ${childNodeColor}`;
+                            childEl.style.borderLeft = `3px solid ${childDisplayColor}`;
                         } else if (cp >= 1) {
                             childEl.style.border = `1px solid #f0c040`;
-                            childEl.style.borderLeft = `3px solid ${childNodeColor}`;
+                            childEl.style.borderLeft = `3px solid ${childDisplayColor}`;
                         } else {
-                            childEl.style.borderLeft = `3px solid ${childNodeColor}`;
+                            childEl.style.borderLeft = `3px solid ${childDisplayColor}`;
                         }
                     } else {
-                        childEl.style.borderLeft = `3px solid ${childNodeColor}`;
+                        childEl.style.borderLeft = `3px solid ${childDisplayColor}`;
                     }
                     childEl.style.borderRadius = '12px';
 
                     const childCheckbox = document.createElement('span');
                     childCheckbox.className = 'node-color';
-                    childCheckbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${child.color || '#4a90d9'};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;margin-right:4px;`;
+                    childCheckbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${getNodeDisplayColor(child)};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;margin-right:4px;`;
                     childCheckbox.textContent = child.completed ? '✓' : '';
                     childCheckbox.addEventListener('mousedown', (e) => {
                         e.preventDefault();
@@ -5117,7 +5119,8 @@ function getNodeEdgePoint(node, targetNode) {
 
                     const checkbox = document.createElement('span');
                     checkbox.className = 'node-color';
-                    checkbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${node.color || '#4a90d9'};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;`;
+                    const dragDisplayColor = getNodeDisplayColor(node);
+                    checkbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${dragDisplayColor};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;`;
                     checkbox.textContent = node.completed ? '✓' : '';
                     checkbox.addEventListener('mousedown', (e) => {
                         e.preventDefault();
@@ -5171,8 +5174,9 @@ function getNodeEdgePoint(node, targetNode) {
 
                 const color = document.createElement('div');
                 color.className = 'node-color';
-                color.style.backgroundColor = node.color;
-                color.style.cssText = `width:16px;height:16px;border-radius:3px;background-color:${node.color};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:12px;font-weight:bold;`;
+                const rootDisplayColor = getNodeDisplayColor(node);
+                color.style.backgroundColor = rootDisplayColor;
+                color.style.cssText = `width:16px;height:16px;border-radius:3px;background-color:${rootDisplayColor};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:12px;font-weight:bold;`;
                 color.textContent = node.completed ? '✓' : '';
                 color.addEventListener('mousedown', (e) => {
                     e.preventDefault();
@@ -5596,6 +5600,15 @@ function getNodeEdgePoint(node, targetNode) {
             return colors[type] || colors.task;
         }
 
+        // Get the effective color for a node, considering completion state
+        // Completed nodes are shown in gray
+        function getNodeDisplayColor(node) {
+            if (node.completed) {
+                return '#9e9e9e';
+            }
+            return node.color || getNodeTypeColor(node.type);
+        }
+
         // Fast path: update dragged node positions directly without full re-render
         let _dragRafId = null;
         let _lastDragMoveTime = 0;
@@ -5923,13 +5936,14 @@ function getNodeEdgePoint(node, targetNode) {
 
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
+                    const displayColor = getNodeDisplayColor(node);
                     const bgColor = node.color || getNodeTypeColor(node.type);
-                    const lightBg = lightenColor(bgColor, 0.85);
-                    const borderRgba = `rgba(${parseInt(bgColor.substr(1,2),16)},${parseInt(bgColor.substr(3,2),16)},${parseInt(bgColor.substr(5,2),16)},0.7)`;
+                    const lightBg = node.completed ? '#e0e0e0' : lightenColor(bgColor, 0.85);
+                    const borderRgba = `rgba(${parseInt(displayColor.substr(1,2),16)},${parseInt(displayColor.substr(3,2),16)},${parseInt(displayColor.substr(5,2),16)},0.7)`;
                     
                     nodeEl.style.setProperty('background-color', lightBg, 'important');
                     nodeEl.style.borderLeft = '4px solid ' + borderRgba;
-                    nodeEl.style.color = getContrastColor(node.color || getNodeTypeColor(node.type));
+                    nodeEl.style.color = getContrastColor(displayColor);
                     nodeEl.style.borderTop = '1px solid ' + borderRgba;
                     nodeEl.style.borderRight = '1px solid ' + borderRgba;
                     nodeEl.style.borderBottom = '1px solid ' + borderRgba;
@@ -5988,12 +6002,13 @@ function getNodeEdgePoint(node, targetNode) {
                 topLevelUndatedNodes.forEach(node => {
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
+                    const displayColor = getNodeDisplayColor(node);
                     const bgColor = node.color || getNodeTypeColor(node.type);
-                    const lightBg = lightenColor(bgColor, 0.85);
-                    const borderRgba = `rgba(${parseInt(bgColor.substr(1,2),16)},${parseInt(bgColor.substr(3,2),16)},${parseInt(bgColor.substr(5,2),16)},0.7)`;
+                    const lightBg = node.completed ? '#e0e0e0' : lightenColor(bgColor, 0.85);
+                    const borderRgba = `rgba(${parseInt(displayColor.substr(1,2),16)},${parseInt(displayColor.substr(3,2),16)},${parseInt(displayColor.substr(5,2),16)},0.7)`;
                     nodeEl.style.setProperty('background-color', lightBg, 'important');
                     nodeEl.style.borderLeft = '4px solid ' + borderRgba;
-                    nodeEl.style.color = getContrastColor(node.color || getNodeTypeColor(node.type));
+                    nodeEl.style.color = getContrastColor(displayColor);
                     nodeEl.style.borderTop = '1px solid ' + borderRgba;
                     nodeEl.style.borderRight = '1px solid ' + borderRgba;
                     nodeEl.style.borderBottom = '1px solid ' + borderRgba;
@@ -6286,7 +6301,8 @@ function getNodeEdgePoint(node, targetNode) {
 
             const color = document.createElement('div');
             color.className = 'node-color';
-            color.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${node.color};cursor:pointer;flex-shrink:0;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:bold;`;
+            const timelineDisplayColor = getNodeDisplayColor(node);
+            color.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${timelineDisplayColor};cursor:pointer;flex-shrink:0;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:bold;`;
             color.textContent = node.completed ? '✓' : '';
             color.addEventListener('mousedown', (e) => {
                 e.preventDefault();
