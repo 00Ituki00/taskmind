@@ -5596,6 +5596,83 @@ function getNodeEdgePoint(node, targetNode) {
             return colors[type] || colors.task;
         }
 
+        // Fast path: update dragged node positions directly without full re-render
+        let _dragRafId = null;
+        function updateDragVisuals() {
+            // Update dragged node
+            if (state.dragNode) {
+                const el = document.querySelector(`.node[data-id="${state.dragNode.id}"]`);
+                if (el) {
+                    const x = state.dragNode.parentId !== null ? (state.dragNode.absX || state.dragNode.x) : state.dragNode.x;
+                    const y = state.dragNode.parentId !== null ? (state.dragNode.absY || state.dragNode.y) : state.dragNode.y;
+                    el.style.left = x + 'px';
+                    el.style.top = y + 'px';
+                }
+            }
+            // Update multi-selected root nodes
+            if (state.selectedNodeIds.length > 1) {
+                state.selectedNodeIds.forEach(id => {
+                    if (id === state.dragNode?.id) return;
+                    const n = state.nodes.find(node => node.id === id);
+                    if (n && n.parentId === null) {
+                        const el = document.querySelector(`.node[data-id="${n.id}"]`);
+                        if (el) {
+                            el.style.left = n.x + 'px';
+                            el.style.top = n.y + 'px';
+                        }
+                    }
+                });
+            }
+            // Update collapsed connection destination nodes
+            if (state.dragNode) {
+                const movedNodes = new Set();
+                const updateCascade = (fromId) => {
+                    state.connections.forEach(conn => {
+                        if (conn.from === fromId && conn.collapsed) {
+                            const toNode = state.nodes.find(n => n.id === conn.to);
+                            if (toNode && !movedNodes.has(toNode.id)) {
+                                movedNodes.add(toNode.id);
+                                const el = document.querySelector(`.node[data-id="${toNode.id}"]`);
+                                if (el) {
+                                    el.style.left = toNode.x + 'px';
+                                    el.style.top = toNode.y + 'px';
+                                }
+                                updateCascade(toNode.id);
+                            }
+                        }
+                    });
+                };
+                updateCascade(state.dragNode.id);
+            }
+            // Update child nodes when dragging a parent (recursive)
+            if (state.dragNode) {
+                const updateChildren = (parentId) => {
+                    state.nodes.forEach(child => {
+                        if (child.parentId === parentId) {
+                            const absPos = getNodeAbsolutePosition(child);
+                            const el = document.querySelector(`.node[data-id="${child.id}"]`);
+                            if (el) {
+                                el.style.left = absPos.x + 'px';
+                                el.style.top = absPos.y + 'px';
+                            }
+                            updateChildren(child.id);
+                        }
+                    });
+                };
+                updateChildren(state.dragNode.id);
+            }
+        }
+
+        // Schedule full render on next animation frame (throttled to 60fps max)
+        function scheduleDragRender() {
+            if (_dragRafId) return;
+            _dragRafId = requestAnimationFrame(() => {
+                _dragRafId = null;
+                renderNodes();
+                renderConnections();
+            });
+        }
+
         function renderTimeline() {
             const timeline = state.timeline;
             const dayWidth = timeline.dayWidth;
@@ -7982,9 +8059,8 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 }
 
-                renderNodes();
-                renderNodes();
-                renderConnections();
+                updateDragVisuals();
+                scheduleDragRender();
             }
         });
 
