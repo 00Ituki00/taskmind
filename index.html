@@ -5540,6 +5540,19 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
+        function getNodeTypeColor(type) {
+            const colors = {
+                schedule: '#4a90d9',
+                task: '#50c878',
+                daily: '#f5a623',
+                monthly: '#e74c3c',
+                condition: '#f5a623',
+                memo: '#f0e040',
+                startend: '#4a90d9'
+            };
+            return colors[type] || colors.task;
+        }
+
         function renderTimeline() {
             const timeline = state.timeline;
             const dayWidth = timeline.dayWidth;
@@ -5745,12 +5758,15 @@ function getNodeEdgePoint(node, targetNode) {
 
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
+                    nodeEl.style.backgroundColor = node.color || getNodeTypeColor(node.type);
+                    nodeEl.style.borderLeftColor = node.color || getNodeTypeColor(node.type);
                     nodeEl.style.left = (startX + 2) + 'px';
                     nodeEl.style.top = (rowIndex * rowHeight + 8) + 'px';
                     nodeEl.style.width = nodeWidth + 'px';
                     nodeEl.dataset.id = node.id;
+                    nodeEl.style.backgroundColor = node.color || getNodeTypeColor(node.type);
+                    nodeEl.style.borderLeftColor = node.color || getNodeTypeColor(node.type);
                     nodeEl.textContent = node.title;
-                    nodeEl.title = node.title; // Native tooltip as fallback
 
                     // Hover tooltip
                     nodeEl.addEventListener('mouseenter', (e) => showTimelineTooltip(e, node));
@@ -5799,8 +5815,9 @@ function getNodeEdgePoint(node, targetNode) {
                 topLevelUndatedNodes.forEach(node => {
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
+                    nodeEl.style.backgroundColor = node.color || getNodeTypeColor(node.type);
+                    nodeEl.style.borderLeftColor = node.color || getNodeTypeColor(node.type);
                     nodeEl.textContent = node.title;
-                    nodeEl.dataset.id = node.id;
                     
                     // Hover tooltip
                     nodeEl.addEventListener('mouseenter', (e) => showTimelineTooltip(e, node));
