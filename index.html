@@ -142,6 +142,25 @@
             display: inline-flex !important;
         }
 
+        /* 子ノード（.node-tasks内）のタイプに基づく表示切り替え - 親ノードの影響を受けない */
+        .node-tasks .node.type-condition > .node-color,
+        .node-tasks .node.type-memo > .node-color,
+        .node-tasks .node.type-startend > .node-color {
+            display: none !important;
+        }
+        .node-tasks .node.type-task > .node-type-icon {
+            display: none !important;
+        }
+        .node-tasks .node.type-task > .node-color {
+            display: inline-flex !important;
+        }
+        .node-tasks .node.type-condition > .node-type-icon,
+        .node-tasks .node.type-memo > .node-type-icon,
+        .node-tasks .node.type-startend > .node-type-icon {
+            display: inline-flex !important;
+            margin-right: 4px;
+        }
+
         .node {
             position: absolute;
             background: white;
