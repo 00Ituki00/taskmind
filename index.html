@@ -4785,30 +4785,34 @@ function getNodeEdgePoint(node, targetNode) {
                         + (getNodeWhenStatus(child) ? ' ' + getNodeWhenStatus(child) : '');
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
+                    
+                    // 子ノードの色を親ノードと同様に設定
+                    const childNodeColor = child.color || getNodeTypeColor(child.type);
+                    childEl.style.backgroundColor = childNodeColor + '20'; // 12%透明度
+                    
                     // Priority border styling for child nodes (0-5), skip if completed
                     const cp = child.priority || 0;
-                    const parentColor = parentNode.color || '#4a90d9';
                     if (!child.completed) {
                         if (cp >= 5) {
                             childEl.style.border = `3px solid #c0392b`;
-                            childEl.style.borderLeft = `4px solid ${parentColor}`;
+                            childEl.style.borderLeft = `4px solid ${childNodeColor}`;
                         } else if (cp >= 4) {
                             childEl.style.border = `2.5px solid #e74c3c`;
-                            childEl.style.borderLeft = `4px solid ${parentColor}`;
+                            childEl.style.borderLeft = `4px solid ${childNodeColor}`;
                         } else if (cp >= 3) {
                             childEl.style.border = `2px solid #e67e22`;
-                            childEl.style.borderLeft = `3px solid ${parentColor}`;
+                            childEl.style.borderLeft = `3px solid ${childNodeColor}`;
                         } else if (cp >= 2) {
                             childEl.style.border = `1.5px solid #f39c12`;
-                            childEl.style.borderLeft = `3px solid ${parentColor}`;
+                            childEl.style.borderLeft = `3px solid ${childNodeColor}`;
                         } else if (cp >= 1) {
                             childEl.style.border = `1px solid #f0c040`;
-                            childEl.style.borderLeft = `3px solid ${parentColor}`;
+                            childEl.style.borderLeft = `3px solid ${childNodeColor}`;
                         } else {
-                            childEl.style.borderLeft = `3px solid ${parentColor}`;
+                            childEl.style.borderLeft = `3px solid ${childNodeColor}`;
                         }
                     } else {
-                        childEl.style.borderLeft = `3px solid ${parentColor}`;
+                        childEl.style.borderLeft = `3px solid ${childNodeColor}`;
                     }
                     childEl.style.borderRadius = '12px';
 
