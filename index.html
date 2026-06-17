@@ -5602,6 +5602,79 @@ function getNodeEdgePoint(node, targetNode) {
         let _lastDropCheckTime = 0;
         const DRAG_THROTTLE_MS = 16; // 60fps
         
+        // Drop-target detection cache: built once at drag start, used during drag without DOM queries
+        let _dropTargetCache = null;
+        
+        function buildDropTargetCache() {
+            if (!state.dragNode) return;
+            const dragId = state.dragNode.id;
+            const cache = [];
+            
+            // Pre-calculate which nodes are descendants of dragNode
+            const descendantIds = new Set();
+            const markDescendants = (parentId) => {
+                state.nodes.forEach(n => {
+                    if (n.parentId === parentId) {
+                        descendantIds.add(n.id);
+                        markDescendants(n.id);
+                    }
+                });
+            };
+            markDescendants(dragId);
+            
+            for (const node of state.nodes) {
+                if (node.id === dragId) continue;
+                if (state.selectedNodeIds.includes(node.id)) continue;
+                if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
+                if (descendantIds.has(node.id)) continue;
+                
+                // Use absolute position for all nodes
+                let nx, ny;
+                if (node.parentId !== null) {
+                    const abs = getNodeAbsolutePosition(node);
+                    nx = abs.x; ny = abs.y;
+                } else {
+                    nx = node.x; ny = node.y;
+                }
+                const nw = node.width || 200;
+                const nh = node.height || 50;
+                
+                // For root nodes, use header height (approx 32px) for hit test
+                const hitH = node.parentId === null ? Math.min(32, nh) : nh;
+                
+                cache.push({
+                    node,
+                    nx, ny, nw,
+                    nh: hitH,
+                    fullH: nh,
+                    centerX: nx + nw / 2,
+                    centerY: ny + hitH / 2
+                });
+            }
+            _dropTargetCache = cache;
+        }
+        
+        function clearDropTargetCache() {
+            _dropTargetCache = null;
+        }
+        
+        function findDropTargetCached(mx, my) {
+            if (!_dropTargetCache) return null;
+            let best = null;
+            let minDist = Infinity;
+            
+            for (const entry of _dropTargetCache) {
+                if (mx >= entry.nx && mx <= entry.nx + entry.nw && my >= entry.ny && my <= entry.ny + entry.nh) {
+                    const dist = Math.hypot(mx - entry.centerX, my - entry.centerY);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        best = entry;
+                    }
+                }
+            }
+            return best;
+        }
+
         function updateDragVisuals() {
             // Update dragged node
             if (state.dragNode) {
@@ -7872,6 +7945,7 @@ function getNodeEdgePoint(node, targetNode) {
                 if (dx > 5 || dy > 5) {
                     state.isDragging = true;
                     nodesEl.style.cursor = 'grabbing';
+                    buildDropTargetCache(); // Build cache once at drag start
                     renderNodes();
                 }
             }
@@ -7949,114 +8023,44 @@ function getNodeEdgePoint(node, targetNode) {
                     moveCascade(state.dragNode.id, dx, dy);
                 }
 
-                // Unified drag detection: purely visual, based on DOM header position
-                // No special handling for parent/child/sibling - all nodes are treated equally
-                // Throttled to 60fps to avoid excessive DOM queries during fast mouse movement
+                // Unified drag detection using cached positions (no DOM queries during drag)
                 const now = performance.now();
                 if (state.dragNode && !state.selectedNodeIds.includes(state.dragNode.id) && now - _lastDropCheckTime >= DRAG_THROTTLE_MS) {
                     _lastDropCheckTime = now;
-                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
-                    const mx = (e.clientX - canvasRect.left - state.panX) / state.scale;
-                    const my = (e.clientY - canvasRect.top - state.panY) / state.scale;
-                    let candidates = [];
-
-                    for (const node of state.nodes) {
-                        if (node.id === state.dragNode.id) continue;
-                        if (state.selectedNodeIds.includes(node.id)) continue;
-                        if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
-                        // Skip descendants of dragNode to prevent circular nesting
-                        let isDescendant = false;
-                        let current = node;
-                        while (current && current.parentId !== null) {
-                            if (current.parentId === state.dragNode.id) {
-                                isDescendant = true;
-                                break;
-                            }
-                            current = state.nodes.find(n => n.id === current.parentId);
-                        }
-                        if (isDescendant) continue;
-
-                        // Get bounds from DOM - parent nodes use header, child nodes use full div.node
-                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
-                        if (!domEl) continue;
-                        let rect;
-                        if (node.parentId === null) {
-                            // Root nodes: use header for hit test to avoid child node overlap
-                            const headerEl = domEl.querySelector('.node-header') || domEl.querySelector('.node-title');
-                            rect = headerEl ? headerEl.getBoundingClientRect() : domEl.getBoundingClientRect();
-                        } else {
-                            // Child nodes: use full div.node (no .node-header class)
-                            rect = domEl.getBoundingClientRect();
-                        }
-                        const nx = (rect.left - canvasRect.left - state.panX) / state.scale;
-                        const ny = (rect.top - canvasRect.top - state.panY) / state.scale;
-                        const nw = rect.width / state.scale;
-                        const nh = rect.height / state.scale;
-
-                        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
-                            const centerX = nx + nw / 2;
-                            const centerY = ny + nh / 2;
-                            const dist = Math.hypot(mx - centerX, my - centerY);
-                            candidates.push({ node, dist });
-                        }
-                    }
-
-                    // Pick closest candidate
-                    let targetNode = null;
-                    let minDist = Infinity;
-                    for (const c of candidates) {
-                        if (c.dist < minDist) {
-                            minDist = c.dist;
-                            targetNode = c.node;
-                        }
-                    }
-
+                    const mx = (e.clientX - state.panX) / state.scale;
+                    const my = (e.clientY - state.panY) / state.scale;
+                    
+                    const bestEntry = findDropTargetCached(mx, my);
+                    
                     // Clear all indicators
                     document.querySelectorAll('.node').forEach(el => {
                         el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
                     });
 
-                    if (targetNode) {
-                        const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
-                        let headerEl, fullRect;
-                        if (targetNode.parentId === null) {
-                            // Root nodes: use header for zone detection
-                            headerEl = targetDomEl ? (targetDomEl.querySelector('.node-header') || targetDomEl.querySelector('.node-title')) : null;
-                            fullRect = headerEl ? headerEl.getBoundingClientRect() : (targetDomEl ? targetDomEl.getBoundingClientRect() : null);
-                        } else {
-                            // Child nodes: use full div.node
-                            fullRect = targetDomEl ? targetDomEl.getBoundingClientRect() : null;
-                        }
-                        let tTop, tBottom;
-                        if (fullRect) {
-                            tTop = (fullRect.top - canvasRect.top - state.panY) / state.scale;
-                            tBottom = (fullRect.bottom - canvasRect.top - state.panY) / state.scale;
-                        } else {
-                            tTop = targetNode.y;
-                            tBottom = targetNode.y + (targetNode.height || 50);
-                        }
+                    if (bestEntry) {
+                        const targetNode = bestEntry.node;
+                        const tTop = bestEntry.ny;
+                        const tBottom = bestEntry.ny + bestEntry.fullH;
                         const thirdH = (tBottom - tTop) / 3;
 
                         if (my < tTop + thirdH) {
-                            // Top zone → insert before this node
                             state.reorderTarget = { siblingId: targetNode.id, insertBefore: true, siblingParentId: targetNode.parentId };
                             state.dropTarget = null;
                             state.pendingExtract = false;
                             showInsertGuide(targetNode.id, 'before');
                             if (tooltip) { tooltip.textContent = '▲'; tooltip.classList.add('show'); }
                         } else if (my > tBottom - thirdH) {
-                            // Bottom zone → insert after this node
                             state.reorderTarget = { siblingId: targetNode.id, insertBefore: false, siblingParentId: targetNode.parentId };
                             state.dropTarget = null;
                             state.pendingExtract = false;
                             showInsertGuide(targetNode.id, 'after');
                             if (tooltip) { tooltip.textContent = '▼'; tooltip.classList.add('show'); }
                         } else {
-                            // Middle zone → nest into this node
                             state.dropTarget = targetNode;
                             state.reorderTarget = null;
                             state.pendingExtract = false;
                             hideInsertGuides();
+                            const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
                             if (targetDomEl) targetDomEl.classList.add('nest-target');
                             if (tooltip) { tooltip.textContent = '▶'; tooltip.classList.add('show'); }
                         }
@@ -8421,6 +8425,7 @@ function getNodeEdgePoint(node, targetNode) {
             state.reorderTarget = null;
 
             state.dragNode = null;
+            clearDropTargetCache(); // Clear cached node positions
             state.pendingExtract = false;
             const tooltip = document.getElementById('drag-tooltip');
             if (tooltip) tooltip.classList.remove('show');
