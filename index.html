@@ -4807,7 +4807,7 @@ function getNodeEdgePoint(node, targetNode) {
                     
                     // 子ノードの色を親ノードと同様に設定
                     const childNodeColor = child.color || getNodeTypeColor(child.type);
-                    childEl.style.backgroundColor = childNodeColor + '20'; // 12%透明度
+                    childEl.style.backgroundColor = lightenColor(childNodeColor, 0.75);
                     
                     // Priority border styling for child nodes (0-5), skip if completed
                     const cp = child.priority || 0;
@@ -5572,6 +5572,17 @@ function getNodeEdgePoint(node, targetNode) {
             return luminance > 0.5 ? '#333333' : '#ffffff';
         }
 
+        function lightenColor(hexColor, factor) {
+            const hex = hexColor.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            const lr = Math.round(r + (255 - r) * factor);
+            const lg = Math.round(g + (255 - g) * factor);
+            const lb = Math.round(b + (255 - b) * factor);
+            return '#' + [lr, lg, lb].map(v => Math.min(255, v).toString(16).padStart(2, '0')).join('');
+        }
+
         function getNodeTypeColor(type) {
             const colors = {
                 schedule: '#4a90d9',
@@ -5791,11 +5802,10 @@ function getNodeEdgePoint(node, targetNode) {
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
                     const bgColor = node.color || getNodeTypeColor(node.type);
-                    const r = parseInt(bgColor.substr(1,2), 16), g = parseInt(bgColor.substr(3,2), 16), b = parseInt(bgColor.substr(5,2), 16);
-                    const bgRgba = `rgba(${r},${g},${b},0.15)`;
-                    const borderRgba = `rgba(${r},${g},${b},0.7)`;
+                    const lightBg = lightenColor(bgColor, 0.85);
+                    const borderRgba = `rgba(${parseInt(bgColor.substr(1,2),16)},${parseInt(bgColor.substr(3,2),16)},${parseInt(bgColor.substr(5,2),16)},0.7)`;
                     
-                    nodeEl.style.setProperty('background-color', bgRgba, 'important');
+                    nodeEl.style.setProperty('background-color', lightBg, 'important');
                     nodeEl.style.borderLeft = '4px solid ' + borderRgba;
                     nodeEl.style.color = getContrastColor(node.color || getNodeTypeColor(node.type));
                     nodeEl.style.borderTop = '1px solid ' + borderRgba;
@@ -5857,10 +5867,9 @@ function getNodeEdgePoint(node, targetNode) {
                     const nodeEl = document.createElement('div');
                     nodeEl.className = 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
                     const bgColor = node.color || getNodeTypeColor(node.type);
-                    const r = parseInt(bgColor.substr(1,2), 16), g = parseInt(bgColor.substr(3,2), 16), b = parseInt(bgColor.substr(5,2), 16);
-                    const bgRgba = `rgba(${r},${g},${b},0.15)`;
-                    const borderRgba = `rgba(${r},${g},${b},0.7)`;
-                    nodeEl.style.setProperty('background-color', bgRgba, 'important');
+                    const lightBg = lightenColor(bgColor, 0.85);
+                    const borderRgba = `rgba(${parseInt(bgColor.substr(1,2),16)},${parseInt(bgColor.substr(3,2),16)},${parseInt(bgColor.substr(5,2),16)},0.7)`;
+                    nodeEl.style.setProperty('background-color', lightBg, 'important');
                     nodeEl.style.borderLeft = '4px solid ' + borderRgba;
                     nodeEl.style.color = getContrastColor(node.color || getNodeTypeColor(node.type));
                     nodeEl.style.borderTop = '1px solid ' + borderRgba;
