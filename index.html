@@ -7561,10 +7561,6 @@ function getNodeEdgePoint(node, targetNode) {
         }, { passive: false });
 
         window.addEventListener('mousemove', (e) => {
-            // Debug log for mousemove
-            if (state.dragNode) {
-                console.log('[DEBUG] mousemove. dragNode=', state.dragNode.id, 'isDragging=', state.isDragging, 'dropTarget=', state.dropTarget ? state.dropTarget.id : null, 'reorderTarget=', state.reorderTarget ? state.reorderTarget.siblingId : null);
-            }
             // Update pending connection line
             if (state.connectingFrom || state.draggingConn) {
                 updatePendingConnection(e.clientX, e.clientY);
@@ -7800,8 +7796,6 @@ function getNodeEdgePoint(node, targetNode) {
                 const newX = (e.clientX - state.panX) / state.scale - state.dragOffsetX;
                 const newY = (e.clientY - state.panY) / state.scale - state.dragOffsetY;
 
-                console.log('Child drag move:', state.dragNode.id, 'newX:', newX, 'newY:', newY, 'parentId:', state.dragNode.parentId);
-
                 // Calculate old absolute position
                 let oldAbsX = state.dragNode.x;
                 let oldAbsY = state.dragNode.y;
@@ -7989,7 +7983,7 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 renderNodes();
-                renderConnections();                renderNodes();
+                renderNodes();
                 renderConnections();
             }
         });
