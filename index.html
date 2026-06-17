@@ -5675,15 +5675,42 @@ function getNodeEdgePoint(node, targetNode) {
             updateDragVisuals();
         }
 
+        // Track connection IDs related to the currently dragged node for incremental updates
+        let _draggedConnIds = null;
+        
+        function buildDraggedConnIds() {
+            if (!state.dragNode) return null;
+            const dragId = state.dragNode.id;
+            const ids = new Set();
+            // Direct connections to/from dragged node
+            state.connections.forEach(conn => {
+                if (conn.from === dragId || conn.to === dragId) {
+                    ids.add(`${conn.from}-${conn.to}`);
+                }
+            });
+            // Cascaded connections from collapsed descendants
+            const addCascade = (nodeId) => {
+                state.connections.forEach(conn => {
+                    if (conn.from === nodeId && conn.collapsed) {
+                        ids.add(`${conn.from}-${conn.to}`);
+                        addCascade(conn.to);
+                    }
+                });
+            };
+            addCascade(dragId);
+            return [...ids];
+        }
+
         // Schedule full render on next animation frame (throttled to 60fps max)
-        // During drag, skip connection rendering for performance - only render on drag end
+        // During drag, only re-render connections related to the dragged node
         function scheduleDragRender() {
             if (_dragRafId) return;
             _dragRafId = requestAnimationFrame(() => {
                 _dragRafId = null;
                 renderNodes();
-                // Skip renderConnections during drag - only render on drag end
-                if (!state.isDragging) {
+                if (state.isDragging && _draggedConnIds) {
+                    renderConnections(_draggedConnIds);
+                } else {
                     renderConnections();
                 }
             });
@@ -6489,8 +6516,20 @@ function getNodeEdgePoint(node, targetNode) {
             return node;
         }
 
-        function renderConnections() {
-            connectionsSvg.innerHTML = '';
+        function renderConnections(filterConnIds = null) {
+            // If filterConnIds is provided, only remove and re-render those connections
+            // Otherwise, clear all connections (default behavior)
+            if (filterConnIds) {
+                filterConnIds.forEach(id => {
+                    const [from, to] = id.split('-');
+                    const group = connectionsSvg.querySelector(`.conn-group[data-from="${from}"][data-to="${to}"]`);
+                    if (group) group.remove();
+                    const grad = document.getElementById(`conn-grad-${from}-${to}`);
+                    if (grad) grad.remove();
+                });
+            } else {
+                connectionsSvg.innerHTML = '';
+            }
 
             // Collect all nodes that are hidden due to parent connection collapse (cascade)
             const hiddenNodeIds = new Set();
@@ -6507,6 +6546,9 @@ function getNodeEdgePoint(node, targetNode) {
             });
 
             state.connections.forEach(conn => {
+                // If filterConnIds is provided, only render matching connections (incremental update)
+                if (filterConnIds && !filterConnIds.includes(`${conn.from}-${conn.to}`)) return;
+                
                 // Skip connections whose source is hidden by parent collapse
                 if (hiddenNodeIds.has(conn.from)) return;
 
@@ -7875,6 +7917,7 @@ function getNodeEdgePoint(node, targetNode) {
                 const dy = Math.abs(e.clientY - state.dragStartMouseY);
                 if (dx > 5 || dy > 5) {
                     state.isDragging = true;
+                    _draggedConnIds = buildDraggedConnIds();
                     nodesEl.style.cursor = 'grabbing';
                     renderNodes();
                 }
@@ -8537,6 +8580,7 @@ function getNodeEdgePoint(node, targetNode) {
             if (tempLine) tempLine.remove();
 
             state.dragNode = null;
+            _draggedConnIds = null;
 
             // Clear drag tooltip for touch
         });
