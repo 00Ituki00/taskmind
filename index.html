@@ -10474,7 +10474,7 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 }
 
-                if (!nextStart) return;
+                if (!nextStart || isNaN(nextStart.getTime())) return;
 
                 // 1分前後の誤差で通知
                 const diffMs = nextStart.getTime() - now.getTime();
