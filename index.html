@@ -4741,8 +4741,10 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function renderNodes() {
-            window._workerDebug.lastRenderTime = new Date().toISOString();
-            window._workerDebug.renderCount++;
+            if (window._workerDebug) {
+                window._workerDebug.lastRenderTime = new Date().toISOString();
+                window._workerDebug.renderCount++;
+            }
             // Save timeline scroll position before clearing
             const oldTimelineContainer = document.querySelector('.timeline-container');
             if (oldTimelineContainer && state.layoutMode === 'timeline') {
@@ -10009,8 +10011,10 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function recalculateWhenDates() {
-            window._workerDebug.lastRecalcTime = new Date().toISOString();
-            window._workerDebug.recalcCount++;
+            if (window._workerDebug) {
+                window._workerDebug.lastRecalcTime = new Date().toISOString();
+                window._workerDebug.recalcCount++;
+            }
             const now = new Date();
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const activatedNodes = [];
@@ -10571,8 +10575,10 @@ function getNodeEdgePoint(node, targetNode) {
         window._timerWorker.onmessage = function(e) {
             if (e.data === 'tick') {
                 console.log('[Worker] Tick received at', new Date().toLocaleTimeString());
-                window._workerDebug.lastTickTime = new Date().toISOString();
-                window._workerDebug.tickCount++;
+                if (window._workerDebug) {
+                    window._workerDebug.lastTickTime = new Date().toISOString();
+                    window._workerDebug.tickCount++;
+                }
                 recalculateWhenDates();
                 checkTaskReminders();
             } else if (e.data === 'ack:start') {
