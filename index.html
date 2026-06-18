@@ -10621,32 +10621,12 @@ function getNodeEdgePoint(node, targetNode) {
             }
         });
 
-        // テスト用：未来のタスク（Worker自動更新テスト用）
-        // 開始時刻を1分後に設定（テスト時に即座にstarted状態になるよう）
-        const testNow = new Date();
-        const testStart = new Date(testNow.getTime() + 60 * 1000);
-        state.nodes.push({
-            id: state.nextId++,
-            title: '[TEST] Worker自動更新確認タスク（1分後開始）',
-            x: 400,
-            y: 300,
-            width: 280,
-            height: 120,
-            color: '#e74c3c',
-            completed: false,
-            collapsed: false,
-            details: {
-                when: {
-                    repeatType: 'none',
-                    nextDate: testStart.toISOString(),
-                    baseDateTime: testStart.toISOString()
-                },
-                priority: 4,
-                deadlineDays: 1
-            },
-            children: []
-        });
-        console.log('[Test] Workerテストタスク追加：開始時刻', testStart.toLocaleString('ja-JP'), '(1分後)');
+        // 既存のテストタスクを自動削除（過去のテストデータをクリーンアップ）
+        const testTaskIndex = state.nodes.findIndex(n => n.title && n.title.includes('[TEST]'));
+        if (testTaskIndex !== -1) {
+            console.log('[Test] 既存テストタスクを自動削除:', state.nodes[testTaskIndex].title);
+            state.nodes.splice(testTaskIndex, 1);
+        }
 
         // AudioContextの自動再生ポリシー対応：ユーザー操作で初期化
         document.addEventListener('click', () => {
