@@ -4741,6 +4741,8 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function renderNodes() {
+            window._workerDebug.lastRenderTime = new Date().toISOString();
+            window._workerDebug.renderCount++;
             // Save timeline scroll position before clearing
             const oldTimelineContainer = document.querySelector('.timeline-container');
             if (oldTimelineContainer && state.layoutMode === 'timeline') {
@@ -10007,6 +10009,8 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function recalculateWhenDates() {
+            window._workerDebug.lastRecalcTime = new Date().toISOString();
+            window._workerDebug.recalcCount++;
             const now = new Date();
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const activatedNodes = [];
@@ -10509,30 +10513,86 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         // 自動再計算: Web Workerでバックグラウンドタイマー（非アクティブタブでも動作）
+        // Worker状態監視用デバッグオブジェクト
+        window._workerDebug = {
+            lastTickTime: null,
+            lastRecalcTime: null,
+            lastRenderTime: null,
+            tickCount: 0,
+            recalcCount: 0,
+            renderCount: 0,
+            getStatus: function() {
+                return {
+                    lastTick: this.lastTickTime,
+                    lastRecalc: this.lastRecalcTime,
+                    lastRender: this.lastRenderTime,
+                    ticks: this.tickCount,
+                    recalcs: this.recalcCount,
+                    renders: this.renderCount,
+                    workerExists: !!window._timerWorker,
+                    now: new Date().toISOString()
+                };
+            }
+        };
+
         const _workerCode = `
             let intervalId;
             self.onmessage = function(e) {
-                if (e.data === 'start') {
-                    if (intervalId) clearInterval(intervalId);
-                    intervalId = setInterval(() => {
-                        self.postMessage('tick');
-                    }, 60000);
-                } else if (e.data === 'stop') {
-                    if (intervalId) clearInterval(intervalId);
-                    intervalId = null;
+                try {
+                    if (e.data === 'start') {
+                        if (intervalId) clearInterval(intervalId);
+                        intervalId = setInterval(() => {
+                            try {
+                                self.postMessage('tick');
+                            } catch (err) {
+                                self.postMessage('error:' + err.message);
+                            }
+                        }, 60000);
+                        self.postMessage('ack:start');
+                    } else if (e.data === 'stop') {
+                        if (intervalId) clearInterval(intervalId);
+                        intervalId = null;
+                        self.postMessage('ack:stop');
+                    }
+                } catch (err) {
+                    self.postMessage('error:' + err.message);
                 }
             };
+            // Auto-start after 1s if not started
+            setTimeout(() => {
+                if (!intervalId) {
+                    self.postMessage('auto-start');
+                }
+            }, 1000);
         `;
         const _workerBlob = new Blob([_workerCode], { type: 'application/javascript' });
         const _workerUrl = URL.createObjectURL(_workerBlob);
-        const _timerWorker = new Worker(_workerUrl);
-        _timerWorker.onmessage = function(e) {
+        window._timerWorker = new Worker(_workerUrl);
+        window._timerWorker.onmessage = function(e) {
             if (e.data === 'tick') {
+                console.log('[Worker] Tick received at', new Date().toLocaleTimeString());
+                window._workerDebug.lastTickTime = new Date().toISOString();
+                window._workerDebug.tickCount++;
                 recalculateWhenDates();
                 checkTaskReminders();
+            } else if (e.data === 'ack:start') {
+                console.log('[Worker] Ack start received');
+            } else if (e.data === 'ack:stop') {
+                console.log('[Worker] Ack stop received');
+            } else if (e.data === 'auto-start') {
+                console.log('[Worker] Auto-start triggered, sending start');
+                window._timerWorker.postMessage('start');
+            } else if (typeof e.data === 'string' && e.data.startsWith('error:')) {
+                console.error('[Worker] Error from worker:', e.data);
+            } else {
+                console.log('[Worker] Unknown message:', e.data);
             }
         };
-        _timerWorker.postMessage('start');
+        window._timerWorker.onerror = function(err) {
+            console.error('[Worker] Error:', err.message, err.filename, err.lineno);
+        };
+        window._timerWorker.postMessage('start');
+        console.log('[Worker] Timer worker started');
 
         // visibilitychange: タブがアクティブになった時に即座に再計算
         document.addEventListener('visibilitychange', () => {
