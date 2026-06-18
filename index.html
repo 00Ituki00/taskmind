@@ -10503,11 +10503,31 @@ function getNodeEdgePoint(node, targetNode) {
             }
         }
 
-        // 自動再計算: 1分ごとにチェック + 通知
-        setInterval(() => {
-            recalculateWhenDates();
-            checkTaskReminders();
-        }, 60000);
+        // 自動再計算: Web Workerでバックグラウンドタイマー（非アクティブタブでも動作）
+        const _workerCode = `
+            let intervalId;
+            self.onmessage = function(e) {
+                if (e.data === 'start') {
+                    if (intervalId) clearInterval(intervalId);
+                    intervalId = setInterval(() => {
+                        self.postMessage('tick');
+                    }, 60000);
+                } else if (e.data === 'stop') {
+                    if (intervalId) clearInterval(intervalId);
+                    intervalId = null;
+                }
+            };
+        `;
+        const _workerBlob = new Blob([_workerCode], { type: 'application/javascript' });
+        const _workerUrl = URL.createObjectURL(_workerBlob);
+        const _timerWorker = new Worker(_workerUrl);
+        _timerWorker.onmessage = function(e) {
+            if (e.data === 'tick') {
+                recalculateWhenDates();
+                checkTaskReminders();
+            }
+        };
+        _timerWorker.postMessage('start');
 
         // visibilitychange: タブがアクティブになった時に即座に再計算
         document.addEventListener('visibilitychange', () => {
