@@ -10190,11 +10190,34 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         // Audio通知（ブラウザが非アクティブ・通知ブロック時でも鳴る）
+        let _audioCtx = null;
+        function getAudioContext() {
+            if (!_audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return null;
+                _audioCtx = new AudioContext();
+            }
+            return _audioCtx;
+        }
+
+        // AudioContextの自動再生ポリシー対応：ユーザー操作でresume
+        function resumeAudioContext() {
+            const ctx = getAudioContext();
+            if (ctx && ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+            return ctx;
+        }
+
         function playNotificationSound(priority = 3) {
             try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                const ctx = new AudioContext();
+                const ctx = resumeAudioContext();
+                if (!ctx) return;
+                // 念のためstateチェック
+                if (ctx.state === 'suspended') {
+                    console.log('[Audio] Context still suspended after resume attempt');
+                    return;
+                }
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.connect(gain);
@@ -10219,7 +10242,6 @@ function getNodeEdgePoint(node, targetNode) {
                     osc2.start(ctx.currentTime + 0.25);
                     osc2.stop(ctx.currentTime + 0.65);
                 }
-                setTimeout(() => ctx.close(), 1000);
             } catch (e) {
                 console.log('[Audio] Failed to play sound:', e);
             }
@@ -10444,8 +10466,6 @@ function getNodeEdgePoint(node, targetNode) {
 
         // タスク開始時刻チェック
         function checkTaskReminders() {
-            if (!_notificationEnabled) return;
-
             const now = new Date();
             const notifiedThisMinute = new Set();
 
@@ -10476,10 +10496,14 @@ function getNodeEdgePoint(node, targetNode) {
 
                 if (diffMin === 0 && !_notifiedTasks.has(notifyKey)) {
                     _notifiedTasks.add(notifyKey);
-                    sendNotification('TaskMind - 開始時刻', `「${node.title}」の開始時刻です`, {
-                        tag: 'task-start-' + node.id,
-                        requireInteraction: true
-                    });
+                    // 音は常に鳴らす、OS通知は許可があれば出す
+                    const priority = node.details?.priority || 3;
+                    const title = 'TaskMind - 開始時刻';
+                    const body = `「${node.title}」の開始時刻です`;
+                    
+                    // Audioフォールバック付き通知
+                    sendWhenNotification(title, body, priority);
+                    requestAttention(1, priority);
                 }
             });
 
@@ -10495,12 +10519,31 @@ function getNodeEdgePoint(node, targetNode) {
                 }
             }
         }
+            }
+        }
 
         // 自動再計算: 1分ごとにチェック + 通知
         setInterval(() => {
             recalculateWhenDates();
             checkTaskReminders();
         }, 60000);
+
+        // visibilitychange: タブがアクティブになった時に即座に再計算
+        document.addEventListener('visibilitychange', () => {
+            const hidden = document.hidden;
+            console.log('[Visibility] State changed, hidden=' + hidden);
+            if (!hidden) {
+                // タブがアクティブになった：即座に再計算
+                console.log('[Visibility] Tab became active, recalculating...');
+                recalculateWhenDates();
+                checkTaskReminders();
+            }
+        });
+
+        // AudioContextの自動再生ポリシー対応：ユーザー操作で初期化
+        document.addEventListener('click', () => {
+            resumeAudioContext();
+        }, { once: true });
 
         // 初期ロード時にも実行
         recalculateWhenDates();
