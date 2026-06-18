@@ -10106,6 +10106,11 @@ function getNodeEdgePoint(node, targetNode) {
                 requestAttention(startedCount, maxPriority2);
             }
 
+            // ノードの状態が変化した場合は再描画
+            if (activatedCount > 0 || startedCount > 0) {
+                renderNodes();
+            }
+
             return activatedCount + startedCount;
         }
 
@@ -10538,6 +10543,9 @@ function getNodeEdgePoint(node, targetNode) {
                 console.log('[Visibility] Tab became active, recalculating...');
                 recalculateWhenDates();
                 checkTaskReminders();
+                // 強制的に再描画（ブラウザの最適化で遅延されるのを防ぐ）
+                renderNodes();
+                document.body.offsetHeight; // force reflow
             }
         });
 
