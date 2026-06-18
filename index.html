@@ -9428,10 +9428,8 @@ function getNodeEdgePoint(node, targetNode) {
             }
             
             if (currentPermission === 'denied') {
-                showToast('通知がブロックされています。ブラウザ設定で許可してください\n※音での通知は動作します');
+                showToast('通知がブロックされています。ブラウザ設定で許可してください');
                 updateNotifyButton(false, true);
-                // 音のみテスト
-                playNotificationSound(3);
                 return;
             }
             
@@ -10267,11 +10265,7 @@ function getNodeEdgePoint(node, targetNode) {
                 }
                 return false;
             };
-            const nativeOk = sendNative();
-            // ネイティブ通知が出せなくても音は鳴らす（フォールバック）
-            if (!nativeOk) {
-                playNotificationSound(priority);
-            }
+            sendNative();
             return sent;
         }
 
@@ -10280,9 +10274,9 @@ function getNodeEdgePoint(node, targetNode) {
             const priority = 3;
             const nativeSent = sendWhenNotification('TaskMind テスト', '通知テストです', priority);
             if (!nativeSent) {
-                showToast('通知テスト（音のみ）\nOS通知を使うにはブラウザ設定で許可してください');
+                showToast('OS通知を使うにはブラウザ設定で許可してください');
             }
-            requestAttention(1);
+            requestAttention(1, priority);
         }
 
         // ページ可視性状態（非アクティブ検知用）
@@ -10290,8 +10284,8 @@ function getNodeEdgePoint(node, targetNode) {
             return document.hidden || document.visibilityState === 'hidden';
         }
 
-        // アクティブ化要求(タスクバー明滅・タブ点滅・バッジ・音声)
-        // 非アクティブ時はより強力なアプローチを取る
+        // アクティブ化要求(タスクバー明滅・タブ点滅・バッジ)
+        // 非アクティブ時はより強力な視覚的アプローチを取る
         function requestAttention(count, priority = 3) {
             const hidden = isPageHidden();
 
@@ -10299,42 +10293,31 @@ function getNodeEdgePoint(node, targetNode) {
             const tryFocus = () => {
                 try {
                     window.focus();
-                    // さらに、親ウィンドウも前面化試行
                     if (window.opener) window.opener.focus();
                 } catch (e) {}
             };
             tryFocus();
             if (hidden) {
-                // 非アクティブ時は遅延して再度フォーカス試行
                 setTimeout(tryFocus, 100);
                 setTimeout(tryFocus, 300);
+                setTimeout(tryFocus, 1000);
             }
 
-            // 2. タスクバー/ドックバッジ
-            if (navigator.setAppBadge) {
+            // 2. タスクバー/ドックバッジ（非アクティブ時のみ）
+            if (hidden && navigator.setAppBadge) {
                 navigator.setAppBadge(count).catch(() => {});
             }
 
-            // 3. タイトル点滅（非アクティブ時は長く続ける）
-            flashTitle(count, hidden ? 30000 : 10000);
+            // 3. タイトル点滅（非アクティブ時は長く続ける、優先度に応じて）
+            const duration = hidden ? (priority >= 4 ? 60000 : 30000) : 10000;
+            flashTitle(count, duration);
 
-            // 4. 音声通知（非アクティブ時は連続して鳴らす）
-            if (hidden) {
-                // 非アクティブ時：優先度に応じて連続音
-                const repeat = Math.min(priority, 5);
-                for (let i = 0; i < repeat; i++) {
-                    setTimeout(() => playNotificationSound(priority), i * 400);
-                }
-            } else {
-                playNotificationSound(priority);
-            }
-
-            // 5. 振動（モバイル対応）
+            // 4. 振動（モバイル対応、非アクティブ時のみ）
             if (hidden && navigator.vibrate) {
-                navigator.vibrate([200, 100, 200]);
+                navigator.vibrate([200, 100, 200, 100, 200]);
             }
 
-            console.log('[Attention] Requested, hidden=' + hidden + ', priority=' + priority);
+            console.log('[Attention] Requested, hidden=' + hidden + ', priority=' + priority + ', duration=' + duration);
         }
 
         let _flashInterval = null;
@@ -10517,8 +10500,6 @@ function getNodeEdgePoint(node, targetNode) {
                         _notifiedTasks.delete(key);
                     }
                 }
-            }
-        }
             }
         }
 
