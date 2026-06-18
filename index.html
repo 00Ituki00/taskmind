@@ -10092,31 +10092,38 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             // --- 開始時刻通過通知 ---
-            const startedCount = startedNodes.length;
+            // 初回通知のみ（_notifiedTasksで重複防止）
+            const newStartedNodes = startedNodes.filter(n => {
+                const key = n.id + '-started-' + n.date.toISOString().slice(0, 16);
+                if (_notifiedTasks.has(key)) return false;
+                _notifiedTasks.add(key);
+                return true;
+            });
+            const startedCount = newStartedNodes.length;
             if (startedCount > 0) {
                 // 画面内トースト
                 if (startedCount === 1) {
-                    showToast(`「${startedNodes[0].title}」の開始時刻です`);
+                    showToast(`「${newStartedNodes[0].title}」の開始時刻です`);
                 } else {
-                    const titles = startedNodes.map(n => `・${n.title}`).join('\n');
+                    const titles = newStartedNodes.map(n => `・${n.title}`).join('\n');
                     showToast(`${startedCount}個のタスクが開始時刻を通過しました\n${titles}`);
                 }
 
                 // デスクトップ通知
-                const maxPriority2 = Math.max(...startedNodes.map(n => n.priority || 3));
+                const maxPriority2 = Math.max(...newStartedNodes.map(n => n.priority || 3));
                 sendWhenNotification(
                     startedCount === 1 ? '開始時刻を通過しました' : `${startedCount}個のタスクが開始時刻を通過しました`,
                     startedCount === 1
-                        ? `「${startedNodes[0].title}」の開始時刻を通過しました`
-                        : startedNodes.map(n => `・${n.title}`).join('\n'),
+                        ? `「${newStartedNodes[0].title}」の開始時刻を通過しました`
+                        : newStartedNodes.map(n => `・${n.title}`).join('\n'),
                     maxPriority2
                 );
                 // アクティブ化要求
                 requestAttention(startedCount, maxPriority2);
             }
 
-            // ノードの状態が変化した場合は再描画
-            if (activatedCount > 0 || startedCount > 0) {
+            // ノードの状態が変化した場合は再描画（startedNodes全体で判定）
+            if (activatedCount > 0 || startedNodes.length > 0) {
                 requestAnimationFrame(() => {
                     renderNodes();
                     // Force reflow to ensure visual update without user interaction
@@ -10469,41 +10476,40 @@ function getNodeEdgePoint(node, targetNode) {
         // タスク開始時刻チェック
         function checkTaskReminders() {
             const now = new Date();
-            const notifiedThisMinute = new Set();
 
             state.nodes.forEach(node => {
                 if (node.completed) return;
                 const w = node.details?.when;
-                if (!w || w.type === 'none') return;
+                // 'disabled' のみスキップ
+                if (!w || w.repeatType === 'disabled') return;
 
-                // 次回開始時刻を計算
-                let nextStart = null;
-                if (w.startDate) {
-                    nextStart = new Date(w.startDate);
-                } else if (w.baseTime) {
-                    const base = new Date(w.baseTime);
-                    nextStart = new Date(now.toDateString() + ' ' + base.toTimeString().slice(0, 5));
-                    if (nextStart < now) {
-                        nextStart.setDate(nextStart.getDate() + 1);
-                    }
-                }
-
+                // 次回開始時刻を取得（recalculateWhenDates()で更新されたnextDateを使用）
+                const nextStart = w.nextDate ? new Date(w.nextDate) : null;
                 if (!nextStart || isNaN(nextStart.getTime())) return;
 
-                // 1分前後の誤差で通知
+                // 開始済み（過去）のタスクは通知済みとしてマークしてスキップ
+                if (nextStart <= now) {
+                    const notifyKey = node.id + '-started-' + nextStart.toISOString().slice(0, 16);
+                    if (!_notifiedTasks.has(notifyKey)) {
+                        _notifiedTasks.add(notifyKey);
+                        console.log('[Notify] 開始済みタスクを通知済みとしてマーク:', node.title);
+                    }
+                    return;
+                }
+
+                // 開始5分前から通知
                 const diffMs = nextStart.getTime() - now.getTime();
                 const diffMin = Math.round(diffMs / 60000);
 
+                // 通知キー：次回開始時刻の分単位で一意に
                 const notifyKey = node.id + '-' + nextStart.toISOString().slice(0, 16);
 
-                if (diffMin === 0 && !_notifiedTasks.has(notifyKey)) {
+                if (diffMin <= 5 && diffMin >= 0 && !_notifiedTasks.has(notifyKey)) {
                     _notifiedTasks.add(notifyKey);
-                    // 音は常に鳴らす、OS通知は許可があれば出す
                     const priority = node.details?.priority || 3;
-                    const title = 'TaskMind - 開始時刻';
+                    const title = 'TaskMind - 開始時刻' + (diffMin > 0 ? `（あと${diffMin}分）` : '');
                     const body = `「${node.title}」の開始時刻です`;
                     
-                    // Audioフォールバック付き通知
                     sendWhenNotification(title, body, priority);
                     requestAttention(1, priority);
                 }
