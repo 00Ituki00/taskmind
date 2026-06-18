@@ -10473,7 +10473,7 @@ function getNodeEdgePoint(node, targetNode) {
             return notif;
         }
 
-        // タスク開始時刻チェック
+        // タスク開始時刻チェック（5分前通知 + 開始時刻通知）
         function checkTaskReminders() {
             const now = new Date();
 
@@ -10489,29 +10489,44 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // 開始済み（過去）のタスクは通知済みとしてマークしてスキップ
                 if (nextStart <= now) {
-                    const notifyKey = node.id + '-started-' + nextStart.toISOString().slice(0, 16);
-                    if (!_notifiedTasks.has(notifyKey)) {
-                        _notifiedTasks.add(notifyKey);
+                    const startedKey = node.id + '-started-' + nextStart.toISOString().slice(0, 16);
+                    if (!_notifiedTasks.has(startedKey)) {
+                        _notifiedTasks.add(startedKey);
                         console.log('[Notify] 開始済みタスクを通知済みとしてマーク:', node.title);
                     }
                     return;
                 }
 
-                // 開始5分前から通知
+                // 開始までの残り時間（分）
                 const diffMs = nextStart.getTime() - now.getTime();
                 const diffMin = Math.round(diffMs / 60000);
+                const timeKey = nextStart.toISOString().slice(0, 16);
+                const priority = node.details?.priority || 3;
 
-                // 通知キー：次回開始時刻の分単位で一意に
-                const notifyKey = node.id + '-' + nextStart.toISOString().slice(0, 16);
-
-                if (diffMin <= 5 && diffMin >= 0 && !_notifiedTasks.has(notifyKey)) {
-                    _notifiedTasks.add(notifyKey);
-                    const priority = node.details?.priority || 3;
-                    const title = 'TaskMind - 開始時刻' + (diffMin > 0 ? `（あと${diffMin}分）` : '');
-                    const body = `「${node.title}」の開始時刻です`;
-                    
-                    sendWhenNotification(title, body, priority);
+                // ① 開始5分前通知（diffMinが5の時に1回）
+                const preNotifyKey = node.id + '-5min-' + timeKey;
+                if (diffMin === 5 && !_notifiedTasks.has(preNotifyKey)) {
+                    _notifiedTasks.add(preNotifyKey);
+                    sendWhenNotification(
+                        'TaskMind - 開始5分前',
+                        `「${node.title}」の開始まであと5分です`,
+                        priority
+                    );
                     requestAttention(1, priority);
+                    console.log('[Notify] 5分前通知送信:', node.title);
+                }
+
+                // ② 開始時刻通知（diffMinが0の時に1回）
+                const startNotifyKey = node.id + '-0min-' + timeKey;
+                if (diffMin === 0 && !_notifiedTasks.has(startNotifyKey)) {
+                    _notifiedTasks.add(startNotifyKey);
+                    sendWhenNotification(
+                        'TaskMind - 開始時刻',
+                        `「${node.title}」の開始時刻です`,
+                        priority
+                    );
+                    requestAttention(1, priority);
+                    console.log('[Notify] 開始時刻通知送信:', node.title);
                 }
             });
 
