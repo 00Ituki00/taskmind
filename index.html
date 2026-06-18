@@ -10263,26 +10263,61 @@ function getNodeEdgePoint(node, targetNode) {
             requestAttention(1);
         }
 
+        // ページ可視性状態（非アクティブ検知用）
+        function isPageHidden() {
+            return document.hidden || document.visibilityState === 'hidden';
+        }
+
         // アクティブ化要求(タスクバー明滅・タブ点滅・バッジ・音声)
+        // 非アクティブ時はより強力なアプローチを取る
         function requestAttention(count, priority = 3) {
-            // 1. ウィンドウ前面化
-            try { window.focus(); } catch (e) {}
+            const hidden = isPageHidden();
+
+            // 1. ウィンドウ前面化（非アクティブ時は複数回試行）
+            const tryFocus = () => {
+                try {
+                    window.focus();
+                    // さらに、親ウィンドウも前面化試行
+                    if (window.opener) window.opener.focus();
+                } catch (e) {}
+            };
+            tryFocus();
+            if (hidden) {
+                // 非アクティブ時は遅延して再度フォーカス試行
+                setTimeout(tryFocus, 100);
+                setTimeout(tryFocus, 300);
+            }
 
             // 2. タスクバー/ドックバッジ
             if (navigator.setAppBadge) {
                 navigator.setAppBadge(count).catch(() => {});
             }
 
-            // 3. タイトル点滅
-            flashTitle(count);
+            // 3. タイトル点滅（非アクティブ時は長く続ける）
+            flashTitle(count, hidden ? 30000 : 10000);
 
-            // 4. 音声通知（ブラウザ非アクティブ時も有効）
-            playNotificationSound(priority);
+            // 4. 音声通知（非アクティブ時は連続して鳴らす）
+            if (hidden) {
+                // 非アクティブ時：優先度に応じて連続音
+                const repeat = Math.min(priority, 5);
+                for (let i = 0; i < repeat; i++) {
+                    setTimeout(() => playNotificationSound(priority), i * 400);
+                }
+            } else {
+                playNotificationSound(priority);
+            }
+
+            // 5. 振動（モバイル対応）
+            if (hidden && navigator.vibrate) {
+                navigator.vibrate([200, 100, 200]);
+            }
+
+            console.log('[Attention] Requested, hidden=' + hidden + ', priority=' + priority);
         }
 
         let _flashInterval = null;
         let _originalTitle = document.title;
-        function flashTitle(count) {
+        function flashTitle(count, duration = 10000) {
             if (_flashInterval) return;
             const msg = count ? `【${count}件】` : '【通知】';
             let on = false;
@@ -10290,8 +10325,8 @@ function getNodeEdgePoint(node, targetNode) {
                 document.title = on ? _originalTitle : msg + _originalTitle;
                 on = !on;
             }, 1000);
-            // 10秒後に停止
-            setTimeout(() => { stopFlashTitle(); }, 10000);
+            // 指定時間後に停止
+            setTimeout(() => { stopFlashTitle(); }, duration);
         }
         function stopFlashTitle() {
             if (_flashInterval) {
