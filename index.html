@@ -10022,7 +10022,8 @@ function getNodeEdgePoint(node, targetNode) {
 
             state.nodes.forEach(node => {
                 const w = node.details?.when;
-                if (!w || !w.repeatType || w.repeatType === 'none') return;
+                // 'disabled' のみスキップ。'none'（1回限り）も開始時刻チェックの対象
+                if (!w || w.repeatType === 'disabled') return;
 
                 const nextDate = w.nextDate ? new Date(w.nextDate) : null;
                 if (!nextDate) return;
@@ -10116,7 +10117,12 @@ function getNodeEdgePoint(node, targetNode) {
 
             // ノードの状態が変化した場合は再描画
             if (activatedCount > 0 || startedCount > 0) {
-                renderNodes();
+                requestAnimationFrame(() => {
+                    renderNodes();
+                    // Force reflow to ensure visual update without user interaction
+                    document.body.offsetHeight;
+                    console.log('[When] renderNodes called via requestAnimationFrame');
+                });
             }
 
             return activatedCount + startedCount;
@@ -10614,6 +10620,33 @@ function getNodeEdgePoint(node, targetNode) {
                 document.body.offsetHeight; // force reflow
             }
         });
+
+        // テスト用：未来のタスク（Worker自動更新テスト用）
+        // 開始時刻を1分後に設定（テスト時に即座にstarted状態になるよう）
+        const testNow = new Date();
+        const testStart = new Date(testNow.getTime() + 60 * 1000);
+        state.nodes.push({
+            id: state.nextId++,
+            title: '[TEST] Worker自動更新確認タスク（1分後開始）',
+            x: 400,
+            y: 300,
+            width: 280,
+            height: 120,
+            color: '#e74c3c',
+            completed: false,
+            collapsed: false,
+            details: {
+                when: {
+                    repeatType: 'none',
+                    nextDate: testStart.toISOString(),
+                    baseDateTime: testStart.toISOString()
+                },
+                priority: 4,
+                deadlineDays: 1
+            },
+            children: []
+        });
+        console.log('[Test] Workerテストタスク追加：開始時刻', testStart.toLocaleString('ja-JP'), '(1分後)');
 
         // AudioContextの自動再生ポリシー対応：ユーザー操作で初期化
         document.addEventListener('click', () => {
