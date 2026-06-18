@@ -9421,13 +9421,17 @@ function getNodeEdgePoint(node, targetNode) {
             if (currentPermission === 'granted') {
                 _notificationEnabled = true;
                 updateNotifyButton(true);
-                showToast('通知はすでに有効です');
+                // テスト通知を送信
+                sendTestNotification();
+                showToast('通知は有効です（テスト通知を送信しました）');
                 return;
             }
             
             if (currentPermission === 'denied') {
-                showToast('通知がブロックされています。ブラウザ設定で許可してください');
+                showToast('通知がブロックされています。ブラウザ設定で許可してください\n※音での通知は動作します');
                 updateNotifyButton(false, true);
+                // 音のみテスト
+                playNotificationSound(3);
                 return;
             }
             
@@ -10025,13 +10029,13 @@ function getNodeEdgePoint(node, targetNode) {
                     if (nextDateStart <= todayStart) {
                         node.completed = false;
                         node.completedAt = null;
-                        activatedNodes.push({ id: node.id, title: node.title, date: nextDate });
+                        activatedNodes.push({ id: node.id, title: node.title, date: nextDate, priority: node.details?.priority || 3 });
                         console.log(`[When] ノード「${node.title}」を有効化(開始日: ${nextDate.toLocaleDateString('ja-JP')})`);
                     }
                 } else {
                     // 有効状態で開始日時を通過していれば通知
                     if (nextDate <= now) {
-                        startedNodes.push({ id: node.id, title: node.title, date: nextDate });
+                        startedNodes.push({ id: node.id, title: node.title, date: nextDate, priority: node.details?.priority || 3 });
                         isStarted = true;
                         console.log(`[When] ノード「${node.title}」の開始時刻を通過(${nextDate.toLocaleString('ja-JP')})`);
                     }
@@ -10068,14 +10072,16 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 // デスクトップ通知
+                const maxPriority = Math.max(...activatedNodes.map(n => n.priority || 3));
                 sendWhenNotification(
                     activatedCount === 1 ? 'タスクを有効化しました' : `${activatedCount}個のタスクを有効化しました`,
                     activatedCount === 1
                         ? `「${activatedNodes[0].title}」が本日の予定です`
-                        : activatedNodes.map(n => `・${n.title}`).join('\n')
+                        : activatedNodes.map(n => `・${n.title}`).join('\n'),
+                    maxPriority
                 );
                 // アクティブ化要求
-                requestAttention(activatedCount);
+                requestAttention(activatedCount, maxPriority);
             }
 
             // --- 開始時刻通過通知 ---
@@ -10090,14 +10096,16 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 // デスクトップ通知
+                const maxPriority2 = Math.max(...startedNodes.map(n => n.priority || 3));
                 sendWhenNotification(
                     startedCount === 1 ? '開始時刻を通過しました' : `${startedCount}個のタスクが開始時刻を通過しました`,
                     startedCount === 1
                         ? `「${startedNodes[0].title}」の開始時刻を通過しました`
-                        : startedNodes.map(n => `・${n.title}`).join('\n')
+                        : startedNodes.map(n => `・${n.title}`).join('\n'),
+                    maxPriority2
                 );
                 // アクティブ化要求
-                requestAttention(startedCount);
+                requestAttention(startedCount, maxPriority2);
             }
 
             return activatedCount + startedCount;
@@ -10181,38 +10189,95 @@ function getNodeEdgePoint(node, targetNode) {
             console.log(`[When] 「${node.title}」完了取消: nextDate=${w.nextDate}`);
         }
 
-        // デスクトップ通知送信ヘルパー
-        function sendWhenNotification(title, body) {
-            if (!('Notification' in window)) return;
-            const send = () => {
-                const n = new Notification(title, { body: body, icon: '/favicon.ico' });
-                // 通知クリックでウィンドウをアクティブ化
-                n.addEventListener('click', () => {
-                    window.focus();
-                    if (navigator.clearAppBadge) navigator.clearAppBadge();
-                });
-            };
-            if (Notification.permission === 'granted') {
-                send();
-            } else if (Notification.permission === 'default') {
-                Notification.requestPermission().then(permission => {
-                    if (permission === 'granted') send();
-                });
+        // Audio通知（ブラウザが非アクティブ・通知ブロック時でも鳴る）
+        function playNotificationSound(priority = 3) {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                const freqs = [523, 659, 784, 880, 1047]; // 優先度に応じた音階
+                osc.frequency.value = freqs[Math.min(priority - 1, 4)] || 784;
+                osc.type = priority >= 4 ? 'square' : 'sine';
+                gain.gain.setValueAtTime(0.25, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.4);
+                // 2回鳴らす（優先度3以上）
+                if (priority >= 3) {
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(ctx.destination);
+                    osc2.frequency.value = freqs[Math.min(priority - 1, 4)] || 784;
+                    osc2.type = osc.type;
+                    gain2.gain.setValueAtTime(0.25, ctx.currentTime + 0.25);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.65);
+                    osc2.start(ctx.currentTime + 0.25);
+                    osc2.stop(ctx.currentTime + 0.65);
+                }
+                setTimeout(() => ctx.close(), 1000);
+            } catch (e) {
+                console.log('[Audio] Failed to play sound:', e);
             }
         }
 
-        // アクティブ化要求(タスクバー明滅・タブ点滅・バッジ)
-        function requestAttention(count) {
-            // 1. ウィンドウ前面化(ブラウザが許可する場合)
+        // デスクトップ通知送信ヘルパー（Audioフォールバック付き）
+        function sendWhenNotification(title, body, priority = 3) {
+            let sent = false;
+            const sendNative = () => {
+                if (!('Notification' in window)) return false;
+                const doSend = () => {
+                    const n = new Notification(title, { body: body, icon: '/favicon.ico' });
+                    n.addEventListener('click', () => {
+                        window.focus();
+                        if (navigator.clearAppBadge) navigator.clearAppBadge();
+                    });
+                };
+                if (Notification.permission === 'granted') {
+                    doSend(); sent = true; return true;
+                } else if (Notification.permission === 'default') {
+                    Notification.requestPermission().then(p => { if (p === 'granted') doSend(); });
+                    return false;
+                }
+                return false;
+            };
+            const nativeOk = sendNative();
+            // ネイティブ通知が出せなくても音は鳴らす（フォールバック）
+            if (!nativeOk) {
+                playNotificationSound(priority);
+            }
+            return sent;
+        }
+
+        // テスト通知（ユーザー確認用）
+        function sendTestNotification() {
+            const priority = 3;
+            const nativeSent = sendWhenNotification('TaskMind テスト', '通知テストです', priority);
+            if (!nativeSent) {
+                showToast('通知テスト（音のみ）\nOS通知を使うにはブラウザ設定で許可してください');
+            }
+            requestAttention(1);
+        }
+
+        // アクティブ化要求(タスクバー明滅・タブ点滅・バッジ・音声)
+        function requestAttention(count, priority = 3) {
+            // 1. ウィンドウ前面化
             try { window.focus(); } catch (e) {}
 
-            // 2. タスクバー/ドックバッジ(Chrome/Edge対応)
+            // 2. タスクバー/ドックバッジ
             if (navigator.setAppBadge) {
                 navigator.setAppBadge(count).catch(() => {});
             }
 
             // 3. タイトル点滅
             flashTitle(count);
+
+            // 4. 音声通知（ブラウザ非アクティブ時も有効）
+            playNotificationSound(priority);
         }
 
         let _flashInterval = null;
