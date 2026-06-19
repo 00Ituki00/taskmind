@@ -161,6 +161,27 @@ function sortNodesByPriority(nodes = state.nodes) {
     return [...nodes].sort((a, b) => (b.priority || 0) - (a.priority || 0));
 }
 
+function sortNodeChildren(parentNode) {
+    if (!parentNode.children || parentNode.children.length <= 1) return;
+    
+    // 子ノードを優先度でソート（高い順）
+    const childNodes = parentNode.children
+        .map(id => getNodeById(id))
+        .filter(Boolean)
+        .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    
+    // children配列を更新
+    parentNode.children = childNodes.map(n => n.id);
+    
+    // 子ノードの位置を整える（Y座標を均等に配置）
+    const startY = parentNode.y + (parentNode.height || 100) + 20;
+    const spacing = 80;
+    childNodes.forEach((child, index) => {
+        child.x = parentNode.x;
+        child.y = startY + index * spacing;
+    });
+}
+
 function sortNodesByDueDate(nodes = state.nodes) {
     return [...nodes].sort((a, b) => {
         const aDue = a.details && a.details.when ? calculateNextDueDate(a.details.when) : null;
