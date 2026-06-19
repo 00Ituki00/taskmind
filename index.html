@@ -7474,8 +7474,7 @@ function getNodeEdgePoint(node, targetNode) {
         }
         
         // Attempt auto-restore only if enabled
-        // const restored = isAutoloadEnabled() ? loadAutosave() : false;
-        const restored = false; // 一時的に無効化してサンプルデータを表示
+        const restored = isAutoloadEnabled() ? loadAutosave() : false;
         
         // fetch Last-Modified header to show file update time and commit id
         (function updateFileInfo() {

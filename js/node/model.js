@@ -164,11 +164,19 @@ function sortNodesByPriority(nodes = state.nodes) {
 function sortNodeChildren(parentNode) {
     if (!parentNode.children || parentNode.children.length <= 1) return;
     
-    // 子ノードを優先度でソート（高い順）
+    // 子ノードを取得
     const childNodes = parentNode.children
         .map(id => getNodeById(id))
-        .filter(Boolean)
-        .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+        .filter(Boolean);
+    
+    // 未完了タスクを優先度でソート（高い順）、完了済みタスクを最下部に
+    childNodes.sort((a, b) => {
+        // 完了済みタスクは最下部へ
+        if (a.completed && !b.completed) return 1;
+        if (!a.completed && b.completed) return -1;
+        // 同じ完了状態なら優先度でソート
+        return (b.priority || 0) - (a.priority || 0);
+    });
     
     // children配列を更新
     parentNode.children = childNodes.map(n => n.id);
