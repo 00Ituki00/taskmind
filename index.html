@@ -6,6 +6,7 @@
     <meta name="version" content="v1.0.0">
     <title>TaskMind</title>
     <link rel="stylesheet" href="css/main.css">
+    <script src="js/config.js"></script>
 </head>
 <body>
     <!-- Toolbar -->
@@ -100,35 +101,20 @@
             resizeStartY: 0,
             resizeStartWidth: 0,
             resizeStartHeight: 0,
-            colors: ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4dd0e1', '#4db6ac', '#81c784', '#aed581', '#dce775', '#fff176', '#ffd54f', '#ffb74d', '#ff8a65', '#a1887f', '#e0e0e0'],
+            colors: DEFAULT_COLORS,
             reorderTarget: null,
             lastFileHandle: null,
             lastFileName: null,
             hideCompleted: false,
-            layoutMode: 'free',  // 'free' | 'timeline'
+            layoutMode: LAYOUT_MODES.FREE,
             timeline: {
-                viewStart: new Date().toISOString().split('T')[0],  // YYYY-MM-DD
-                viewRange: 'week',  // 'week' | 'month' | 'quarter'
-                dayWidth: 120,      // px per day
-                laneHeight: 80,    // px per lane (expanded) - reduced for compact view
-                expandedLanes: {
-                    daily: true,
-                    weekly: true,
-                    monthly: true,
-                    yearly: true,
-                    task: true,
-                    asap: true
-                }
+                viewStart: new Date().toISOString().split('T')[0],
+                viewRange: TIMELINE_DEFAULTS.viewRange,
+                dayWidth: TIMELINE_DEFAULTS.dayWidth,
+                laneHeight: TIMELINE_DEFAULTS.laneHeight,
+                expandedLanes: { ...TIMELINE_DEFAULTS.expandedLanes }
             },
-            customConnectionTypes: [
-                { label: 'なぜ？', color: '#e74c3c', icon: '🔍' },
-                { label: 'どうやって？', color: '#3498db', icon: '🔧' },
-                { label: 'しかし', color: '#e67e22', icon: '⚠️' },
-                { label: 'つまり', color: '#2ecc71', icon: '✅' },
-                { label: '代わりに', color: '#9b59b6', icon: '🔀' },
-                { label: 'ただし', color: '#f39c12', icon: '❗' },
-                { label: 'だから', color: '#e91e63', icon: '➡️' }
-            ]
+            customConnectionTypes: [...DEFAULT_CONNECTION_TYPES]
         };
 
         // ==================== DOM refs ====================
