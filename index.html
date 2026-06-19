@@ -6391,7 +6391,11 @@ function getNodeEdgePoint(node, targetNode) {
                     renderNodes();
                 }});
                 items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
-                    if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
+                    if (confirm('このノードを削除しますか?')) {
+                        deleteNode(nodeId);
+                        renderNodes();
+                        renderConnections();
+                    }
                 }});
 
                 // Ungroup option for child nodes
@@ -6680,6 +6684,8 @@ function getNodeEdgePoint(node, targetNode) {
                     deleteNode(state.selectedNodeId);
                     state.selectedNodeId = null;
                 }
+                renderNodes();
+                renderConnections();
                 return;
             }
 
