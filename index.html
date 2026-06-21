@@ -6146,6 +6146,189 @@ function getNodeEdgePoint(node, targetNode) {
             return Math.sqrt(dx * dx + dy * dy);
         }
 
+        // ==================== Connection Type Selector ====================
+        function showConnectionTypeSelectorAtStart(nodeId, x, y) {
+            const existing = document.querySelector('.connection-type-selector');
+            if (existing) existing.remove();
+
+            const selector = document.createElement('div');
+            selector.className = 'connection-type-selector';
+            selector.style.cssText = `
+                position: fixed;
+                left: ${x}px;
+                top: ${y}px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                padding: 8px 0;
+                z-index: 10000;
+                min-width: 180px;
+            `;
+
+            const types = [
+                { type: 'Related', label: '関連', icon: '🔗' },
+                { type: 'Depends', label: '依存', icon: '⬇️' },
+                { type: 'Blocks', label: 'ブロック', icon: '🚫' },
+                { type: 'Subtask', label: 'サブタスク', icon: '📋' },
+                { type: 'Reference', label: '参照', icon: '📎' },
+                { type: 'Custom', label: 'カスタム', icon: '✏️' }
+            ];
+
+            const title = document.createElement('div');
+            title.style.cssText = 'padding: 8px 16px; font-weight: 600; font-size: 13px; color: #333; border-bottom: 1px solid #eee; margin-bottom: 4px;';
+            title.textContent = '接続タイプを選択';
+            selector.appendChild(title);
+
+            types.forEach(t => {
+                const item = document.createElement('div');
+                item.style.cssText = `
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                `;
+                item.innerHTML = `${t.icon} ${t.label}`;
+                item.addEventListener('mouseenter', () => item.style.background = '#f0f0f0');
+                item.addEventListener('mouseleave', () => item.style.background = 'transparent');
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selector.remove();
+                    if (t.type === 'Custom') {
+                        const custom = prompt('カスタムタイプ名を入力:');
+                        if (custom) {
+                            state.connectingFrom = nodeId;
+                            state.pendingConnectionType = 'Custom';
+                            state.pendingConnectionCustomType = custom;
+                            modeIndicator.textContent = `接続モード: 終了ノードを選択 (${custom})`;
+                        }
+                    } else {
+                        state.connectingFrom = nodeId;
+                        state.pendingConnectionType = t.type;
+                        state.pendingConnectionCustomType = '';
+                        modeIndicator.textContent = `接続モード: 終了ノードを選択 (${t.label})`;
+                    }
+                });
+                selector.appendChild(item);
+            });
+
+            const cancel = document.createElement('div');
+            cancel.style.cssText = `
+                padding: 8px 16px;
+                cursor: pointer;
+                font-size: 13px;
+                color: #666;
+                border-top: 1px solid #eee;
+                margin-top: 4px;
+            `;
+            cancel.textContent = 'キャンセル';
+            cancel.addEventListener('mouseenter', () => cancel.style.background = '#f0f0f0');
+            cancel.addEventListener('mouseleave', () => cancel.style.background = 'transparent');
+            cancel.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selector.remove();
+                state.connectingFrom = null;
+                state.pendingConnectionType = null;
+                state.pendingConnectionCustomType = null;
+                setMode('select');
+            });
+            selector.appendChild(cancel);
+
+            document.body.appendChild(selector);
+
+            const rect = selector.getBoundingClientRect();
+            if (rect.right > window.innerWidth) selector.style.left = (window.innerWidth - rect.width - 10) + 'px';
+            if (rect.bottom > window.innerHeight) selector.style.top = (window.innerHeight - rect.height - 10) + 'px';
+
+            const close = (e) => {
+                if (!selector.contains(e.target)) {
+                    selector.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
+        function showConnectionTypeSelectorForEdit(conn, x, y) {
+            const existing = document.querySelector('.connection-type-selector');
+            if (existing) existing.remove();
+
+            const selector = document.createElement('div');
+            selector.className = 'connection-type-selector';
+            selector.style.cssText = `
+                position: fixed;
+                left: ${x}px;
+                top: ${y}px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                padding: 8px 0;
+                z-index: 10000;
+                min-width: 180px;
+            `;
+
+            const types = [
+                { type: 'Related', label: '関連', icon: '🔗' },
+                { type: 'Depends', label: '依存', icon: '⬇️' },
+                { type: 'Blocks', label: 'ブロック', icon: '🚫' },
+                { type: 'Subtask', label: 'サブタスク', icon: '📋' },
+                { type: 'Reference', label: '参照', icon: '📎' },
+                { type: 'Custom', label: 'カスタム', icon: '✏️' }
+            ];
+
+            const title = document.createElement('div');
+            title.style.cssText = 'padding: 8px 16px; font-weight: 600; font-size: 13px; color: #333; border-bottom: 1px solid #eee; margin-bottom: 4px;';
+            title.textContent = '接続タイプを変更';
+            selector.appendChild(title);
+
+            types.forEach(t => {
+                const item = document.createElement('div');
+                item.style.cssText = `
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                `;
+                item.innerHTML = `${t.icon} ${t.label}`;
+                item.addEventListener('mouseenter', () => item.style.background = '#f0f0f0');
+                item.addEventListener('mouseleave', () => item.style.background = 'transparent');
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selector.remove();
+                    if (t.type === 'Custom') {
+                        const custom = prompt('カスタムタイプ名を入力:');
+                        if (custom) {
+                            conn.type = 'Custom';
+                            conn.customType = custom;
+                            renderConnections();
+                        }
+                    } else {
+                        conn.type = t.type;
+                        conn.customType = '';
+                        renderConnections();
+                    }
+                });
+                selector.appendChild(item);
+            });
+
+            document.body.appendChild(selector);
+
+            const rect = selector.getBoundingClientRect();
+            if (rect.right > window.innerWidth) selector.style.left = (window.innerWidth - rect.width - 10) + 'px';
+            if (rect.bottom > window.innerHeight) selector.style.top = (window.innerHeight - rect.height - 10) + 'px';
+
+            const close = (e) => {
+                if (!selector.contains(e.target)) {
+                    selector.remove();
+                    document.removeEventListener('click', close);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', close), 10);
+        }
+
         function showConnectionContextMenu(x, y, conn) {
             const existing = document.querySelector('.context-menu');
             if (existing) existing.remove();
