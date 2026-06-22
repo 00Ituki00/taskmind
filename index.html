@@ -2503,7 +2503,12 @@
             const exists = state.connections.some(c => c.from === from && c.to === to);
             if (exists) return;
 
-            state.connections.push({ from, to, label, type, customType });
+            const conn = { from, to, label, type, customType };
+            if (state.pendingNoArrow) {
+                conn.noArrow = true;
+                state.pendingNoArrow = false;
+            }
+            state.connections.push(conn);
             renderConnections();
         }
 
@@ -2542,6 +2547,7 @@
                 e.stopPropagation();
                 state.pendingConnectionType = '';
                 state.pendingConnectionCustomType = '';
+                state.pendingNoArrow = false;
                 state.connectingFrom = fromNodeId;
                 state.mode = 'connect';
                 modeIndicator.textContent = '接続モード: 終了ノードを選択';
@@ -2549,6 +2555,29 @@
                 popup.remove();
             });
             popup.appendChild(plainConnBtn);
+
+            // 方向なし（矢印なし）オプション
+            const noArrowBtn = document.createElement('button');
+            noArrowBtn.style.cssText = `
+                border:none; background:none; padding:6px 8px; border-radius:4px;
+                cursor:pointer; text-align:left; font-size:13px;
+                display:flex; align-items:center; gap:6px;
+            `;
+            noArrowBtn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:#cccccc;display:inline-block;"></span> ─ 方向なし`;
+            noArrowBtn.addEventListener('mouseenter', () => noArrowBtn.style.background = '#f5f5f5');
+            noArrowBtn.addEventListener('mouseleave', () => noArrowBtn.style.background = 'none');
+            noArrowBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.pendingConnectionType = '';
+                state.pendingConnectionCustomType = '';
+                state.pendingNoArrow = true;
+                state.connectingFrom = fromNodeId;
+                state.mode = 'connect';
+                modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                modeIndicator.classList.add('active');
+                popup.remove();
+            });
+            popup.appendChild(noArrowBtn);
 
             const sep0 = document.createElement('div');
             sep0.style.cssText = 'border-top:1px solid #eee; margin:4px 0;';
@@ -2827,6 +2856,64 @@
                 z-index:10000; display:flex; flex-direction:column; gap:4px;
                 font-size:13px; min-width:120px; max-width:260px;
             `;
+
+            // ── 接続線操作 ──
+            const opsTitle = document.createElement('div');
+            opsTitle.style.cssText = 'font-size:11px; color:#888; padding:4px 8px; font-weight:600;';
+            opsTitle.textContent = '接続線操作';
+            popup.appendChild(opsTitle);
+
+            // 方向を反転
+            const reverseBtn = document.createElement('button');
+            reverseBtn.style.cssText = 'border:none; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; display:flex; align-items:center; gap:6px;';
+            reverseBtn.innerHTML = `🔄 方向を反転`;
+            reverseBtn.addEventListener('mouseenter', () => reverseBtn.style.background = '#f5f5f5');
+            reverseBtn.addEventListener('mouseleave', () => reverseBtn.style.background = 'none');
+            reverseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const oldFrom = conn.from;
+                const oldTo = conn.to;
+                conn.from = oldTo;
+                conn.to = oldFrom;
+                popup.remove();
+                renderConnections();
+            });
+            popup.appendChild(reverseBtn);
+
+            // 方向あり/なし
+            const arrowToggleBtn = document.createElement('button');
+            const hasArrow = !conn.noArrow;
+            arrowToggleBtn.style.cssText = 'border:none; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; display:flex; align-items:center; gap:6px;';
+            arrowToggleBtn.innerHTML = hasArrow ? `➡️ 方向あり (矢印表示中)` : `➖ 方向なし (矢印非表示)`;
+            arrowToggleBtn.addEventListener('mouseenter', () => arrowToggleBtn.style.background = '#f5f5f5');
+            arrowToggleBtn.addEventListener('mouseleave', () => arrowToggleBtn.style.background = 'none');
+            arrowToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                conn.noArrow = !conn.noArrow;
+                popup.remove();
+                renderConnections();
+            });
+            popup.appendChild(arrowToggleBtn);
+
+            // ラベルをクリア
+            const clearBtn = document.createElement('button');
+            clearBtn.style.cssText = 'border:none; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; display:flex; align-items:center; gap:6px;';
+            clearBtn.innerHTML = `🧹 ラベルをクリア`;
+            clearBtn.addEventListener('mouseenter', () => clearBtn.style.background = '#f5f5f5');
+            clearBtn.addEventListener('mouseleave', () => clearBtn.style.background = 'none');
+            clearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                conn.label = '';
+                conn.type = '';
+                conn.customType = '';
+                popup.remove();
+                renderConnections();
+            });
+            popup.appendChild(clearBtn);
+
+            const sepOps = document.createElement('div');
+            sepOps.style.cssText = 'border-top:1px solid #eee; margin:4px 0;';
+            popup.appendChild(sepOps);
 
             // カスタム接続線タイプ一覧
             if (state.customConnectionTypes && state.customConnectionTypes.length > 0) {
@@ -7108,8 +7195,8 @@ function getNodeEdgePoint(node, targetNode) {
                     group.appendChild(toPoint);
                 }
 
-                // Arrowhead - hidden when collapsed
-                if (!conn.collapsed) {
+                // Arrowhead - hidden when collapsed or noArrow is set
+                if (!conn.collapsed && !conn.noArrow) {
                     const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                     const angle = Math.atan2(y2 - cy2, x2 - cx2);
                     const arrowLen = 10;
@@ -8659,19 +8746,6 @@ function getNodeEdgePoint(node, targetNode) {
                         conn.originalToPos = { x: toNode.x, y: toNode.y };
                     }
                     renderNodes();
-                    renderConnections();
-                }},
-                { text: '方向を反転', icon: '🔄', action: () => {
-                    const oldFrom = conn.from;
-                    const oldTo = conn.to;
-                    conn.from = oldTo;
-                    conn.to = oldFrom;
-                    renderConnections();
-                }},
-                { text: 'ラベルをクリア', icon: '🧹', action: () => {
-                    conn.label = '';
-                    conn.type = '';
-                    conn.customType = '';
                     renderConnections();
                 }},
                 { text: 'タイプ変更', icon: '🏷️', action: () => {
