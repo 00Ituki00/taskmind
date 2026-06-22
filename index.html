@@ -2929,87 +2929,10 @@
             popup.appendChild(sepOps);
 
             // ── 使用履歴 ──
-            const historyMap = new Map();
-            state.connections.forEach(c => {
-                const key = c.customType || c.type || c.label || '';
-                if (!key) return;
-                if (!historyMap.has(key)) {
-                    const ct = state.customConnectionTypes.find(t => t.label === c.customType);
-                    historyMap.set(key, {
-                        count: 0,
-                        customType: c.customType,
-                        type: c.type,
-                        label: c.label,
-                        color: ct ? ct.color : '#888888'
-                    });
-                }
-                historyMap.get(key).count++;
-            });
-
-            const history = Array.from(historyMap.entries())
-                .sort((a, b) => b[1].count - a[1].count)
-                .slice(0, 12);
-
-            if (history.length > 0) {
-                const histTitle = document.createElement('div');
-                histTitle.style.cssText = 'font-size:11px; color:#888; padding:4px 8px; font-weight:600;';
-                histTitle.textContent = '使用履歴';
-                popup.appendChild(histTitle);
-
-                const histWrap = document.createElement('div');
-                histWrap.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; padding:4px 8px;';
-
-                history.forEach(([key, info]) => {
-                    const tag = document.createElement('button');
-                    const isCurrent = (conn.customType && conn.customType === info.customType) ||
-                                      (conn.type && conn.type === info.type) ||
-                                      (conn.label && conn.label === info.label);
-                    tag.style.cssText = `
-                        border:none; background:${isCurrent ? info.color + '22' : '#f5f5f5'};
-                        color:${info.color === '#888888' ? '#333' : info.color};
-                        padding:3px 10px; border-radius:12px; cursor:pointer;
-                        font-size:12px; white-space:nowrap;
-                        border:1px solid ${isCurrent ? info.color : 'transparent'};
-                    `;
-                    tag.textContent = key;
-                    tag.addEventListener('mouseenter', () => {
-                        if (!isCurrent) tag.style.background = info.color + '18';
-                    });
-                    tag.addEventListener('mouseleave', () => {
-                        if (!isCurrent) tag.style.background = '#f5f5f5';
-                    });
-                    tag.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        if (info.customType) {
-                            conn.customType = info.customType;
-                            conn.type = '';
-                            conn.label = '';
-                        } else if (info.type) {
-                            conn.type = info.type;
-                            conn.customType = '';
-                            conn.label = '';
-                        } else if (info.label) {
-                            conn.label = info.label;
-                            conn.type = '';
-                            conn.customType = '';
-                        }
-                        popup.remove();
-                        renderConnections();
-                    });
-                    histWrap.appendChild(tag);
-                });
-                popup.appendChild(histWrap);
-
-                const sepHist = document.createElement('div');
-                sepHist.style.cssText = 'border-top:1px solid #eee; margin:4px 0;';
-                popup.appendChild(sepHist);
-            }
-
-            // ── カスタムタイプ管理 ──
             if (state.customConnectionTypes && state.customConnectionTypes.length > 0) {
                 const customTitle = document.createElement('div');
                 customTitle.style.cssText = 'font-size:11px; color:#888; padding:4px 8px; font-weight:600;';
-                customTitle.textContent = 'カスタムタイプ';
+                customTitle.textContent = '使用履歴';
                 popup.appendChild(customTitle);
 
                 const customWrap = document.createElement('div');
