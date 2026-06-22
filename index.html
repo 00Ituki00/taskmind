@@ -5210,30 +5210,17 @@ function getNodeEdgePoint(node, targetNode) {
                     el.style.left = node.x + 'px';
                     el.style.top = node.y + 'px';
                     const rootDisplayColor = getNodeDisplayColor(node);
-                    // Priority border styling for root nodes (0-5), skip if completed
+                    // Root/single nodes: full border with node color, thickness by priority
+                    const rp = node.priority || 0;
+                    let borderWidth = '2px';
                     if (!node.completed) {
-                        const rp = node.priority || 0;
-                        if (rp >= 5) {
-                            el.style.border = '3px solid #c0392b';
-                            el.style.borderLeft = `4px solid ${rootDisplayColor}`;
-                        } else if (rp >= 4) {
-                            el.style.border = '2.5px solid #e74c3c';
-                            el.style.borderLeft = `4px solid ${rootDisplayColor}`;
-                        } else if (rp >= 3) {
-                            el.style.border = '2px solid #e67e22';
-                            el.style.borderLeft = `3px solid ${rootDisplayColor}`;
-                        } else if (rp >= 2) {
-                            el.style.border = '1.5px solid #f39c12';
-                            el.style.borderLeft = `3px solid ${rootDisplayColor}`;
-                        } else if (rp >= 1) {
-                            el.style.border = '1px solid #f0c040';
-                            el.style.borderLeft = `3px solid ${rootDisplayColor}`;
-                        } else {
-                            el.style.borderLeft = `3px solid ${rootDisplayColor}`;
-                        }
-                    } else {
-                        el.style.borderLeft = `3px solid ${rootDisplayColor}`;
+                        if (rp >= 5) borderWidth = '3.5px';
+                        else if (rp >= 4) borderWidth = '3px';
+                        else if (rp >= 3) borderWidth = '2.5px';
+                        else if (rp >= 2) borderWidth = '2px';
+                        else if (rp >= 1) borderWidth = '1.5px';
                     }
+                    el.style.border = `${borderWidth} solid ${rootDisplayColor}`;
                 }
                 el.dataset.id = node.id;
 
