@@ -2884,7 +2884,7 @@
             const arrowToggleBtn = document.createElement('button');
             const hasArrow = !conn.noArrow;
             arrowToggleBtn.style.cssText = 'border:none; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; display:flex; align-items:center; gap:6px;';
-            arrowToggleBtn.innerHTML = hasArrow ? `➡️ 方向あり (矢印表示中)` : `➖ 方向なし (矢印非表示)`;
+            arrowToggleBtn.innerHTML = hasArrow ? '➡️ 方向あり' : '➖ 方向なし';
             arrowToggleBtn.addEventListener('mouseenter', () => arrowToggleBtn.style.background = '#f5f5f5');
             arrowToggleBtn.addEventListener('mouseleave', () => arrowToggleBtn.style.background = 'none');
             arrowToggleBtn.addEventListener('click', (e) => {
