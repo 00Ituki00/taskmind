@@ -2863,10 +2863,14 @@
             opsTitle.textContent = '接続線操作';
             popup.appendChild(opsTitle);
 
+            // 方向を反転・ラベル消去（2ボタン並列表示）
+            const actionWrap = document.createElement('div');
+            actionWrap.style.cssText = 'display:flex; gap:4px; padding:2px 8px;';
+
             // 方向を反転
             const reverseBtn = document.createElement('button');
-            reverseBtn.style.cssText = 'border:none; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; display:flex; align-items:center; gap:6px;';
-            reverseBtn.innerHTML = `🔄 方向を反転`;
+            reverseBtn.style.cssText = 'flex:1; border:1px solid #ddd; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:center; font-size:13px; color:#666;';
+            reverseBtn.innerHTML = '🔄 方向を反転';
             reverseBtn.addEventListener('mouseenter', () => reverseBtn.style.background = '#f5f5f5');
             reverseBtn.addEventListener('mouseleave', () => reverseBtn.style.background = 'none');
             reverseBtn.addEventListener('click', (e) => {
@@ -2878,7 +2882,25 @@
                 popup.remove();
                 renderConnections();
             });
-            popup.appendChild(reverseBtn);
+            actionWrap.appendChild(reverseBtn);
+
+            // ラベル消去
+            const clearBtn = document.createElement('button');
+            clearBtn.style.cssText = 'flex:1; border:1px solid #ddd; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:center; font-size:13px; color:#666;';
+            clearBtn.innerHTML = '🧹 ラベル消去';
+            clearBtn.addEventListener('mouseenter', () => clearBtn.style.background = '#f5f5f5');
+            clearBtn.addEventListener('mouseleave', () => clearBtn.style.background = 'none');
+            clearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                conn.label = '';
+                conn.type = '';
+                conn.customType = '';
+                popup.remove();
+                renderConnections();
+            });
+            actionWrap.appendChild(clearBtn);
+
+            popup.appendChild(actionWrap);
 
             // 方向あり/なし（2ボタン並列表示）
             const arrowWrap = document.createElement('div');
