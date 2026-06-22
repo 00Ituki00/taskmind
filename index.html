@@ -5209,14 +5209,30 @@ function getNodeEdgePoint(node, targetNode) {
                 } else {
                     el.style.left = node.x + 'px';
                     el.style.top = node.y + 'px';
+                    const rootDisplayColor = getNodeDisplayColor(node);
                     // Priority border styling for root nodes (0-5), skip if completed
                     if (!node.completed) {
                         const rp = node.priority || 0;
-                        if (rp >= 5) el.style.border = '3px solid #c0392b';
-                        else if (rp >= 4) el.style.border = '2.5px solid #e74c3c';
-                        else if (rp >= 3) el.style.border = '2px solid #e67e22';
-                        else if (rp >= 2) el.style.border = '1.5px solid #f39c12';
-                        else if (rp >= 1) el.style.border = '1px solid #f0c040';
+                        if (rp >= 5) {
+                            el.style.border = '3px solid #c0392b';
+                            el.style.borderLeft = `4px solid ${rootDisplayColor}`;
+                        } else if (rp >= 4) {
+                            el.style.border = '2.5px solid #e74c3c';
+                            el.style.borderLeft = `4px solid ${rootDisplayColor}`;
+                        } else if (rp >= 3) {
+                            el.style.border = '2px solid #e67e22';
+                            el.style.borderLeft = `3px solid ${rootDisplayColor}`;
+                        } else if (rp >= 2) {
+                            el.style.border = '1.5px solid #f39c12';
+                            el.style.borderLeft = `3px solid ${rootDisplayColor}`;
+                        } else if (rp >= 1) {
+                            el.style.border = '1px solid #f0c040';
+                            el.style.borderLeft = `3px solid ${rootDisplayColor}`;
+                        } else {
+                            el.style.borderLeft = `3px solid ${rootDisplayColor}`;
+                        }
+                    } else {
+                        el.style.borderLeft = `3px solid ${rootDisplayColor}`;
                     }
                 }
                 el.dataset.id = node.id;
