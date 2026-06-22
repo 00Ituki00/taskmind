@@ -2928,21 +2928,6 @@
 
             popup.appendChild(arrowWrap);
 
-            // ラベルをクリア
-            const clearBtn = document.createElement('button');
-            clearBtn.style.cssText = 'border:none; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; display:flex; align-items:center; gap:6px;';
-            clearBtn.innerHTML = `🧹 ラベルをクリア`;
-            clearBtn.addEventListener('mouseenter', () => clearBtn.style.background = '#f5f5f5');
-            clearBtn.addEventListener('mouseleave', () => clearBtn.style.background = 'none');
-            clearBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                conn.label = '';
-                conn.type = '';
-                conn.customType = '';
-                popup.remove();
-                renderConnections();
-            });
-            popup.appendChild(clearBtn);
 
             // 新規追加
             const addBtn = document.createElement('button');
