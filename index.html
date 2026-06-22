@@ -2880,20 +2880,53 @@
             });
             popup.appendChild(reverseBtn);
 
-            // 方向あり/なし
-            const arrowToggleBtn = document.createElement('button');
+            // 方向あり/なし（2ボタン並列表示）
+            const arrowWrap = document.createElement('div');
+            arrowWrap.style.cssText = 'display:flex; gap:4px; padding:2px 8px;';
+
             const hasArrow = !conn.noArrow;
-            arrowToggleBtn.style.cssText = 'border:none; background:none; padding:6px 8px; border-radius:4px; cursor:pointer; text-align:left; font-size:13px; display:flex; align-items:center; gap:6px;';
-            arrowToggleBtn.innerHTML = hasArrow ? '➡️ 方向あり' : '➖ 方向なし';
-            arrowToggleBtn.addEventListener('mouseenter', () => arrowToggleBtn.style.background = '#f5f5f5');
-            arrowToggleBtn.addEventListener('mouseleave', () => arrowToggleBtn.style.background = 'none');
-            arrowToggleBtn.addEventListener('click', (e) => {
+
+            // 方向ありボタン
+            const arrowOnBtn = document.createElement('button');
+            arrowOnBtn.style.cssText = `
+                flex:1; border:1px solid ${hasArrow ? '#4a90d9' : '#ddd'};
+                background:${hasArrow ? '#4a90d922' : 'none'};
+                color:${hasArrow ? '#4a90d9' : '#666'};
+                padding:6px 8px; border-radius:4px; cursor:pointer;
+                text-align:center; font-size:13px;
+            `;
+            arrowOnBtn.innerHTML = '➡️ 方向あり';
+            arrowOnBtn.addEventListener('mouseenter', () => { if (!hasArrow) arrowOnBtn.style.background = '#f5f5f5'; });
+            arrowOnBtn.addEventListener('mouseleave', () => { if (!hasArrow) arrowOnBtn.style.background = 'none'; });
+            arrowOnBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                conn.noArrow = !conn.noArrow;
+                conn.noArrow = false;
                 popup.remove();
                 renderConnections();
             });
-            popup.appendChild(arrowToggleBtn);
+            arrowWrap.appendChild(arrowOnBtn);
+
+            // 方向なしボタン
+            const arrowOffBtn = document.createElement('button');
+            arrowOffBtn.style.cssText = `
+                flex:1; border:1px solid ${!hasArrow ? '#888888' : '#ddd'};
+                background:${!hasArrow ? '#88888822' : 'none'};
+                color:${!hasArrow ? '#333' : '#666'};
+                padding:6px 8px; border-radius:4px; cursor:pointer;
+                text-align:center; font-size:13px;
+            `;
+            arrowOffBtn.innerHTML = '➖ 方向なし';
+            arrowOffBtn.addEventListener('mouseenter', () => { if (hasArrow) arrowOffBtn.style.background = '#f5f5f5'; });
+            arrowOffBtn.addEventListener('mouseleave', () => { if (hasArrow) arrowOffBtn.style.background = 'none'; });
+            arrowOffBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                conn.noArrow = true;
+                popup.remove();
+                renderConnections();
+            });
+            arrowWrap.appendChild(arrowOffBtn);
+
+            popup.appendChild(arrowWrap);
 
             // ラベルをクリア
             const clearBtn = document.createElement('button');
