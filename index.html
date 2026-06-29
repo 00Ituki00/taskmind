@@ -9241,15 +9241,18 @@ function getNodeEdgePoint(node, targetNode) {
             let selectedColor = '';
             const colors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#9b59b6', '#34495e', '#95a5a6', '#d35400'];
             colors.forEach(c => {
-                const opt = document.createElement('div');
-                opt.style.cssText = `width:24px;height:24px;border-radius:4px;background:${c};cursor:pointer;border:2px solid transparent;`;
-                opt.addEventListener('click', () => {
-                    selectedColor = selectedColor === c ? '' : c;
-                    colorContainer.querySelectorAll('div').forEach(el => {
-                        el.style.border = el.style.background === c ? '2px solid #333' : '2px solid transparent';
-                    });
+                const opt = createEl('div', {
+                    style: { width: '24px', height: '24px', borderRadius: '4px', background: c, cursor: 'pointer', border: '2px solid transparent' },
+                    on: {
+                        click: () => {
+                            selectedColor = selectedColor === c ? '' : c;
+                            colorContainer.querySelectorAll('div').forEach(el => {
+                                el.style.border = el.style.background === c ? '2px solid #333' : '2px solid transparent';
+                            });
+                        }
+                    },
+                    parent: colorContainer
                 });
-                colorContainer.appendChild(opt);
             });
 
             dialog.querySelector('.bulk-cancel').addEventListener('click', () => dialog.remove());
