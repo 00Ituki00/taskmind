@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.0.0">
+    <meta name="version" content="v1.0.1">
     <title>TaskMind</title>
     <style>
         * {
@@ -9266,12 +9266,8 @@ function getNodeEdgePoint(node, targetNode) {
                     // ノードタイプ別作成ボタン（直接表示）
                     const nodeTypes = [
                         { type: 'task', label: 'タスク', icon: '📋', color: '#4a90d9' },
-                        { type: 'schedule', label: 'スケジュール', icon: '📅', color: '#9b59b6' },
-                        { type: 'daily', label: '日次', icon: '📆', color: '#2ecc71' },
-                        { type: 'monthly', label: '月次', icon: '📅', color: '#e67e22' },
                         { type: 'memo', label: 'メモ', icon: '📝', color: '#888888' },
-                        { type: 'condition', label: '条件', icon: '❓', color: '#e74c3c' },
-                        { type: 'asap', label: 'ASAP', icon: '⚡', color: '#c0392b' }
+                        { type: 'condition', label: '条件', icon: '❓', color: '#e74c3c' }
                     ];
                     
                     nodeTypes.forEach(t => {
