@@ -4169,12 +4169,12 @@ function getNodeEdgePoint(node, targetNode) {
             container.appendChild(deadlineSection);
 
             // --- 次回日時（手動編集） ---
-            const nextDateSection = document.createElement('div');
-            nextDateSection.className = 'when-section';
-            const nextDateLabel = document.createElement('div');
-            nextDateLabel.className = 'when-section-label';
-            nextDateLabel.textContent = '次回日時';
-            nextDateSection.appendChild(nextDateLabel);
+            const nextDateSection = createEl('div', { class: 'when-section' });
+            createEl('div', {
+                class: 'when-section-label',
+                text: '次回日時',
+                parent: nextDateSection
+            });
 
             const nextDateRow = createEl('div', {
                 class: 'when-row',
@@ -4244,10 +4244,11 @@ function getNodeEdgePoint(node, targetNode) {
                 const currentVal = weekSelect.value;
                 weekSelect.innerHTML = '';
                 (needAllOption ? weekOptions : weekOptions.filter(o => o.key !== 'all')).forEach(opt => {
-                    const o = document.createElement('option');
-                    o.value = opt.key;
-                    o.textContent = opt.label;
-                    weekSelect.appendChild(o);
+                    createEl('option', {
+                        attrs: { value: opt.key },
+                        text: opt.label,
+                        parent: weekSelect
+                    });
                 });
                 // 選択値を復元(無効な場合は毎週に)
                 if (Array.from(weekSelect.options).some(o => o.value === currentVal)) {
