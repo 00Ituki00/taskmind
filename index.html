@@ -7479,33 +7479,29 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.color-picker');
             if (existing) existing.remove();
 
-            const picker = document.createElement('div');
-            picker.className = 'color-picker';
-            picker.style.left = e.clientX + 'px';
-            picker.style.top = e.clientY + 'px';
+            const picker = createEl('div', {
+                class: 'color-picker',
+                style: { left: e.clientX + 'px', top: e.clientY + 'px' }
+            });
 
             state.colors.forEach(c => {
-                const opt = document.createElement('div');
-                opt.className = 'color-option';
-                opt.style.backgroundColor = c;
-                opt.addEventListener('click', () => {
-                    node.color = c;
-                    renderNodes();
-                    saveSnapshot();
-                    picker.remove();
+                createEl('div', {
+                    class: 'color-option',
+                    style: { backgroundColor: c },
+                    on: {
+                        click: () => {
+                            node.color = c;
+                            renderNodes();
+                            saveSnapshot();
+                            picker.remove();
+                        }
+                    },
+                    parent: picker
                 });
-                picker.appendChild(opt);
             });
 
             document.body.appendChild(picker);
-
-            const close = (e) => {
-                if (!picker.contains(e.target)) {
-                    picker.remove();
-                    document.removeEventListener('click', close);
-                }
-            };
-            setTimeout(() => document.addEventListener('click', close), 10);
+            closeOnClickOutside(picker);
         }
 
         // ==================== Mouse/Touch Handlers ====================
