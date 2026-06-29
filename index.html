@@ -3746,54 +3746,38 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.bulk-detail-modal-overlay');
             if (existing) existing.remove();
 
-            const overlay = document.createElement('div');
-            overlay.className = 'bulk-detail-modal-overlay';
-            overlay.style.cssText = `
-                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.3); z-index: 10000;
-                display: flex; align-items: center; justify-content: center;
-            `;
+            const overlay = createEl('div', {
+                class: 'bulk-detail-modal-overlay',
+                style: {
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.3)', zIndex: 10000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }
+            });
 
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                background: white; border-radius: 12px; padding: 20px;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-                max-width: 420px; width: 90vw; max-height: 80vh; overflow-y: auto;
-            `;
+            const modal = createEl('div', {
+                style: {
+                    background: 'white', borderRadius: '12px', padding: '20px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                    maxWidth: '420px', width: '90vw', maxHeight: '80vh', overflowY: 'auto'
+                },
+                parent: overlay
+            });
 
-            const title = document.createElement('h3');
-            title.style.cssText = 'margin:0 0 16px 0;font-size:16px;color:#333;';
-            title.textContent = '詳細情報の編集';
-            modal.appendChild(title);
+            createEl('h3', { style: { margin: '0 0 16px 0', fontSize: '16px', color: '#333' }, text: '詳細情報の編集', parent: modal });
 
             // Priority
-            const pRow = document.createElement('div');
-            pRow.style.cssText = 'margin-bottom:12px;';
-            const pLbl = document.createElement('label');
-            pLbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
-            pLbl.textContent = '重要度 ☆';
-            pRow.appendChild(pLbl);
-            const pSelect = document.createElement('select');
-            pSelect.style.cssText = 'width:100%;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;';
+            const pRow = createEl('div', { style: { marginBottom: '12px' }, parent: modal });
+            createEl('label', { style: { display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }, text: '重要度 ☆', parent: pRow });
+            const pSelect = createEl('select', { style: { width: '100%', padding: '6px 8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }, parent: pRow });
             for (let i = 0; i <= 5; i++) {
-                const opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = i === 0 ? '0(未設定)' : '★'.repeat(i) + ' (' + i + ')';
-                if ((node.priority || 0) === i) opt.selected = true;
-                pSelect.appendChild(opt);
+                createEl('option', { attrs: { value: i, selected: (node.priority || 0) === i }, text: i === 0 ? '0(未設定)' : '★'.repeat(i) + ' (' + i + ')', parent: pSelect });
             }
-            pRow.appendChild(pSelect);
-            modal.appendChild(pRow);
 
             // Node Type
-            const tRow = document.createElement('div');
-            tRow.style.cssText = 'margin-bottom:12px;';
-            const tLbl = document.createElement('label');
-            tLbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
-            tLbl.textContent = '📌 ノードタイプ';
-            tRow.appendChild(tLbl);
-            const tSelect = document.createElement('select');
-            tSelect.style.cssText = 'width:100%;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;';
+            const tRow = createEl('div', { style: { marginBottom: '12px' }, parent: modal });
+            createEl('label', { style: { display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }, text: '📌 ノードタイプ', parent: tRow });
+            const tSelect = createEl('select', { style: { width: '100%', padding: '6px 8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }, parent: tRow });
             const typeOptions = [
                 { value: 'task', label: '✓ タスク' },
                 { value: 'condition', label: '❓ 条件' },
@@ -3835,75 +3819,60 @@ function getNodeEdgePoint(node, targetNode) {
                 { key: 'link', label: '🔗 Link(URL)', placeholder: 'https://...', inputType: 'input' }
             ];
             simpleFields.forEach(f => {
-                const row = document.createElement('div');
-                row.style.cssText = 'margin-bottom:12px;';
-                const lbl = document.createElement('label');
-                lbl.style.cssText = 'display:block;font-size:12px;color:#666;margin-bottom:4px;';
-                lbl.textContent = f.label;
-                row.appendChild(lbl);
-                
+                const row = createEl('div', { style: { marginBottom: '12px' }, parent: modal });
+                createEl('label', { style: { display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }, text: f.label, parent: row });
+
                 const isLink = f.inputType === 'input';
-                const input = isLink ? document.createElement('input') : document.createElement('textarea');
-                if (isLink) {
-                    input.type = 'url';
-                    input.style.cssText = 'width:100%;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
-                } else {
-                    input.style.cssText = 'width:100%;min-height:50px;padding:6px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
-                }
-                input.placeholder = f.placeholder;
-                input.value = node.details?.[f.key] || '';
-                input.dataset.fieldKey = f.key;
-                row.appendChild(input);
-                modal.appendChild(row);
-            });
-
-            const btnRow = document.createElement('div');
-            btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;margin-top:16px;';
-            const cancelBtn = document.createElement('button');
-            cancelBtn.textContent = 'キャンセル';
-            cancelBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:1px solid #ddd;border-radius:6px;background:#f5f5f5;cursor:pointer;';
-            cancelBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                overlay.remove();
-            });
-            const saveBtn = document.createElement('button');
-            saveBtn.textContent = '保存';
-            saveBtn.style.cssText = 'padding:6px 16px;font-size:14px;border:none;border-radius:6px;background:#4a90d9;color:white;cursor:pointer;';
-            saveBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                node.priority = parseInt(pSelect.value);
-                node.type = tSelect.value;
-                if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
-                // Save when data from integrated editor
-                if (whenEditor) {
-                    const oldWhen = node.details.when || null;
-                    const newWhen = whenEditor.getValue();
-                    if (newWhen === null) {
-                        if (node.details) delete node.details.when;
-                    } else {
-                        node.details.when = newWhen;
-                        // Only recalculate nextDate if schedule parameters changed
-                        if (didScheduleChange(oldWhen, newWhen) || !newWhen.nextDate) {
-                            node.details.when.nextDate = calculateNextDate(node.details.when);
-                        }
-                    }
-                }
-                modal.querySelectorAll('textarea[data-field-key], input[data-field-key]').forEach(ta => {
-                    node.details[ta.dataset.fieldKey] = ta.value;
+                const input = createEl(isLink ? 'input' : 'textarea', {
+                    style: isLink ?
+                        { width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' } :
+                        { width: '100%', minHeight: '50px', padding: '6px 8px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box', resize: 'vertical' },
+                    attrs: { placeholder: f.placeholder, 'data-field-key': f.key },
+                    parent: row
                 });
-                overlay.remove();
-                renderNodes();
+                if (isLink) input.type = 'url';
+                input.value = node.details?.[f.key] || '';
             });
-            btnRow.appendChild(cancelBtn);
-            btnRow.appendChild(saveBtn);
-            modal.appendChild(btnRow);
 
-            overlay.appendChild(modal);
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) overlay.remove();
+            const btnRow = createEl('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }, parent: modal });
+            createEl('button', {
+                style: { padding: '6px 16px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '6px', background: '#f5f5f5', cursor: 'pointer' },
+                text: 'キャンセル',
+                on: {
+                    click: (e) => {
+                        e.stopPropagation(); e.preventDefault();
+                        overlay.remove();
+                    }
+                },
+                parent: btnRow
             });
+            createEl('button', {
+                style: { padding: '6px 16px', fontSize: '14px', border: 'none', borderRadius: '6px', background: '#4a90d9', color: 'white', cursor: 'pointer' },
+                text: '保存',
+                on: {
+                    click: (e) => {
+                        e.stopPropagation(); e.preventDefault();
+                        node.priority = parseInt(pSelect.value);
+                        node.type = tSelect.value;
+                        if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
+                        if (whenEditor) {
+                            const oldWhen = node.details.when || null;
+                            const newWhen = whenEditor.getValue();
+                            if (newWhen === null) { if (node.details) delete node.details.when; }
+                            else {
+                                node.details.when = newWhen;
+                                if (didScheduleChange(oldWhen, newWhen) || !newWhen.nextDate) node.details.when.nextDate = calculateNextDate(node.details.when);
+                            }
+                        }
+                        modal.querySelectorAll('textarea[data-field-key], input[data-field-key]').forEach(ta => { node.details[ta.dataset.fieldKey] = ta.value; });
+                        overlay.remove();
+                        renderNodes();
+                    }
+                },
+                parent: btnRow
+            });
+
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
             document.body.appendChild(overlay);
         }
 
