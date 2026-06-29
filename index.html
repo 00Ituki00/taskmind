@@ -3926,20 +3926,18 @@ function getNodeEdgePoint(node, targetNode) {
                 parent: container
             });
 
-            const weekRow1 = document.createElement('div');
-            weekRow1.className = 'when-row';
-            weekRow1.innerHTML = '<span>第</span>';
-            const weekSelect = document.createElement('select');
-            weekSelect.style.cssText = 'padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;';
-            const weekOptsForType = weekOptions;
-            weekOptsForType.forEach(opt => {
-                const o = document.createElement('option');
-                o.value = opt.key;
-                o.textContent = opt.label;
-                if (opt.key === currentWeekOfMonth) o.selected = true;
-                weekSelect.appendChild(o);
+            const weekRow1 = createEl('div', { class: 'when-row', html: '<span>第</span>' });
+            const weekSelect = createEl('select', {
+                style: { padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }
             });
-            // 初期選択値を変数と同期(オプションにない場合、ブラウザが自動選択した値に合わせる)
+            weekOptions.forEach(opt => {
+                createEl('option', {
+                    attrs: { value: opt.key, selected: opt.key === currentWeekOfMonth },
+                    text: opt.label,
+                    parent: weekSelect
+                });
+            });
+            // 初期選択値を変数と同期
             currentWeekOfMonth = weekSelect.value;
             weekSelect.addEventListener('change', () => {
                 currentWeekOfMonth = weekSelect.value;
@@ -3950,48 +3948,49 @@ function getNodeEdgePoint(node, targetNode) {
             weekRow1.appendChild(document.createTextNode(' 曜日'));
             weekSection.appendChild(weekRow1);
 
-            const weekRow2 = document.createElement('div');
-            weekRow2.className = 'when-days-grid';
+            const weekRow2 = createEl('div', { class: 'when-days-grid' });
             dayNames.forEach((name, idx) => {
-                const btn = document.createElement('div');
-                btn.className = 'when-day-btn' + (currentDaysOfWeek.includes(idx) ? ' active' : '');
-                btn.textContent = name;
-                btn.dataset.day = idx;
-                btn.addEventListener('click', () => {
-                    const dayIdx = parseInt(btn.dataset.day);
-                    if (currentDaysOfWeek.includes(dayIdx)) {
-                        currentDaysOfWeek = currentDaysOfWeek.filter(d => d !== dayIdx);
-                        btn.classList.remove('active');
-                    } else {
-                        currentDaysOfWeek.push(dayIdx);
-                        btn.classList.add('active');
-                    }
-                    currentDaysOfWeek.sort();
-                    updatePreview();
-                    if (onChange) onChange(getValue());
+                const btn = createEl('div', {
+                    class: 'when-day-btn' + (currentDaysOfWeek.includes(idx) ? ' active' : ''),
+                    text: name,
+                    attrs: { 'data-day': idx },
+                    on: {
+                        click: () => {
+                            const dayIdx = parseInt(btn.dataset.day);
+                            if (currentDaysOfWeek.includes(dayIdx)) {
+                                currentDaysOfWeek = currentDaysOfWeek.filter(d => d !== dayIdx);
+                                btn.classList.remove('active');
+                            } else {
+                                currentDaysOfWeek.push(dayIdx);
+                                btn.classList.add('active');
+                            }
+                            currentDaysOfWeek.sort();
+                            updatePreview();
+                            if (onChange) onChange(getValue());
+                        }
+                    },
+                    parent: weekRow2
                 });
-                weekRow2.appendChild(btn);
             });
             weekSection.appendChild(weekRow2);
             container.appendChild(weekSection);
 
             // --- 月-日付指定(毎月(日付)) ---
-            const monthlyDaySection = document.createElement('div');
-            monthlyDaySection.className = 'when-section';
-            monthlyDaySection.style.display = (uiType === 'monthly-day') ? 'block' : 'none';
-            const monthlyDayRow = document.createElement('div');
-            monthlyDayRow.className = 'when-row';
-            monthlyDayRow.innerHTML = '<span>毎月</span>';
-            const monthDayInput = document.createElement('input');
-            monthDayInput.type = 'number';
-            monthDayInput.min = '1';
-            monthDayInput.max = '31';
-            monthDayInput.value = currentMonthDay;
-            monthDayInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
-            monthDayInput.addEventListener('input', () => {
-                currentMonthDay = parseInt(monthDayInput.value) || 1;
-                updatePreview();
-                if (onChange) onChange(getValue());
+            const monthlyDaySection = createEl('div', {
+                class: 'when-section',
+                style: { display: (uiType === 'monthly-day') ? 'block' : 'none' }
+            });
+            const monthlyDayRow = createEl('div', { class: 'when-row', html: '<span>毎月</span>' });
+            const monthDayInput = createEl('input', {
+                attrs: { type: 'number', min: '1', max: '31', value: currentMonthDay },
+                style: { width: '50px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', textAlign: 'center' },
+                on: {
+                    input: () => {
+                        currentMonthDay = parseInt(monthDayInput.value) || 1;
+                        updatePreview();
+                        if (onChange) onChange(getValue());
+                    }
+                }
             });
             monthlyDayRow.appendChild(monthDayInput);
             monthlyDayRow.appendChild(document.createTextNode(' 日'));
@@ -3999,33 +3998,32 @@ function getNodeEdgePoint(node, targetNode) {
             container.appendChild(monthlyDaySection);
 
             // --- 年-日付指定(毎年(日付)) ---
-            const yearlyDateSection = document.createElement('div');
-            yearlyDateSection.className = 'when-section';
-            yearlyDateSection.style.display = (uiType === 'yearly-date') ? 'block' : 'none';
-            const yearlyDateRow = document.createElement('div');
-            yearlyDateRow.className = 'when-row';
-            yearlyDateRow.innerHTML = '<span>毎年</span>';
-            const yearMonthInput = document.createElement('input');
-            yearMonthInput.type = 'number';
-            yearMonthInput.min = '1';
-            yearMonthInput.max = '12';
-            yearMonthInput.value = currentYearMonth;
-            yearMonthInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
-            yearMonthInput.addEventListener('input', () => {
-                currentYearMonth = parseInt(yearMonthInput.value) || 1;
-                updatePreview();
-                if (onChange) onChange(getValue());
+            const yearlyDateSection = createEl('div', {
+                class: 'when-section',
+                style: { display: (uiType === 'yearly-date') ? 'block' : 'none' }
             });
-            const yearDayInput = document.createElement('input');
-            yearDayInput.type = 'number';
-            yearDayInput.min = '1';
-            yearDayInput.max = '31';
-            yearDayInput.value = currentYearDay;
-            yearDayInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
-            yearDayInput.addEventListener('input', () => {
-                currentYearDay = parseInt(yearDayInput.value) || 1;
-                updatePreview();
-                if (onChange) onChange(getValue());
+            const yearlyDateRow = createEl('div', { class: 'when-row', html: '<span>毎年</span>' });
+            const yearMonthInput = createEl('input', {
+                attrs: { type: 'number', min: '1', max: '12', value: currentYearMonth },
+                style: { width: '50px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', textAlign: 'center' },
+                on: {
+                    input: () => {
+                        currentYearMonth = parseInt(yearMonthInput.value) || 1;
+                        updatePreview();
+                        if (onChange) onChange(getValue());
+                    }
+                }
+            });
+            const yearDayInput = createEl('input', {
+                attrs: { type: 'number', min: '1', max: '31', value: currentYearDay },
+                style: { width: '50px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', textAlign: 'center' },
+                on: {
+                    input: () => {
+                        currentYearDay = parseInt(yearDayInput.value) || 1;
+                        updatePreview();
+                        if (onChange) onChange(getValue());
+                    }
+                }
             });
             yearlyDateRow.appendChild(yearMonthInput);
             yearlyDateRow.appendChild(document.createTextNode(' 月 '));
@@ -4035,22 +4033,21 @@ function getNodeEdgePoint(node, targetNode) {
             container.appendChild(yearlyDateSection);
 
             // --- 年-月指定(毎年(曜日)) ---
-            const yearlyMonthSection = document.createElement('div');
-            yearlyMonthSection.className = 'when-section';
-            yearlyMonthSection.style.display = (uiType === 'yearly-week') ? 'block' : 'none';
-            const yearlyMonthRow = document.createElement('div');
-            yearlyMonthRow.className = 'when-row';
-            yearlyMonthRow.innerHTML = '<span>毎年</span>';
-            const yearWeekMonthInput = document.createElement('input');
-            yearWeekMonthInput.type = 'number';
-            yearWeekMonthInput.min = '1';
-            yearWeekMonthInput.max = '12';
-            yearWeekMonthInput.value = currentYearMonth;
-            yearWeekMonthInput.style.cssText = 'width:50px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;';
-            yearWeekMonthInput.addEventListener('input', () => {
-                currentYearMonth = parseInt(yearWeekMonthInput.value) || 1;
-                updatePreview();
-                if (onChange) onChange(getValue());
+            const yearlyMonthSection = createEl('div', {
+                class: 'when-section',
+                style: { display: (uiType === 'yearly-week') ? 'block' : 'none' }
+            });
+            const yearlyMonthRow = createEl('div', { class: 'when-row', html: '<span>毎年</span>' });
+            const yearWeekMonthInput = createEl('input', {
+                attrs: { type: 'number', min: '1', max: '12', value: currentYearMonth },
+                style: { width: '50px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', textAlign: 'center' },
+                on: {
+                    input: () => {
+                        currentYearMonth = parseInt(yearWeekMonthInput.value) || 1;
+                        updatePreview();
+                        if (onChange) onChange(getValue());
+                    }
+                }
             });
             yearlyMonthRow.appendChild(yearWeekMonthInput);
             yearlyMonthRow.appendChild(document.createTextNode(' 月'));
@@ -4058,13 +4055,15 @@ function getNodeEdgePoint(node, targetNode) {
             container.appendChild(yearlyMonthSection);
 
             // --- 開始日時 ---
-            const timeSection = document.createElement('div');
-            timeSection.className = 'when-section';
-            const timeRow = document.createElement('div');
-            timeRow.className = 'when-row';
-            timeRow.innerHTML = '<span>開始日時</span>';
-            const timeInput = document.createElement('input');
-            timeInput.type = 'datetime-local';
+            const timeSection = createEl('div', { class: 'when-section' });
+            const timeRow = createEl('div', { class: 'when-row', html: '<span>開始日時</span>' });
+            const timeInput = createEl('input', {
+                attrs: { type: 'datetime-local' },
+                style: { flex: '1', padding: '4px 6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' },
+                on: {
+                    change: () => { updatePreview(); if (onChange) onChange(getValue()); }
+                }
+            });
             // デフォルト値: 今日の09:00
             const defaultBase = new Date();
             defaultBase.setHours(9, 0, 0, 0);
@@ -4073,7 +4072,6 @@ function getNodeEdgePoint(node, targetNode) {
                 return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
             };
             // baseDateTime優先、なければbaseTimeから生成、それもなければデフォルト
-            // ISO文字列をローカルのdatetime-local形式(YYYY-MM-DDTHH:mm)に変換
             const isoToLocalISO = isoStr => {
                 const d = new Date(isoStr);
                 const pad = n => String(n).padStart(2, '0');
@@ -4089,34 +4087,30 @@ function getNodeEdgePoint(node, targetNode) {
             } else {
                 timeInput.value = toLocalISO(defaultBase);
             }
-            timeInput.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
-            timeInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
             timeRow.appendChild(timeInput);
             timeSection.appendChild(timeRow);
             container.appendChild(timeSection);
 
             // --- 期限 ---
-            const deadlineSection = document.createElement('div');
-            deadlineSection.className = 'when-section';
-            const deadlineLabel = document.createElement('div');
-            deadlineLabel.className = 'when-section-label';
-            deadlineLabel.textContent = '期限設定';
-            deadlineSection.appendChild(deadlineLabel);
+            const deadlineSection = createEl('div', { class: 'when-section' });
+            createEl('div', { class: 'when-section-label', text: '期限設定', parent: deadlineSection });
 
             // 期限タイプ選択
-            const deadlineTypeRow = document.createElement('div');
-            deadlineTypeRow.className = 'when-row';
-            deadlineTypeRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;';
-            const dlTypeRelative = document.createElement('div');
-            dlTypeRelative.className = 'when-type-btn' + ((w.deadlineType || 'relative') === 'relative' ? ' active' : '');
-            dlTypeRelative.textContent = '相対(開始から)';
-            dlTypeRelative.style.cssText = 'flex:1;font-size:11px;padding:5px 2px;';
-            const dlTypeAbsolute = document.createElement('div');
-            dlTypeAbsolute.className = 'when-type-btn' + (w.deadlineType === 'absolute' ? ' active' : '');
-            dlTypeAbsolute.textContent = '絶対(特定日時)';
-            dlTypeAbsolute.style.cssText = 'flex:1;font-size:11px;padding:5px 2px;';
-
+            const deadlineTypeRow = createEl('div', {
+                class: 'when-row',
+                style: { display: 'flex', gap: '4px', marginBottom: '6px' }
+            });
             let currentDeadlineType = w.deadlineType || 'relative';
+            const dlTypeRelative = createEl('div', {
+                class: 'when-type-btn' + ((w.deadlineType || 'relative') === 'relative' ? ' active' : ''),
+                text: '相対(開始から)',
+                style: { flex: '1', fontSize: '11px', padding: '5px 2px' }
+            });
+            const dlTypeAbsolute = createEl('div', {
+                class: 'when-type-btn' + (w.deadlineType === 'absolute' ? ' active' : ''),
+                text: '絶対(特定日時)',
+                style: { flex: '1', fontSize: '11px', padding: '5px 2px' }
+            });
 
             function updateDeadlineUI() {
                 relativeRow.style.display = currentDeadlineType === 'relative' ? 'flex' : 'none';
@@ -4141,17 +4135,15 @@ function getNodeEdgePoint(node, targetNode) {
             deadlineSection.appendChild(deadlineTypeRow);
 
             // 相対期限
-            const relativeRow = document.createElement('div');
-            relativeRow.className = 'when-row';
-            const deadlineDays = document.createElement('input');
-            deadlineDays.type = 'number';
-            deadlineDays.min = '0';
-            deadlineDays.value = (w.deadlineDays !== undefined ? w.deadlineDays : 0).toString();
-            deadlineDays.addEventListener('input', () => { updatePreview(); if (onChange) onChange(getValue()); });
-            const deadlineTime = document.createElement('input');
-            deadlineTime.type = 'time';
-            deadlineTime.value = w.deadlineTime || '18:00';
-            deadlineTime.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
+            const relativeRow = createEl('div', { class: 'when-row' });
+            const deadlineDays = createEl('input', {
+                attrs: { type: 'number', min: '0', value: (w.deadlineDays !== undefined ? w.deadlineDays : 0).toString() },
+                on: { input: () => { updatePreview(); if (onChange) onChange(getValue()); } }
+            });
+            const deadlineTime = createEl('input', {
+                attrs: { type: 'time', value: w.deadlineTime || '18:00' },
+                on: { change: () => { updatePreview(); if (onChange) onChange(getValue()); } }
+            });
             relativeRow.appendChild(deadlineDays);
             relativeRow.appendChild(document.createTextNode(' 日後 '));
             relativeRow.appendChild(deadlineTime);
@@ -4159,17 +4151,17 @@ function getNodeEdgePoint(node, targetNode) {
             deadlineSection.appendChild(relativeRow);
 
             // 絶対期限
-            const absoluteRow = document.createElement('div');
-            absoluteRow.className = 'when-row';
-            const deadlineDateInput = document.createElement('input');
-            deadlineDateInput.type = 'datetime-local';
+            const absoluteRow = createEl('div', { class: 'when-row' });
+            const deadlineDateInput = createEl('input', {
+                attrs: { type: 'datetime-local' },
+                style: { flex: '1', padding: '4px 6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' },
+                on: { change: () => { updatePreview(); if (onChange) onChange(getValue()); } }
+            });
             // デフォルト値: 現在時刻+1日の18:00
             const defaultDl = new Date();
             defaultDl.setDate(defaultDl.getDate() + 1);
             defaultDl.setHours(18, 0, 0, 0);
             deadlineDateInput.value = w.deadlineDate ? isoToLocalISO(w.deadlineDate) : toLocalISO(defaultDl);
-            deadlineDateInput.addEventListener('change', () => { updatePreview(); if (onChange) onChange(getValue()); });
-            deadlineDateInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
             absoluteRow.appendChild(deadlineDateInput);
             absoluteRow.appendChild(document.createTextNode(' まで'));
             deadlineSection.appendChild(absoluteRow);
@@ -4184,24 +4176,28 @@ function getNodeEdgePoint(node, targetNode) {
             nextDateLabel.textContent = '次回日時';
             nextDateSection.appendChild(nextDateLabel);
 
-            const nextDateRow = document.createElement('div');
-            nextDateRow.className = 'when-row';
-            nextDateRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+            const nextDateRow = createEl('div', {
+                class: 'when-row',
+                style: { display: 'flex', alignItems: 'center', gap: '6px' }
+            });
 
-            const autoCalcCheckbox = document.createElement('input');
-            autoCalcCheckbox.type = 'checkbox';
-            autoCalcCheckbox.checked = true;
-            autoCalcCheckbox.id = 'when-autocalc-' + Math.random().toString(36).slice(2, 8);
-            const autoCalcLabel = document.createElement('label');
-            autoCalcLabel.htmlFor = autoCalcCheckbox.id;
-            autoCalcLabel.textContent = '自動計算';
-            autoCalcLabel.style.cssText = 'font-size:12px;color:#666;cursor:pointer;';
+            const autoCalcId = 'when-autocalc-' + Math.random().toString(36).slice(2, 8);
+            const autoCalcCheckbox = createEl('input', {
+                attrs: { type: 'checkbox', checked: true, id: autoCalcId }
+            });
+            const autoCalcLabel = createEl('label', {
+                attrs: { for: autoCalcId },
+                text: '自動計算',
+                style: { fontSize: '12px', color: '#666', cursor: 'pointer' }
+            });
 
-            const nextDateInput = document.createElement('input');
-            nextDateInput.type = 'datetime-local';
-            nextDateInput.value = w.nextDate ? isoToLocalISO(w.nextDate) : '';
-            nextDateInput.disabled = true;
-            nextDateInput.style.cssText = 'flex:1;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;background:#f5f5f5;';
+            const nextDateInput = createEl('input', {
+                attrs: { type: 'datetime-local', value: w.nextDate ? isoToLocalISO(w.nextDate) : '', disabled: true },
+                style: { flex: '1', padding: '4px 6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px', background: '#f5f5f5' },
+                on: {
+                    change: () => {}
+                }
+            });
 
             autoCalcCheckbox.addEventListener('change', () => {
                 nextDateInput.disabled = autoCalcCheckbox.checked;
@@ -4218,25 +4214,24 @@ function getNodeEdgePoint(node, targetNode) {
             container.appendChild(nextDateSection);
 
             // --- 日時情報(5項目) ---
-            const dateInfoSection = document.createElement('div');
-            dateInfoSection.className = 'when-section';
-            dateInfoSection.style.cssText = 'background:#f8f9fa;border-radius:6px;padding:8px 10px;font-size:11px;color:#555;line-height:1.6;';
-            const dateInfoTitle = document.createElement('div');
-            dateInfoTitle.style.cssText = 'font-weight:600;margin-bottom:4px;color:#333;font-size:12px;';
-            dateInfoTitle.textContent = '📅 日時情報';
-            dateInfoSection.appendChild(dateInfoTitle);
-            const dateInfoContent = document.createElement('div');
-            dateInfoContent.id = 'when-date-info-' + Math.random().toString(36).slice(2, 8);
-            dateInfoSection.appendChild(dateInfoContent);
+            const dateInfoSection = createEl('div', {
+                class: 'when-section',
+                style: { background: '#f8f9fa', borderRadius: '6px', padding: '8px 10px', fontSize: '11px', color: '#555', lineHeight: '1.6' }
+            });
+            createEl('div', {
+                style: { fontWeight: 600, marginBottom: '4px', color: '#333', fontSize: '12px' },
+                text: '📅 日時情報',
+                parent: dateInfoSection
+            });
+            const dateInfoContent = createEl('div', {
+                attrs: { id: 'when-date-info-' + Math.random().toString(36).slice(2, 8) },
+                parent: dateInfoSection
+            });
             container.appendChild(dateInfoSection);
 
             // --- プレビュー ---
-            const previewSection = document.createElement('div');
-            previewSection.className = 'when-section';
-            const preview = document.createElement('div');
-            preview.className = 'when-preview';
-            previewSection.appendChild(preview);
-            container.appendChild(previewSection);
+            const previewSection = createEl('div', { class: 'when-section', parent: container });
+            const preview = createEl('div', { class: 'when-preview', parent: previewSection });
 
             function updateConditionalSections() {
                 const isDisabled = (uiType === 'disabled');
