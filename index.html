@@ -3753,27 +3753,19 @@ function getNodeEdgePoint(node, targetNode) {
         // ==================== Detail Indicators ====================
 
         function createIndicatorMenu(node) {
-            const container = document.createElement('div');
-            container.className = 'node-indicators';
-
-            const group = document.createElement('div');
-            group.className = 'indicator-group';
-            group.appendChild(createIndicator(node, 'priority'));
-            group.appendChild(createIndicator(node, 'when'));
-            group.appendChild(createIndicator(node, 'what'));
-            group.appendChild(createIndicator(node, 'who'));
-            group.appendChild(createIndicator(node, 'where'));
-            group.appendChild(createIndicator(node, 'link'));
-            container.appendChild(group);
-
+            const container = createEl('div', { class: 'node-indicators' });
+            const group = createEl('div', { class: 'indicator-group', parent: container });
+            ['priority', 'when', 'what', 'who', 'where', 'link'].forEach(type => {
+                group.appendChild(createIndicator(node, type));
+            });
             return container;
         }
 
         function createIndicator(node, type) {
-            const el = document.createElement('span');
-            el.className = 'node-indicator';
-            el.dataset.type = type;
-            el.dataset.nodeId = node.id;
+            const el = createEl('span', {
+                class: 'node-indicator',
+                attrs: { 'data-type': type, 'data-node-id': node.id }
+            });
 
             if (type === 'priority') {
                 el.classList.add('priority');
