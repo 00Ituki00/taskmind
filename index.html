@@ -5248,6 +5248,23 @@ function getNodeEdgePoint(node, targetNode) {
                 });
             }
 
+            // Global tooltip element (shared across all root nodes)
+            let tooltipEl = document.querySelector('.node-hover-tooltip-global');
+            if (!tooltipEl) {
+                tooltipEl = createEl('div', {
+                    class: 'node-hover-tooltip-global',
+                    style: {
+                        position: 'fixed', display: 'none', zIndex: 10001, background: 'white',
+                        border: '1px solid #ddd', borderRadius: '8px', padding: '12px',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)', fontSize: '12px',
+                        maxWidth: '280px', pointerEvents: 'none', opacity: 0,
+                        transition: 'opacity 0.15s ease', willChange: 'transform,opacity'
+                    },
+                    parent: document.body
+                });
+            }
+            const tooltipCtrl = createTooltipController(tooltipEl);
+
             // Render root nodes
             state.nodes.forEach(node => {
                 // Skip child nodes unless they are being actively dragged
@@ -5342,26 +5359,6 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Hover tooltip for why/what info — singleton pattern, attached to entire node
                 // Reuse single tooltip element across all nodes
-                let tooltipEl = document.querySelector('.node-hover-tooltip-global');
-                if (!tooltipEl) {
-                    tooltipEl = createEl('div', {
-                        class: 'node-hover-tooltip-global',
-                        style: {
-                            position: 'fixed', display: 'none', zIndex: 10001, background: 'white',
-                            border: '1px solid #ddd', borderRadius: '8px', padding: '12px',
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.15)', fontSize: '12px',
-                            maxWidth: '280px', pointerEvents: 'none', opacity: 0,
-                            transition: 'opacity 0.15s ease', willChange: 'transform,opacity'
-                        },
-                        parent: document.body
-                    });
-                }
-                
-                let tooltipTimer = null;
-                let tooltipVisible = false;
-                
-                const tooltipCtrl = createTooltipController(tooltipEl);
-                
                 // Mouse enter on header only (same as drop target boundary)
                 header.addEventListener('mouseenter', () => {
                     if (state.dragNode) return;
