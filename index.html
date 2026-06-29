@@ -1804,7 +1804,10 @@
         <button class="tool-btn" id="btn-autoload" title="自動読み込み">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
-        <span id="file-info" style="margin-left:8px; font-size:12px; color:#888;"></span>
+        <div style="display:inline-flex; flex-direction:column; margin-left:8px; vertical-align:middle;">
+            <span id="file-info" style="font-size:12px; color:#888; line-height:1.4;"></span>
+            <span id="file-path" style="font-size:11px; color:#aaa; line-height:1.4; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+        </div>
     </div>
 
     <!-- Mode Indicator -->
@@ -9479,6 +9482,7 @@ function getNodeEdgePoint(node, targetNode) {
                             writable.close();
                             showToast('保存しました');
                             updateFileInfoDisplay(new Date());
+                            updateFileInfoDisplay();
                         });
                     });
                 }).catch(err => {
@@ -9494,7 +9498,14 @@ function getNodeEdgePoint(node, targetNode) {
             return Promise.resolve();
         }
 
-        function updateFileInfoDisplay() {}
+        function updateFileInfoDisplay() {
+            const pathEl = document.getElementById('file-path');
+            if (pathEl) {
+                const fileName = state.lastFileName || state.currentFileName;
+                pathEl.textContent = fileName ? '📄 ' + fileName : '';
+                pathEl.title = fileName || '';
+            }
+        }
 
         function downloadJSON(json) {
             const blob = new Blob([json], { type: 'application/json' });
@@ -9591,6 +9602,7 @@ function getNodeEdgePoint(node, targetNode) {
                         recalculateWhenDates();
                         showToast('読込みました' + (state.lastFileName ? ` (${state.lastFileName})` : ''));
                         updateFileInfoDisplay(new Date());
+                        updateFileInfoDisplay();
                         resolve();
                     } catch (err) {
                         showToast('読込エラー: ' + err.message);
@@ -10199,6 +10211,7 @@ function getNodeEdgePoint(node, targetNode) {
         // fetch Last-Modified header to show file update time and commit id
         (function updateFileInfo() {
             const el = document.getElementById('file-info');
+            const pathEl = document.getElementById('file-path');
             const metaVersion = document.querySelector('meta[name="version"]')?.content;
             const versionText = metaVersion ? ' · ' + metaVersion : '';
             fetch('index.html', { method: 'HEAD', cache: 'no-store' })
@@ -10213,6 +10226,13 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 })
                 .catch(() => { if (el && versionText) el.textContent = '🕐 ---' + versionText; });
+            
+            // ファイル名表示更新
+            if (pathEl) {
+                const fileName = state.lastFileName || state.currentFileName;
+                pathEl.textContent = fileName ? '📄 ' + fileName : '';
+                pathEl.title = fileName || '';
+            }
         })();
 
         // ==================== When Recalculation ====================
