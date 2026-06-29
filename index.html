@@ -8721,11 +8721,10 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.context-menu');
             if (existing) existing.remove();
 
-            const menu = document.createElement('div');
-            menu.className = 'context-menu';
-            menu.style.display = 'block';
-            menu.style.left = x + 'px';
-            menu.style.top = y + 'px';
+            const menu = createEl('div', {
+                class: 'context-menu',
+                style: { display: 'block', left: x + 'px', top: y + 'px' }
+            });
 
             const fromNode = state.nodes.find(n => n.id === conn.from);
             const toNode = state.nodes.find(n => n.id === conn.to);
@@ -8750,15 +8749,18 @@ function getNodeEdgePoint(node, targetNode) {
             ];
 
             items.forEach(item => {
-                const el = document.createElement('div');
-                el.className = 'context-item' + (item.class ? ' ' + item.class : '');
-                el.innerHTML = `${item.icon} ${item.text}`;
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    item.action();
-                    menu.remove();
+                createEl('div', {
+                    class: 'context-item' + (item.class ? ' ' + item.class : ''),
+                    html: `${item.icon} ${item.text}`,
+                    on: {
+                        click: (e) => {
+                            e.stopPropagation();
+                            item.action();
+                            menu.remove();
+                        }
+                    },
+                    parent: menu
                 });
-                menu.appendChild(el);
             });
 
             document.body.appendChild(menu);
@@ -8767,13 +8769,7 @@ function getNodeEdgePoint(node, targetNode) {
             if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
             if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
 
-            const close = (e) => {
-                if (!menu.contains(e.target)) {
-                    menu.remove();
-                    document.removeEventListener('click', close);
-                }
-            };
-            setTimeout(() => document.addEventListener('click', close), 10);
+            closeOnClickOutside(menu);
         }
 
         // ==================== Context Menu (Canvas) ====================
