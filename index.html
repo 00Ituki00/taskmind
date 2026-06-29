@@ -5338,18 +5338,8 @@ function getNodeEdgePoint(node, targetNode) {
                 const title = createNodeTitle(node);
 
                 const hasChildren = state.nodes.some(n => n.parentId === node.id);
-                const expandBtn = createEl('button', {
-                    class: 'expand-btn',
-                    text: node.expanded ? '▼' : '▶',
-                    style: { visibility: hasChildren ? 'visible' : 'hidden' },
-                    on: {
-                        click: (e) => {
-                            e.stopPropagation();
-                            node.expanded = !node.expanded;
-                            renderNodes();
-                        }
-                    }
-                });
+                const expandBtn = createExpandBtn(node, false);
+                expandBtn.style.visibility = hasChildren ? 'visible' : 'hidden';
 
                 header.appendChild(color);
 
