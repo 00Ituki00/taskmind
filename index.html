@@ -3087,76 +3087,98 @@
                 { type: 'asap', label: 'ASAP', icon: '⚡', color: '#c0392b' }
             ];
 
-            const popup = document.createElement('div');
-            popup.className = 'node-type-selector';
-            popup.style.cssText = `
-                position:fixed; left:${x}px; top:${y}px;
-                background:white; border:1px solid #ddd; border-radius:8px;
-                padding:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15);
-                z-index:10000; display:flex; flex-direction:column; gap:4px;
-                font-size:13px; min-width:180px;
-            `;
+            const popup = createEl('div', {
+                class: 'node-type-selector',
+                style: {
+                    position: 'fixed',
+                    left: x + 'px',
+                    top: y + 'px',
+                    background: 'white',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    padding: '8px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                    zIndex: 10000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    fontSize: '13px',
+                    minWidth: '180px'
+                }
+            });
 
-            const title = document.createElement('div');
-            title.style.cssText = 'font-size:11px; color:#888; padding:4px 8px; font-weight:600;';
-            title.textContent = 'ノードタイプを選択';
-            popup.appendChild(title);
+            createEl('div', {
+                style: { fontSize: '11px', color: '#888', padding: '4px 8px', fontWeight: 600 },
+                text: 'ノードタイプを選択',
+                parent: popup
+            });
 
             types.forEach(t => {
-                const btn = document.createElement('button');
-                btn.style.cssText = `
-                    border:none; background:none; padding:8px 12px; border-radius:4px;
-                    cursor:pointer; text-align:left; font-size:13px;
-                    display:flex; align-items:center; gap:8px;
-                    transition: background 0.15s;
-                `;
-                btn.innerHTML = `<span style="font-size:16px;">${t.icon}</span> <span style="color:${t.color}; font-weight:500;">${t.label}</span>`;
-                btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
-                btn.addEventListener('mouseleave', () => btn.style.background = 'none');
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const nx = (window.innerWidth / 2 - state.panX) / state.scale;
-                    const ny = (window.innerHeight / 2 - state.panY) / state.scale;
-                    const node = createNode(nx, ny, '新規' + t.label, t.type);
-                    popup.remove();
-                    renderNodes();
-                    renderConnections();
-                    showToast(`${t.label}を作成しました`);
-                    // 作成したノードを編集モードに
-                    setTimeout(() => {
-                        const el = document.querySelector(`.node[data-id="${node.id}"]`);
-                        if (el) {
-                            const titleEl = el.querySelector('.node-title');
-                            if (titleEl) titleEl.click();
+                const btn = createEl('button', {
+                    style: {
+                        border: 'none',
+                        background: 'none',
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'background 0.15s'
+                    },
+                    html: `<span style="font-size:16px;">${t.icon}</span> <span style="color:${t.color}; font-weight:500;">${t.label}</span>`,
+                    on: {
+                        mouseenter: () => btn.style.background = '#f5f5f5',
+                        mouseleave: () => btn.style.background = 'none',
+                        click: (e) => {
+                            e.stopPropagation();
+                            const nx = (window.innerWidth / 2 - state.panX) / state.scale;
+                            const ny = (window.innerHeight / 2 - state.panY) / state.scale;
+                            const node = createNode(nx, ny, '新規' + t.label, t.type);
+                            popup.remove();
+                            renderNodes();
+                            renderConnections();
+                            showToast(`${t.label}を作成しました`);
+                            setTimeout(() => {
+                                const el = document.querySelector(`.node[data-id="${node.id}"]`);
+                                if (el) {
+                                    const titleEl = el.querySelector('.node-title');
+                                    if (titleEl) titleEl.click();
+                                }
+                            }, 100);
                         }
-                    }, 100);
+                    },
+                    parent: popup
                 });
-                popup.appendChild(btn);
             });
 
-            // キャンセル
-            const cancel = document.createElement('button');
-            cancel.textContent = 'キャンセル';
-            cancel.style.cssText = `
-                border:none; background:none; padding:6px 12px; border-radius:4px;
-                cursor:pointer; text-align:center; font-size:12px; color:#888;
-                border-top:1px solid #eee; margin-top:4px;
-            `;
-            cancel.addEventListener('click', (e) => {
-                e.stopPropagation();
-                popup.remove();
+            createEl('button', {
+                style: {
+                    border: 'none',
+                    background: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    fontSize: '12px',
+                    color: '#888',
+                    borderTop: '1px solid #eee',
+                    marginTop: '4px'
+                },
+                text: 'キャンセル',
+                on: {
+                    click: (e) => {
+                        e.stopPropagation();
+                        popup.remove();
+                    }
+                },
+                parent: popup
             });
-            popup.appendChild(cancel);
 
             document.body.appendChild(popup);
-
-            const closeHandler = (e) => {
-                if (!popup.contains(e.target)) {
-                    popup.remove();
-                    document.removeEventListener('mousedown', closeHandler);
-                }
-            };
-            setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
+            closeOnClickOutside(popup);
         }
 
         // Connection type selector popup (shown when editing existing connection)
