@@ -3938,19 +3938,13 @@ function getNodeEdgePoint(node, targetNode) {
             let currentYearDay = w.yearDay !== undefined ? w.yearDay : 1;
             let currentMonthDay = w.monthDay !== undefined ? w.monthDay : 1;
 
-            const container = document.createElement('div');
-            container.className = 'when-editor-content';
+            const container = createEl('div', { class: 'when-editor-content' });
 
             // --- 周期タイプ(7種類、モード切替なし) ---
-            const typeSection = document.createElement('div');
-            typeSection.className = 'when-section';
-            const typeLabel = document.createElement('div');
-            typeLabel.className = 'when-section-label';
-            typeLabel.textContent = '周期';
-            typeSection.appendChild(typeLabel);
+            const typeSection = createEl('div', { class: 'when-section', parent: container });
+            createEl('div', { class: 'when-section-label', text: '周期', parent: typeSection });
 
-            const typeGrid = document.createElement('div');
-            typeGrid.className = 'when-type-grid';
+            const typeGrid = createEl('div', { class: 'when-type-grid', parent: typeSection });
             const types = [
                 { key: 'disabled', label: 'なし' },
                 { key: 'none', label: '一度だけ' },
@@ -3963,26 +3957,29 @@ function getNodeEdgePoint(node, targetNode) {
             ];
 
             types.forEach(t => {
-                const btn = document.createElement('div');
-                btn.className = 'when-type-btn' + (uiType === t.key ? ' active' : '');
-                btn.textContent = t.label;
-                btn.dataset.type = t.key;
-                btn.addEventListener('click', () => {
-                    uiType = t.key;
-                    typeGrid.querySelectorAll('.when-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === t.key));
-                    updateConditionalSections();
-                    updatePreview();
-                    if (onChange) onChange(getValue());
+                const btn = createEl('div', {
+                    class: 'when-type-btn' + (uiType === t.key ? ' active' : ''),
+                    text: t.label,
+                    attrs: { 'data-type': t.key },
+                    on: {
+                        click: () => {
+                            uiType = t.key;
+                            typeGrid.querySelectorAll('.when-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === t.key));
+                            updateConditionalSections();
+                            updatePreview();
+                            if (onChange) onChange(getValue());
+                        }
+                    },
+                    parent: typeGrid
                 });
-                typeGrid.appendChild(btn);
             });
-            typeSection.appendChild(typeGrid);
-            container.appendChild(typeSection);
 
             // --- 週設定(毎週 / 毎月(曜日)/ 毎年(曜日)) ---
-            const weekSection = document.createElement('div');
-            weekSection.className = 'when-section';
-            weekSection.style.display = (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none';
+            const weekSection = createEl('div', {
+                class: 'when-section',
+                style: { display: (uiType === 'weekly' || uiType === 'monthly-week' || uiType === 'yearly-week') ? 'block' : 'none' },
+                parent: container
+            });
 
             const weekRow1 = document.createElement('div');
             weekRow1.className = 'when-row';
