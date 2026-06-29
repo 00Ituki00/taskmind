@@ -5318,11 +5318,10 @@ function getNodeEdgePoint(node, targetNode) {
 
                     const checkbox = createCompletionCheckbox(node, 14);
 
-                    const title = createEl('span', {
-                        class: 'node-title' + (node.completed ? ' completed' : ''),
-                        text: node.title,
-                        style: { flex: '1', fontSize: '13px', wordBreak: 'break-word' }
-                    });
+                    const title = createNodeTitle(node);
+                    title.style.flex = '1';
+                    title.style.fontSize = '13px';
+                    title.style.wordBreak = 'break-word';
 
                     wrapper.appendChild(checkbox);
                     wrapper.appendChild(title);
