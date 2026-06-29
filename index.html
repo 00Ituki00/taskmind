@@ -3655,96 +3655,91 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.detail-editor-popup');
             if (existing) existing.remove();
 
-            const popup = document.createElement('div');
-            popup.className = 'detail-editor-popup';
-            popup.style.cssText = `
-                position: fixed;
-                background: white;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                padding: 12px;
-                box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-                z-index: 10000;
-                min-width: 220px;
-            `;
-
-            const title = document.createElement('div');
-            title.style.cssText = 'font-weight:600;margin-bottom:8px;font-size:14px;color:#333;';
-            title.textContent = type === 'priority' ? '重要度' :
-                type === 'when' ? 'When(日時)' :
-                type === 'what' ? 'What(詳細)' :
-                type === 'who' ? 'Who(担当)' :
-                type === 'where' ? 'Where(場所)' :
-                type === 'link' ? 'Link(リンク)' : type;
-            popup.appendChild(title);
-
-            const content = document.createElement('div');
-
-            if (type === 'priority') {
-                const select = document.createElement('select');
-                select.style.cssText = 'width:100%;padding:4px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;';
-                for (let i = 0; i <= 5; i++) {
-                    const opt = document.createElement('option');
-                    opt.value = i;
-                    opt.textContent = i === 0 ? '0(未設定)' : '★'.repeat(i) + ' (' + i + ')';
-                    if ((node.priority || 0) === i) opt.selected = true;
-                    select.appendChild(opt);
-                }
-                content.appendChild(select);
-                popup.dataset.input = 'priority-select';
-                popup.dataset.selectRef = select;
-            } else if (type === 'when') {
-                popup.remove();
+            if (type === 'when') {
                 openWhenEditor(node);
                 return;
+            }
+
+            const popup = createEl('div', {
+                class: 'detail-editor-popup',
+                style: {
+                    position: 'fixed',
+                    background: 'white', border: '1px solid #ddd', borderRadius: '8px',
+                    padding: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                    zIndex: 10000, minWidth: '220px'
+                }
+            });
+
+            createEl('div', {
+                style: { fontWeight: 600, marginBottom: '8px', fontSize: '14px', color: '#333' },
+                text: type === 'priority' ? '重要度' :
+                      type === 'what' ? 'What(詳細)' :
+                      type === 'who' ? 'Who(担当)' :
+                      type === 'where' ? 'Where(場所)' :
+                      type === 'link' ? 'Link(リンク)' : type,
+                parent: popup
+            });
+
+            const content = createEl('div', { parent: popup });
+
+            if (type === 'priority') {
+                const select = createEl('select', {
+                    style: { width: '100%', padding: '4px 8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' },
+                    parent: content
+                });
+                for (let i = 0; i <= 5; i++) {
+                    createEl('option', {
+                        attrs: { value: i, selected: (node.priority || 0) === i },
+                        text: i === 0 ? '0(未設定)' : '★'.repeat(i) + ' (' + i + ')',
+                        parent: select
+                    });
+                }
+                popup.dataset.input = 'priority-select';
+                popup.dataset.selectRef = select;
             } else {
                 const isLink = type === 'link';
-                const input = isLink ? document.createElement('input') : document.createElement('textarea');
-                if (isLink) {
-                    input.type = 'url';
-                    input.style.cssText = 'width:100%;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;';
-                } else {
-                    input.style.cssText = 'width:100%;min-height:60px;padding:4px 8px;font-size:13px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;resize:vertical;';
-                }
-                input.value = node.details?.[type] || '';
-                content.appendChild(input);
+                const input = createEl(isLink ? 'input' : 'textarea', {
+                    style: isLink ?
+                        { width: '100%', padding: '4px 8px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' } :
+                        { width: '100%', minHeight: '60px', padding: '4px 8px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box', resize: 'vertical' },
+                    attrs: isLink ? { type: 'url', value: node.details?.[type] || '' } : {},
+                    parent: content
+                });
+                if (!isLink) input.value = node.details?.[type] || '';
                 popup.dataset.textareaRef = input;
             }
 
-            popup.appendChild(content);
-
-            const btnRow = document.createElement('div');
-            btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:10px;';
-            const cancelBtn = document.createElement('button');
-            cancelBtn.textContent = 'キャンセル';
-            cancelBtn.style.cssText = 'padding:4px 12px;font-size:13px;border:1px solid #ddd;border-radius:4px;background:#f5f5f5;cursor:pointer;';
-            cancelBtn.addEventListener('click', () => popup.remove());
-            const saveBtn = document.createElement('button');
-            saveBtn.textContent = '保存';
-            saveBtn.style.cssText = 'padding:4px 12px;font-size:13px;border:none;border-radius:4px;background:#4a90d9;color:white;cursor:pointer;';
-            saveBtn.addEventListener('click', () => {
-                if (type === 'priority') {
-                    const sel = popup.querySelector('select');
-                    node.priority = parseInt(sel.value);
-                } else {
-                    const ta = popup.querySelector('textarea, input[type="url"]');
-                    if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '', link: '' };
-                    node.details[type] = ta.value;
-                }
-                popup.remove();
-                renderNodes();
+            const btnRow = createEl('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }, parent: popup });
+            createEl('button', {
+                style: { padding: '4px 12px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px', background: '#f5f5f5', cursor: 'pointer' },
+                text: 'キャンセル',
+                on: { click: () => popup.remove() },
+                parent: btnRow
             });
-            btnRow.appendChild(cancelBtn);
-            btnRow.appendChild(saveBtn);
-            popup.appendChild(btnRow);
+            createEl('button', {
+                style: { padding: '4px 12px', fontSize: '13px', border: 'none', borderRadius: '4px', background: '#4a90d9', color: 'white', cursor: 'pointer' },
+                text: '保存',
+                on: {
+                    click: () => {
+                        if (type === 'priority') {
+                            const sel = popup.querySelector('select');
+                            node.priority = parseInt(sel.value);
+                        } else {
+                            const ta = popup.querySelector('textarea, input[type="url"]');
+                            if (!node.details) node.details = { when: { repeatType: 'none', daysOfWeek: [], baseDateTime: null, baseTime: '09:00', deadlineType: 'relative', deadlineDays: 0, deadlineTime: '18:00', deadlineDate: null, nextDate: null, lastCompleted: null }, what: '', who: '', where: '', link: '' };
+                            node.details[type] = ta.value;
+                        }
+                        popup.remove();
+                        renderNodes();
+                    }
+                },
+                parent: btnRow
+            });
 
-            // Position near the clicked indicator
             document.body.appendChild(popup);
             const rect = popup.getBoundingClientRect();
-            const x = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2)));
-            const y = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2)));
-            popup.style.left = x + 'px';
-            popup.style.top = y + 'px';
+            popup.style.left = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2))) + 'px';
+            popup.style.top = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2))) + 'px';
         }
 
         function openBulkDetailEditor(node) {
