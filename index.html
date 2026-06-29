@@ -9306,6 +9306,16 @@ function getNodeEdgePoint(node, targetNode) {
                     menu.remove();
                     openBulkEditDialog();
                 }});
+                items.push({ text: '一括削除', icon: '🗑️', class: 'delete', action: () => {
+                    if (confirm(`${state.selectedNodeIds.length}個のノードを削除しますか?`)) {
+                        state.selectedNodeIds.forEach(id => deleteNode(id));
+                        state.selectedNodeIds = [];
+                        renderNodes();
+                        renderConnections();
+                        showToast(`${state.selectedNodeIds.length}個のノードを削除しました`);
+                    }
+                    menu.remove();
+                }});
                 items.push({ text: '', class: 'context-separator' });
             }
 
