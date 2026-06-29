@@ -5172,23 +5172,7 @@ function getNodeEdgePoint(node, targetNode) {
                         childTooltipEl.innerHTML = html;
                         childTooltipEl.style.display = 'block';
                         void childTooltipEl.offsetHeight;
-                        
-                        const rect = childEl.getBoundingClientRect();
-                        const ttRect = childTooltipEl.getBoundingClientRect();
-                        let left = rect.right + 8;
-                        let top = rect.top;
-                        
-                        if (left + ttRect.width > window.innerWidth - 8) {
-                            left = rect.left - ttRect.width - 8;
-                        }
-                        if (left < 8) left = 8;
-                        if (top + ttRect.height > window.innerHeight - 8) {
-                            top = window.innerHeight - ttRect.height - 8;
-                        }
-                        if (top < 8) top = 8;
-                        
-                        childTooltipEl.style.left = left + 'px';
-                        childTooltipEl.style.top = top + 'px';
+                        positionTooltipByElement(childEl, childTooltipEl);
                         childTooltipEl.style.opacity = '1';
                         childTooltipVisible = true;
                     }
