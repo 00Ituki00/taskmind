@@ -2393,6 +2393,23 @@
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
+        function positionTooltipByElement(el, tooltipEl) {
+            const rect = el.getBoundingClientRect();
+            const ttRect = tooltipEl.getBoundingClientRect();
+            let left = rect.right + 8;
+            let top = rect.top;
+            if (left + ttRect.width > window.innerWidth - 8) {
+                left = rect.left - ttRect.width - 8;
+            }
+            if (left < 8) left = 8;
+            if (top + ttRect.height > window.innerHeight - 8) {
+                top = window.innerHeight - ttRect.height - 8;
+            }
+            if (top < 8) top = 8;
+            tooltipEl.style.left = left + 'px';
+            tooltipEl.style.top = top + 'px';
+        }
+
         // ==================== Node Operations ====================
         function calculateNodeWidth(title, hasLink = false) {
             const temp = createEl('span', {
@@ -5371,29 +5388,6 @@ function getNodeEdgePoint(node, targetNode) {
                 let tooltipTimer = null;
                 let tooltipVisible = false;
                 
-                function positionTooltip() {
-                    const rect = el.getBoundingClientRect();
-                    const ttRect = tooltipEl.getBoundingClientRect();
-                    let left = rect.right + 8;
-                    let top = rect.top;
-                    
-                    // Right edge: flip to left side
-                    if (left + ttRect.width > window.innerWidth - 8) {
-                        left = rect.left - ttRect.width - 8;
-                    }
-                    // Left edge: clamp
-                    if (left < 8) left = 8;
-                    // Bottom edge: clamp
-                    if (top + ttRect.height > window.innerHeight - 8) {
-                        top = window.innerHeight - ttRect.height - 8;
-                    }
-                    // Top edge: clamp
-                    if (top < 8) top = 8;
-                    
-                    tooltipEl.style.left = left + 'px';
-                    tooltipEl.style.top = top + 'px';
-                }
-                
                 function showTooltip() {
                     if (state.dragNode) return;
                     const html = buildNodeTooltipHtml(node);
@@ -5403,7 +5397,7 @@ function getNodeEdgePoint(node, targetNode) {
                     tooltipEl.style.display = 'block';
                     // Force layout for position calc
                     void tooltipEl.offsetHeight;
-                    positionTooltip();
+                    positionTooltipByElement(el, tooltipEl);
                     tooltipEl.style.opacity = '1';
                     tooltipVisible = true;
                 }
@@ -6370,22 +6364,6 @@ function getNodeEdgePoint(node, targetNode) {
             let timelineTooltipVisible = false;
 
 
-            function positionTimelineTooltip() {
-                const rect = el.getBoundingClientRect();
-                const ttRect = timelineTooltipEl.getBoundingClientRect();
-                let left = rect.right + 8;
-                let top = rect.top;
-                if (left + ttRect.width > window.innerWidth - 8) {
-                    left = rect.left - ttRect.width - 8;
-                }
-                if (left < 8) left = 8;
-                if (top + ttRect.height > window.innerHeight - 8) {
-                    top = window.innerHeight - ttRect.height - 8;
-                }
-                if (top < 8) top = 8;
-                timelineTooltipEl.style.left = left + 'px';
-                timelineTooltipEl.style.top = top + 'px';
-            }
 
             function showTimelineTooltip() {
                 if (state.dragNode) return;
@@ -6394,7 +6372,7 @@ function getNodeEdgePoint(node, targetNode) {
                 timelineTooltipEl.innerHTML = html;
                 timelineTooltipEl.style.display = 'block';
                 void timelineTooltipEl.offsetHeight;
-                positionTimelineTooltip();
+                positionTooltipByElement(el, timelineTooltipEl);
                 timelineTooltipEl.style.opacity = '1';
                 timelineTooltipVisible = true;
             }
