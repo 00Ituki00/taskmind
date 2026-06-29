@@ -1800,7 +1800,8 @@
         <button class="tool-btn" id="btn-notify" title="通知許可 (ブラウザ通知を有効化)">🔔</button>
         <div class="tool-separator"></div>
         <button class="tool-btn" id="btn-layout" title="レイアウト切替 (フリー↔タイムライン)">📅</button>
-        <button class="tool-btn" id="btn-new" title="新規作成">🗑️</button>
+        <button class="tool-btn" id="btn-new" title="ノード追加">➕</button>
+        <button class="tool-btn" id="btn-clear" title="新規作成（全クリア）">🗑️</button>
         <button class="tool-btn" id="btn-autoload" title="自動読み込み">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
@@ -2882,6 +2883,93 @@
                     document.removeEventListener('mousedown', closeHandler);
                 }
             });
+        }
+
+        // Node type selector popup (shown when adding new node)
+        function showNodeTypeSelector(x, y) {
+            const existing = document.querySelector('.node-type-selector');
+            if (existing) existing.remove();
+
+            const types = [
+                { type: 'task', label: 'タスク', icon: '📋', color: '#4a90d9' },
+                { type: 'schedule', label: 'スケジュール', icon: '📅', color: '#9b59b6' },
+                { type: 'daily', label: '日次', icon: '📆', color: '#2ecc71' },
+                { type: 'monthly', label: '月次', icon: '📅', color: '#e67e22' },
+                { type: 'memo', label: 'メモ', icon: '📝', color: '#888888' },
+                { type: 'condition', label: '条件', icon: '❓', color: '#e74c3c' },
+                { type: 'asap', label: 'ASAP', icon: '⚡', color: '#c0392b' }
+            ];
+
+            const popup = document.createElement('div');
+            popup.className = 'node-type-selector';
+            popup.style.cssText = `
+                position:fixed; left:${x}px; top:${y}px;
+                background:white; border:1px solid #ddd; border-radius:8px;
+                padding:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15);
+                z-index:10000; display:flex; flex-direction:column; gap:4px;
+                font-size:13px; min-width:180px;
+            `;
+
+            const title = document.createElement('div');
+            title.style.cssText = 'font-size:11px; color:#888; padding:4px 8px; font-weight:600;';
+            title.textContent = 'ノードタイプを選択';
+            popup.appendChild(title);
+
+            types.forEach(t => {
+                const btn = document.createElement('button');
+                btn.style.cssText = `
+                    border:none; background:none; padding:8px 12px; border-radius:4px;
+                    cursor:pointer; text-align:left; font-size:13px;
+                    display:flex; align-items:center; gap:8px;
+                    transition: background 0.15s;
+                `;
+                btn.innerHTML = `<span style="font-size:16px;">${t.icon}</span> <span style="color:${t.color}; font-weight:500;">${t.label}</span>`;
+                btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
+                btn.addEventListener('mouseleave', () => btn.style.background = 'none');
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const nx = (window.innerWidth / 2 - state.panX) / state.scale;
+                    const ny = (window.innerHeight / 2 - state.panY) / state.scale;
+                    const node = createNode(nx, ny, '新規' + t.label, t.type);
+                    popup.remove();
+                    renderNodes();
+                    renderConnections();
+                    showToast(`${t.label}を作成しました`);
+                    // 作成したノードを編集モードに
+                    setTimeout(() => {
+                        const el = document.querySelector(`.node[data-id="${node.id}"]`);
+                        if (el) {
+                            const titleEl = el.querySelector('.node-title');
+                            if (titleEl) titleEl.click();
+                        }
+                    }, 100);
+                });
+                popup.appendChild(btn);
+            });
+
+            // キャンセル
+            const cancel = document.createElement('button');
+            cancel.textContent = 'キャンセル';
+            cancel.style.cssText = `
+                border:none; background:none; padding:6px 12px; border-radius:4px;
+                cursor:pointer; text-align:center; font-size:12px; color:#888;
+                border-top:1px solid #eee; margin-top:4px;
+            `;
+            cancel.addEventListener('click', (e) => {
+                e.stopPropagation();
+                popup.remove();
+            });
+            popup.appendChild(cancel);
+
+            document.body.appendChild(popup);
+
+            const closeHandler = (e) => {
+                if (!popup.contains(e.target)) {
+                    popup.remove();
+                    document.removeEventListener('mousedown', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
         }
 
         // Connection type selector popup (shown when editing existing connection)
@@ -9691,6 +9779,12 @@ function getNodeEdgePoint(node, targetNode) {
         });
         updateAutoloadButton();
         document.getElementById('btn-new').addEventListener('click', () => {
+            const btn = document.getElementById('btn-new');
+            const rect = btn.getBoundingClientRect();
+            showNodeTypeSelector(rect.left, rect.bottom + 4);
+        });
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            if (!confirm('全てのノードを削除して新規作成しますか？')) return;
             state.nodes = [];
             state.connections = [];
             state.nextId = 1;
