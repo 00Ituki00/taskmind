@@ -5007,15 +5007,19 @@ function getNodeEdgePoint(node, targetNode) {
                     if (state.hideCompleted && child.completed) return;
                     // Skip if this child is currently being dragged (and drag has actually started)
                     if (state.dragNode?.id === child.id && state.isDragging) return;
+                    // Skip if this child is part of multi-drag selection
+                    if (state.dragSelectedNodes?.some(n => n.id === child.id) && state.isDragging) return;
                     // Skip hidden nodes
                     if (hiddenNodeIds.has(child.id)) return;
 
+                    const isDraggingMulti = state.dragSelectedNodes?.some(n => n.id === child.id) && state.isDragging;
                     const childEl = document.createElement('div');
                     childEl.className = 'node type-' + (child.type || 'task')
                         + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
                         + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
                         + (child.completed ? ' completed' : '')
                         + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '')
+                        + (isDraggingMulti ? ' dragging' : '')
                         + (getNodeWhenStatus(child) ? ' ' + getNodeWhenStatus(child) : '');
                     childEl.dataset.id = child.id;
                     childEl.dataset.depth = depth;
@@ -7629,6 +7633,11 @@ function getNodeEdgePoint(node, targetNode) {
                 state.dragOffsetX = (e.clientX - state.panX) / state.scale - nodeAbsX;
                 state.dragOffsetY = (e.clientY - state.panY) / state.scale - nodeAbsY;
 
+                // 同じ親に属する選択子ノードをまとめてドラッグ対象に
+                state.dragSelectedNodes = state.selectedNodeIds
+                    .map(id => state.nodes.find(n => n.id === id))
+                    .filter(n => n && n.id !== node.id && n.parentId === node.parentId);
+
                 // Don't start drag immediately - wait for mousemove threshold
                 state.isDragging = false;
                 state.pendingExtract = false;
@@ -8195,7 +8204,7 @@ function getNodeEdgePoint(node, targetNode) {
                     state.dragNode.y = newY;
                 }
 
-                // Move all selected nodes together (only root nodes - child nodes follow their parent automatically)
+                // Move all selected root nodes together
                 if (state.selectedNodeIds.length > 1) {
                     state.selectedNodeIds.forEach(id => {
                         if (id !== state.dragNode.id) {
@@ -8204,6 +8213,16 @@ function getNodeEdgePoint(node, targetNode) {
                                 n.x += dx;
                                 n.y += dy;
                             }
+                        }
+                    });
+                }
+
+                // Move selected child nodes with same parent together
+                if (state.dragSelectedNodes && state.dragSelectedNodes.length > 0) {
+                    state.dragSelectedNodes.forEach(n => {
+                        if (n.parentId !== null) {
+                            n.x += dx;
+                            n.y += dy;
                         }
                     });
                 }
@@ -8574,42 +8593,50 @@ function getNodeEdgePoint(node, targetNode) {
             let didAction = false;
 
             if (wasDragged && state.dragNode) {
+                const nodesToProcess = [state.dragNode, ...(state.dragSelectedNodes || [])];
+
                 // 1. Nest into dropTarget (middle zone drop)
                 if (state.dropTarget && !state.reorderTarget) {
-                    const child = state.dragNode;
                     const parent = state.dropTarget;
+                    let nestCount = 0;
 
-                    // Prevent circular nesting
-                    let current = parent;
-                    let isCircular = false;
-                    while (current) {
-                        if (current.id === child.id) {
-                            isCircular = true;
-                            break;
-                        }
-                        current = state.nodes.find(n => n.id === current.parentId);
-                    }
-
-                    if (!isCircular && child.id !== parent.id) {
-                        // Remove from old parent
-                        if (child.parentId !== null) {
-                            const oldParent = state.nodes.find(n => n.id === child.parentId);
-                            if (oldParent) {
-                                oldParent.children = oldParent.children.filter(id => id !== child.id);
-                                const absPos = getNodeAbsolutePosition(child);
-                                child.x = absPos.x;
-                                child.y = absPos.y;
+                    nodesToProcess.forEach(child => {
+                        // Prevent circular nesting
+                        let current = parent;
+                        let isCircular = false;
+                        while (current) {
+                            if (current.id === child.id) {
+                                isCircular = true;
+                                break;
                             }
+                            current = state.nodes.find(n => n.id === current.parentId);
                         }
-                        child.parentId = parent.id;
-                        if (!parent.children) parent.children = [];
-                        parent.children.push(child.id);
-                        child.x = 20;
-                        child.y = (parent.height || 50) + 10;
-                        child.width = Math.max(160, (parent.width || 200) - 40);
+
+                        if (!isCircular && child.id !== parent.id) {
+                            // Remove from old parent
+                            if (child.parentId !== null) {
+                                const oldParent = state.nodes.find(n => n.id === child.parentId);
+                                if (oldParent) {
+                                    oldParent.children = oldParent.children.filter(id => id !== child.id);
+                                    const absPos = getNodeAbsolutePosition(child);
+                                    child.x = absPos.x;
+                                    child.y = absPos.y;
+                                }
+                            }
+                            child.parentId = parent.id;
+                            if (!parent.children) parent.children = [];
+                            parent.children.push(child.id);
+                            child.x = 20;
+                            child.y = (parent.height || 50) + 10;
+                            child.width = Math.max(160, (parent.width || 200) - 40);
+                            nestCount++;
+                        }
+                    });
+
+                    if (nestCount > 0) {
                         parent.expanded = true;
                         didAction = true;
-                        showToast('ノードをタスクとして追加しました');
+                        showToast(`${nestCount}個のノードをタスクとして追加しました`);
                     }
                 }
                 // 2. Reorder: insert before/after target node
@@ -8618,22 +8645,26 @@ function getNodeEdgePoint(node, targetNode) {
                     const targetParentId = state.reorderTarget.siblingParentId;
 
                     if (targetNode) {
-                        // Remove from old parent
-                        if (state.dragNode.parentId !== null) {
-                            const oldParent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                            if (oldParent && oldParent.children) {
-                                oldParent.children = oldParent.children.filter(id => id !== state.dragNode.id);
-                                if (oldParent.children.length === 0) oldParent.expanded = false;
+                        // Remove all nodes from old parent
+                        nodesToProcess.forEach(node => {
+                            if (node.parentId !== null) {
+                                const oldParent = state.nodes.find(n => n.id === node.parentId);
+                                if (oldParent && oldParent.children) {
+                                    oldParent.children = oldParent.children.filter(id => id !== node.id);
+                                    if (oldParent.children.length === 0) oldParent.expanded = false;
+                                }
                             }
-                        }
+                        });
 
                         if (targetParentId === null) {
-                            // Target is root - make dragged node a root too
-                            const absPos = getNodeAbsolutePosition(state.dragNode);
-                            state.dragNode.x = absPos.x;
-                            state.dragNode.y = absPos.y;
-                            state.dragNode.parentId = null;
-                            state.dragNode.width = calculateNodeWidth(state.dragNode.title, !!state.dragNode.details?.link);
+                            // Target is root - make all nodes root too
+                            nodesToProcess.forEach((node, i) => {
+                                const absPos = getNodeAbsolutePosition(node);
+                                node.x = absPos.x;
+                                node.y = absPos.y;
+                                node.parentId = null;
+                                node.width = calculateNodeWidth(node.title, !!node.details?.link);
+                            });
 
                             // Position near target
                             let tx = targetNode.x, ty = targetNode.y;
@@ -8645,14 +8676,11 @@ function getNodeEdgePoint(node, targetNode) {
                             state.dragNode.y = ty + (targetNode.height || 50) + 20;
 
                             didAction = true;
-                            showToast('ノードを移動しました');
+                            showToast(`${nodesToProcess.length}個のノードを移動しました`);
                         } else {
-                            // Target has parent - add dragged node to that parent
+                            // Target has parent - add all nodes to that parent
                             const newParent = state.nodes.find(n => n.id === targetParentId);
                             if (newParent) {
-                                state.dragNode.parentId = targetParentId;
-                                if (!newParent.children) newParent.children = [];
-
                                 const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
                                 let insertIndex;
                                 if (toIndex !== -1) {
@@ -8660,36 +8688,44 @@ function getNodeEdgePoint(node, targetNode) {
                                 } else {
                                     insertIndex = newParent.children.length;
                                 }
-                                newParent.children.splice(insertIndex, 0, state.dragNode.id);
 
-                                // Position relative to new parent
-                                const parentAbsPos = getNodeAbsolutePosition(newParent);
-                                const absPos = getNodeAbsolutePosition(state.dragNode);
-                                state.dragNode.x = absPos.x - parentAbsPos.x;
-                                state.dragNode.y = absPos.y - parentAbsPos.y;
-                                state.dragNode.width = Math.max(160, (newParent.width || 200) - 40);
+                                nodesToProcess.forEach((node, i) => {
+                                    node.parentId = targetParentId;
+                                    newParent.children.splice(insertIndex + i, 0, node.id);
+
+                                    const parentAbsPos = getNodeAbsolutePosition(newParent);
+                                    const absPos = getNodeAbsolutePosition(node);
+                                    node.x = absPos.x - parentAbsPos.x;
+                                    node.y = absPos.y - parentAbsPos.y;
+                                    node.width = Math.max(160, (newParent.width || 200) - 40);
+                                });
 
                                 didAction = true;
-                                showToast('順序を変更しました');
+                                showToast(`${nodesToProcess.length}個のノードの順序を変更しました`);
                             }
                         }
                     }
                 }
-                // 3. No target but dragged node had parent → extract to root
+                // 3. No target but dragged nodes had parent → extract to root
                 else if (!didAction && state.dragNode.parentId !== null) {
                     const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
                     if (parent) {
-                        const absPos = getNodeAbsolutePosition(state.dragNode);
-                        state.dragNode.x = absPos.x;
-                        state.dragNode.y = absPos.y;
-                        state.dragNode.parentId = null;
-                        state.dragNode.width = calculateNodeWidth(state.dragNode.title, !!state.dragNode.details?.link);
+                        nodesToProcess.forEach(node => {
+                            const absPos = getNodeAbsolutePosition(node);
+                            node.x = absPos.x;
+                            node.y = absPos.y;
+                            node.parentId = null;
+                            node.width = calculateNodeWidth(node.title, !!node.details?.link);
+                        });
+
                         if (parent.children) {
-                            parent.children = parent.children.filter(id => id !== state.dragNode.id);
+                            const nodeIds = new Set(nodesToProcess.map(n => n.id));
+                            parent.children = parent.children.filter(id => !nodeIds.has(id));
                             if (parent.children.length === 0) parent.expanded = false;
                         }
+
                         didAction = true;
-                        showToast('ノードを取り出しました');
+                        showToast(`${nodesToProcess.length}個のノードを取り出しました`);
                     }
                 }
             }
@@ -8731,6 +8767,9 @@ function getNodeEdgePoint(node, targetNode) {
                 });
                 state.resizingNode = null;
             }
+
+            // Clear multi-drag selection
+            state.dragSelectedNodes = null;
         });
 
         window.addEventListener('touchend', (e) => {
@@ -8817,6 +8856,7 @@ function getNodeEdgePoint(node, targetNode) {
 
             state.dragNode = null;
             _draggedConnIds = null;
+            state.dragSelectedNodes = null;
 
             // Clear drag tooltip for touch
         });
