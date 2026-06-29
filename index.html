@@ -6287,24 +6287,9 @@ function getNodeEdgePoint(node, targetNode) {
             const header = createEl('div', { class: 'node-header', parent: el });
 
             const timelineDisplayColor = getNodeDisplayColor(node);
-            const color = createEl('div', {
-                class: 'node-color',
-                style: { width: '14px', height: '14px', borderRadius: '3px', backgroundColor: timelineDisplayColor, cursor: 'pointer', flexShrink: 0, alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '11px', fontWeight: 'bold' },
-                text: node.completed ? '✓' : '',
-                on: {
-                    mousedown: (e) => {
-                        e.preventDefault(); e.stopPropagation();
-                        if (e.button === 2) return;
-                        const wasCompleted = node.completed;
-                        node.completed = !node.completed;
-                        node.completedAt = node.completed ? new Date().toISOString() : null;
-                        if (node.completed) { saveChildPosition(node); updateWhenOnComplete(node); }
-                        else if (wasCompleted) { undoWhenComplete(node); restoreChildPosition(node); }
-                        renderNodes();
-                    }
-                },
-                parent: header
-            });
+            const color = createCompletionCheckbox(node, 14);
+            color.style.flexShrink = '0';
+            header.appendChild(color);
 
             const title = createEl('span', {
                 class: 'node-title' + (node.completed ? ' completed' : ''),
@@ -6318,17 +6303,7 @@ function getNodeEdgePoint(node, targetNode) {
             Object.defineProperty(el, 'timelineTitleElement', { value: title, writable: false });
 
             // Link icon
-            const link = node.details?.link?.trim();
-            if (link) {
-                createEl('span', {
-                    text: '🔗',
-                    style: { marginLeft: '2px', fontSize: '12px', cursor: 'pointer', opacity: 0.7 },
-                    on: {
-                        mousedown: (e) => { e.stopPropagation(); window.open(link, '_blank', 'noopener,noreferrer'); }
-                    },
-                    parent: header
-                });
-            }
+            createLinkIcon(node, header);
 
             // Indicators
             const indicatorsEl = createIndicatorMenu(node);
