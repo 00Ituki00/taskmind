@@ -7082,21 +7082,23 @@ function getNodeEdgePoint(node, targetNode) {
                         fo.setAttribute('height', '30');
                         fo.style.pointerEvents = 'none';
 
-                        const div = document.createElement('div');
-                        div.style.cssText = `
-                            display:inline-block; padding:2px 8px; border-radius:4px;
-                            font-size:11px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-                            color:${labelColor}; border:1.5px solid ${labelColor};
-                            background:rgba(255,255,255,0.95); text-align:center; white-space:nowrap;
-                            box-shadow:0 1px 4px rgba(0,0,0,0.1);
-                            position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
-                        `;
-                        div.textContent = (icon ? icon + ' ' : '') + labelText;
-
-                        div.addEventListener('dblclick', (e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            showConnectionTypeSelectorForEdit(conn, e.clientX, e.clientY);
+                        const div = createEl('div', {
+                            style: {
+                                display: 'inline-block', padding: '2px 8px', borderRadius: '4px',
+                                fontSize: '11px', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+                                color: labelColor, border: `1.5px solid ${labelColor}`,
+                                background: 'rgba(255,255,255,0.95)', textAlign: 'center', whiteSpace: 'nowrap',
+                                boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)'
+                            },
+                            text: (icon ? icon + ' ' : '') + labelText,
+                            on: {
+                                dblclick: (e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    showConnectionTypeSelectorForEdit(conn, e.clientX, e.clientY);
+                                }
+                            }
                         });
 
                         fo.appendChild(div);
@@ -8904,11 +8906,11 @@ function getNodeEdgePoint(node, targetNode) {
                             console.error('Error in enableTitleEdit:', err);
                         }
                     } else if (targetNode) {
-                        // For timeline nodes without title element, create inline edit
-                        const textSpan = document.createElement('span');
-                        textSpan.className = 'node-title';
-                        textSpan.textContent = node.text;
-                        textSpan.style.cssText = 'display:inline-block;min-width:50px;background:#fff;border:1px solid #ccc;padding:2px 4px;';
+                        const textSpan = createEl('span', {
+                            class: 'node-title',
+                            text: node.text,
+                            style: { display: 'inline-block', minWidth: '50px', background: '#fff', border: '1px solid #ccc', padding: '2px 4px' }
+                        });
                         targetNode.innerHTML = '';
                         targetNode.appendChild(textSpan);
                         enableTitleEdit(textSpan, node);
