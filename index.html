@@ -5674,6 +5674,29 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
+        function createTimelineHeader(viewStart, days, dayWidth, totalWidth) {
+            const header = createEl('div', {
+                class: 'timeline-header',
+                style: { width: Math.max(totalWidth, window.innerWidth) + 'px' }
+            });
+            const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+            for (let i = 0; i < days; i++) {
+                const d = new Date(viewStart);
+                d.setDate(d.getDate() + i);
+                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                createEl('div', {
+                    class: 'timeline-day-header',
+                    style: {
+                        width: dayWidth + 'px',
+                        background: isWeekend ? 'rgba(231,76,60,0.05)' : undefined
+                    },
+                    html: `<div>${d.getMonth() + 1}/${d.getDate()}<br><small style="color:${isWeekend ? '#e74c3c' : '#666'}">${dayNames[d.getDay()]}</small></div>`,
+                    parent: header
+                });
+            }
+            return header;
+        }
+
         function renderTimeline() {
             const timeline = state.timeline;
             const dayWidth = timeline.dayWidth;
@@ -5711,25 +5734,7 @@ function getNodeEdgePoint(node, targetNode) {
             });
 
             // Date header
-            const header = createEl('div', {
-                class: 'timeline-header',
-                style: { width: Math.max(totalWidth, window.innerWidth) + 'px' }
-            });
-            const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-            for (let i = 0; i < days; i++) {
-                const d = new Date(viewStart);
-                d.setDate(d.getDate() + i);
-                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                const dayEl = createEl('div', {
-                    class: 'timeline-day-header',
-                    style: {
-                        width: dayWidth + 'px',
-                        background: isWeekend ? 'rgba(231,76,60,0.05)' : undefined
-                    },
-                    html: `<div>${d.getMonth() + 1}/${d.getDate()}<br><small style="color:${isWeekend ? '#e74c3c' : '#666'}">${dayNames[d.getDay()]}</small></div>`,
-                    parent: header
-                });
-            }
+            const header = createTimelineHeader(viewStart, days, dayWidth, totalWidth);
             container.appendChild(header);
 
             // Collect all nodes with timeline dates (including children as independent nodes)
