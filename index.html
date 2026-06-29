@@ -4975,14 +4975,26 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             // Helper: Attach common node events (mousedown, touchstart, contextmenu)
-            function attachNodeEvents(el, node) {
+            function attachNodeEvents(el, node, options = {}) {
+                const { stopPropagation = false, includeDragHandlers = false } = options;
+                
                 el.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     showCanvasContextMenu(e.clientX, e.clientY, e);
                 });
-                el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
+                
+                el.addEventListener('mousedown', (e) => {
+                    if (stopPropagation) e.stopPropagation();
+                    handleNodeMouseDown(e, node);
+                });
+                
                 el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+                
+                if (includeDragHandlers) {
+                    el.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, el, node));
+                    el.addEventListener('mouseleave', () => handleNodeMouseLeave(el, node));
+                }
             }
 
             // Helper: Apply priority-based border styling
@@ -5191,16 +5203,8 @@ function getNodeEdgePoint(node, targetNode) {
                         childEl.appendChild(childWhenProgress);
                     }
 
-                    // Use unified drag handler (same as root nodes)
-                    childEl.addEventListener('mousedown', (e) => {
-                        e.stopPropagation(); // Prevent parent node event from firing
-                        handleNodeMouseDown(e, child);
-                    });
-                    childEl.addEventListener('touchstart', (e) => handleNodeTouchStart(e, child), { passive: false });
-
                     // Use unified drag-and-drop handlers (same as root nodes)
-                    childEl.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, childEl, child));
-                    childEl.addEventListener('mouseleave', () => handleNodeMouseLeave(childEl, child));
+                    attachNodeEvents(childEl, child, { stopPropagation: true, includeDragHandlers: true });
 
                     // Hover tooltip for child nodes — reuses global singleton
                     const childTooltipEl = document.querySelector('.node-hover-tooltip-global');
@@ -5415,23 +5419,12 @@ function getNodeEdgePoint(node, targetNode) {
                 const whenProgress = createWhenProgressBar(node);
                 if (whenProgress) el.appendChild(whenProgress);
 
-                el.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    showCanvasContextMenu(e.clientX, e.clientY, e);
-                });
-
                 // Child nodes area with recursive rendering
                 createChildrenContainer(node, el);
 
-                el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
-                el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+                attachNodeEvents(el, node, { includeDragHandlers: true });
 
                 nodesEl.appendChild(el);
-
-                // Unified drag-and-drop handlers for root nodes
-                el.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, el, node));
-                el.addEventListener('mouseleave', () => handleNodeMouseLeave(el, node));
 
                 // Show/hide resize handles on node hover
                 el.addEventListener('mouseenter', () => {
