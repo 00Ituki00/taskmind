@@ -5204,54 +5204,22 @@ function getNodeEdgePoint(node, targetNode) {
 
                     // Hover tooltip for child nodes — reuses global singleton
                     const childTooltipEl = document.querySelector('.node-hover-tooltip-global');
-                    let childTooltipTimer = null;
-                    let childTooltipVisible = false;
-                    
-                    function cancelChildTooltipTimer() {
-                        if (childTooltipTimer) {
-                            clearTimeout(childTooltipTimer);
-                            childTooltipTimer = null;
-                        }
-                    }
-                    
-                    function showChildTooltip() {
-                        if (state.dragNode) return;
-                        const html = buildNodeTooltipHtml(child);
-                        if (!html) return;
-                        
-                        childTooltipEl.innerHTML = html;
-                        childTooltipEl.style.display = 'block';
-                        void childTooltipEl.offsetHeight;
-                        positionTooltipByElement(childEl, childTooltipEl);
-                        childTooltipEl.style.opacity = '1';
-                        childTooltipVisible = true;
-                    }
-                    
-                    function hideChildTooltip() {
-                        childTooltipEl.style.opacity = '0';
-                        childTooltipVisible = false;
-                        setTimeout(() => {
-                            if (!childTooltipVisible) childTooltipEl.style.display = 'none';
-                        }, 150);
-                    }
+                    const childTooltipCtrl = createTooltipController(childTooltipEl);
                     
                     // Header-equivalent hover area: checkbox + title + indicators (not nested children)
                     const childHeaderTargets = [childCheckbox, childTitle, childIndicators, expandBtn, badge].filter(Boolean);
                     childHeaderTargets.forEach(target => {
                         target.addEventListener('mouseenter', () => {
                             if (state.dragNode) return;
-                            cancelChildTooltipTimer();
-                            childTooltipTimer = setTimeout(() => {
-                                showChildTooltip();
-                            }, 120);
+                            childTooltipCtrl.scheduleShow(buildNodeTooltipHtml(child), target);
                         });
                         target.addEventListener('mouseleave', () => {
-                            cancelChildTooltipTimer();
-                            if (childTooltipVisible) hideChildTooltip();
+                            childTooltipCtrl.cancelTimer();
+                            if (childTooltipCtrl.isVisible) childTooltipCtrl.hide();
                         });
                         target.addEventListener('mousedown', () => {
-                            cancelChildTooltipTimer();
-                            if (childTooltipVisible) hideChildTooltip();
+                            childTooltipCtrl.cancelTimer();
+                            if (childTooltipCtrl.isVisible) childTooltipCtrl.hide();
                         });
                     });
 
