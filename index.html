@@ -4876,6 +4876,12 @@ function getNodeEdgePoint(node, targetNode) {
                     if (hiddenNodeIds.has(child.id)) return;
 
                     const isDraggingMulti = state.dragSelectedNodes?.some(n => n.id === child.id) && state.isDragging;
+
+                    // 子ノードの色を設定（完了済みはグレー）
+                    const childNodeColor = child.color || getNodeTypeColor(child.type);
+                    const childDisplayColor = getNodeDisplayColor(child);
+                    const childDisplayBg = child.completed ? '#e0e0e0' : lightenColor(childNodeColor, 0.75);
+
                     const childEl = createEl('div', {
                         class: 'node type-' + (child.type || 'task')
                             + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
@@ -4887,7 +4893,7 @@ function getNodeEdgePoint(node, targetNode) {
                         attrs: { 'data-id': child.id, 'data-depth': depth },
                         style: { backgroundColor: childDisplayBg }
                     });
-                    
+
                     // Priority border styling for child nodes (0-5), skip if completed
                     const cp = child.priority || 0;
                     if (!child.completed) {
