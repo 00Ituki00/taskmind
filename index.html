@@ -3765,22 +3765,23 @@ function getNodeEdgePoint(node, targetNode) {
                 { value: 'startend', label: '▶ 開始/終了' }
             ];
             typeOptions.forEach(opt => {
-                const option = document.createElement('option');
-                option.value = opt.value;
-                option.textContent = opt.label;
-                if ((node.type || 'task') === opt.value) option.selected = true;
-                tSelect.appendChild(option);
+                createEl('option', {
+                    attrs: { value: opt.value, selected: (node.type || 'task') === opt.value },
+                    text: opt.label,
+                    parent: tSelect
+                });
             });
-            tRow.appendChild(tSelect);
-            modal.appendChild(tRow);
 
             // When (統合エディタ)
-            const wSection = document.createElement('div');
-            wSection.style.cssText = 'margin-bottom:12px;border:1px solid #e0e0e0;border-radius:8px;padding:12px;';
-            const wTitle = document.createElement('div');
-            wTitle.style.cssText = 'font-size:13px;font-weight:600;color:#333;margin-bottom:10px;';
-            wTitle.textContent = '🕐 When(周期・期限)';
-            wSection.appendChild(wTitle);
+            const wSection = createEl('div', {
+                style: { marginBottom: '12px', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '12px' },
+                parent: modal
+            });
+            createEl('div', {
+                style: { fontSize: '13px', fontWeight: 600, color: '#333', marginBottom: '10px' },
+                text: '🕐 When(周期・期限)',
+                parent: wSection
+            });
 
             // Initialize when data
             if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
