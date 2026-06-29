@@ -5014,9 +5014,8 @@ function getNodeEdgePoint(node, targetNode) {
                 const children = state.nodes.filter(n => n.parentId === node.id);
                 const completedChildren = children.filter(n => n.completed).length;
                 const totalChildren = children.length;
-                if (totalChildren === 0) return null;
                 return createEl('span', {
-                    text: '(' + completedChildren + '/' + totalChildren + ')',
+                    text: totalChildren > 0 ? '(' + completedChildren + '/' + totalChildren + ')' : '',
                     attrs: { 'data-badge': 'true' },
                     style: { fontSize: '11px', color: '#999', marginLeft: '4px', flexShrink: 0 },
                     parent: parentEl
