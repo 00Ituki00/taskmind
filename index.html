@@ -9125,22 +9125,22 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.bulk-edit-dialog');
             if (existing) existing.remove();
 
-            const dialog = document.createElement('div');
-            dialog.className = 'bulk-edit-dialog';
-            dialog.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: white;
-                border: 1px solid #ddd;
-                border-radius: 12px;
-                padding: 20px;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-                z-index: 10001;
-                min-width: 280px;
-                font-family: inherit;
-            `;
+            const dialog = createEl('div', {
+                class: 'bulk-edit-dialog',
+                style: {
+                    position: 'fixed',
+                    top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'white',
+                    border: '1px solid #ddd',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                    zIndex: 10001,
+                    minWidth: '280px',
+                    fontFamily: 'inherit'
+                }
+            });
 
             dialog.innerHTML = `
                 <div style="font-weight:600;font-size:15px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
