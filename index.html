@@ -9421,6 +9421,52 @@ function getNodeEdgePoint(node, targetNode) {
             }
         });
 
+        // ==================== FileHandle Persistence (IndexedDB) ====================
+        const DB_NAME = 'taskmind';
+        const DB_STORE = 'fileHandles';
+        const DB_VERSION = 1;
+
+        function openFileHandleDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = (e) => {
+                    e.target.result.createObjectStore(DB_STORE);
+                };
+                req.onsuccess = (e) => resolve(e.target.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function saveFileHandleToDB(handle) {
+            try {
+                const db = await openFileHandleDB();
+                const tx = db.transaction(DB_STORE, 'readwrite');
+                tx.objectStore(DB_STORE).put(handle, 'lastFileHandle');
+                return new Promise((resolve, reject) => {
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+            } catch(e) {
+                console.warn('Failed to save FileHandle to DB:', e);
+            }
+        }
+
+        async function loadFileHandleFromDB() {
+            try {
+                const db = await openFileHandleDB();
+                const tx = db.transaction(DB_STORE, 'readonly');
+                const store = tx.objectStore(DB_STORE);
+                const req = store.get('lastFileHandle');
+                return new Promise((resolve, reject) => {
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                });
+            } catch(e) {
+                console.warn('Failed to load FileHandle from DB:', e);
+                return null;
+            }
+        }
+
         // ==================== Selection Box ====================
         function updateSelectionBox(x1, y1, x2, y2) {
             const box = document.getElementById('selection-box');
@@ -9479,6 +9525,7 @@ function getNodeEdgePoint(node, targetNode) {
                     state.lastFileHandle = handle;
                     state.lastFileName = handle.name;
                     state.lastFilePath = handle.name;
+                    saveFileHandleToDB(handle); // IndexedDBへ永続化
                     updateFileInfoDisplay(); // ファイル名のみ先行表示
                     return handle.createWritable().then(writable => {
                         return writable.write(json).then(() => {
@@ -9532,6 +9579,7 @@ function getNodeEdgePoint(node, targetNode) {
                     state.lastFileHandle = handle;
                     state.lastFileName = handle.name;
                     state.lastFilePath = handle.name;
+                    saveFileHandleToDB(handle); // IndexedDBへ永続化
                     const fileObj = await handle.getFile();
                     await parseFileData(fileObj);
                     return;
@@ -10213,6 +10261,16 @@ function getNodeEdgePoint(node, targetNode) {
         
         // Attempt auto-restore only if enabled
         const restored = isAutoloadEnabled() ? loadAutosave() : false;
+        
+        // IndexedDB から FileHandle を復元（上書き保存用）
+        if (restored) {
+            loadFileHandleFromDB().then(handle => {
+                if (handle) {
+                    state.lastFileHandle = handle;
+                    console.log('[DEBUG] FileHandle restored from IndexedDB');
+                }
+            }).catch(e => console.warn('Failed to restore FileHandle:', e));
+        }
         
         // fetch Last-Modified header to show file update time and commit id
         (function updateFileInfo() {
