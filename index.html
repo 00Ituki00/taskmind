@@ -4460,72 +4460,27 @@ function getNodeEdgePoint(node, targetNode) {
 
             if (!node.details) node.details = { why: '', what: '', who: '', where: '', link: '' };
 
-            const popup = document.createElement('div');
-            popup.className = 'when-editor-popup';
-            popup.style.cssText = 'position:fixed;background:white;border:1px solid #ddd;border-radius:10px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:10000;width:300px;font-size:13px;';
+            const popup = createEl('div', {
+                class: 'when-editor-popup',
+                style: { position: 'fixed', background: 'white', border: '1px solid #ddd', borderRadius: '10px', padding: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', zIndex: 10000, width: '300px', fontSize: '13px' }
+            });
 
-            const title = document.createElement('div');
-            title.className = 'when-editor-title';
-            title.innerHTML = '🕐 When(周期・期限)';
-            popup.appendChild(title);
+            createEl('div', { class: 'when-editor-title', html: '🕐 When(周期・期限)', parent: popup });
 
             const editor = createWhenEditorUI(node.details.when, null, node.createdAt);
             popup.appendChild(editor.el);
 
-            // --- ボタン ---
-            const btnRow = document.createElement('div');
-            btnRow.className = 'when-buttons';
-            const clearBtn = document.createElement('button');
-            clearBtn.className = 'when-btn clear';
-            clearBtn.textContent = 'クリア';
-            clearBtn.addEventListener('click', () => {
-                if (node.details) delete node.details.when;
-                popup.remove();
-                renderNodes();
-            });
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'when-btn cancel';
-            cancelBtn.textContent = 'キャンセル';
-            cancelBtn.addEventListener('click', () => popup.remove());
-            const saveBtn = document.createElement('button');
-            saveBtn.className = 'when-btn save';
-            saveBtn.textContent = '保存';
-            saveBtn.addEventListener('click', () => {
-                const oldWhen = node.details.when || null;
-                const newWhen = editor.getValue();
-                if (newWhen === null) {
-                    if (node.details) delete node.details.when;
-                } else {
-                    node.details.when = newWhen;
-                    // Only recalculate nextDate if schedule parameters changed
-                    if (didScheduleChange(oldWhen, newWhen) || !newWhen.nextDate) {
-                        node.details.when.nextDate = calculateNextDate(node.details.when);
-                    }
-                }
-                popup.remove();
-                renderNodes();
-            });
-            btnRow.appendChild(clearBtn);
-            btnRow.appendChild(cancelBtn);
-            btnRow.appendChild(saveBtn);
-            popup.appendChild(btnRow);
+            const btnRow = createEl('div', { class: 'when-buttons', parent: popup });
+            createEl('button', { class: 'when-btn clear', text: 'クリア', on: { click: () => { if (node.details) delete node.details.when; popup.remove(); renderNodes(); } }, parent: btnRow });
+            createEl('button', { class: 'when-btn cancel', text: 'キャンセル', on: { click: () => popup.remove() }, parent: btnRow });
+            createEl('button', { class: 'when-btn save', text: '保存', on: { click: () => { const oldWhen = node.details.when || null; const newWhen = editor.getValue(); if (newWhen === null) { if (node.details) delete node.details.when; } else { node.details.when = newWhen; if (didScheduleChange(oldWhen, newWhen) || !newWhen.nextDate) node.details.when.nextDate = calculateNextDate(node.details.when); } popup.remove(); renderNodes(); } }, parent: btnRow });
 
-            // Position
             document.body.appendChild(popup);
             const rect = popup.getBoundingClientRect();
-            const x = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2)));
-            const y = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2)));
-            popup.style.left = x + 'px';
-            popup.style.top = y + 'px';
+            popup.style.left = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2))) + 'px';
+            popup.style.top = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2))) + 'px';
 
-            // Close on outside click
-            setTimeout(() => {
-                document.addEventListener('click', function closeWhenEditor(ev) {
-                    if (popup.contains(ev.target)) return;
-                    popup.remove();
-                    document.removeEventListener('click', closeWhenEditor);
-                });
-            }, 0);
+            closeOnClickOutside(popup);
         }
 
         // When progress bar generator
