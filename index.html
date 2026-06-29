@@ -3420,23 +3420,22 @@ function getNodeEdgePoint(node, targetNode) {
             if (!nodeEl) return;
             const rect = nodeEl.getBoundingClientRect();
             const cRect = document.getElementById('canvas-container').getBoundingClientRect();
-            const guide = document.createElement('div');
-            guide.className = 'insert-guide';
-            guide.style.position = 'absolute';
-            guide.style.left = (rect.left - cRect.left) + 'px';
-            guide.style.width = rect.width + 'px';
-            guide.style.height = '3px';
-            guide.style.background = '#4a90d9';
-            guide.style.borderRadius = '2px';
-            guide.style.pointerEvents = 'none';
-            guide.style.zIndex = '9999';
-            guide.style.transition = 'none';
-            if (position === 'before') {
-                guide.style.top = (rect.top - cRect.top - 4) + 'px';
-            } else {
-                guide.style.top = (rect.bottom - cRect.top + 1) + 'px';
-            }
-            document.getElementById('canvas-container').appendChild(guide);
+            createEl('div', {
+                class: 'insert-guide',
+                style: {
+                    position: 'absolute',
+                    left: (rect.left - cRect.left) + 'px',
+                    width: rect.width + 'px',
+                    height: '3px',
+                    background: '#4a90d9',
+                    borderRadius: '2px',
+                    pointerEvents: 'none',
+                    zIndex: 9999,
+                    transition: 'none',
+                    top: position === 'before' ? (rect.top - cRect.top - 4) + 'px' : (rect.bottom - cRect.top + 1) + 'px'
+                },
+                parent: document.getElementById('canvas-container')
+            });
         }
 
         // Helper: get absolute position of any node (handles nested depths)
