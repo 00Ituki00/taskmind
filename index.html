@@ -4860,6 +4860,70 @@ function getNodeEdgePoint(node, targetNode) {
             });
             state.hiddenNodeIds = hiddenNodeIds;
 
+            // Helper: Create completion checkbox (shared between child and parent nodes)
+            function createCompletionCheckbox(node, size) {
+                const px = size + 'px';
+                return createEl(size <= 14 ? 'span' : 'div', {
+                    class: 'node-color',
+                    text: node.completed ? '✓' : '',
+                    style: {
+                        width: px, height: px, borderRadius: '3px',
+                        backgroundColor: getNodeDisplayColor(node), cursor: 'pointer',
+                        alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0, color: 'white', fontSize: (size <= 14 ? '11px' : '12px'), fontWeight: 'bold'
+                    },
+                    on: {
+                        mousedown: (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (e.button === 2) return;
+                            const wasCompleted = node.completed;
+                            node.completed = !node.completed;
+                            node.completedAt = node.completed ? new Date().toISOString() : null;
+                            if (node.completed) {
+                                saveChildPosition(node);
+                                updateWhenOnComplete(node);
+                            } else if (wasCompleted) {
+                                undoWhenComplete(node);
+                                restoreChildPosition(node);
+                            }
+                            renderNodes();
+                        },
+                        contextmenu: (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            showColorPicker(e, node);
+                        }
+                    }
+                });
+            }
+
+            // Helper: Create node title element with priority-based font weight
+            function createNodeTitle(node) {
+                const title = createEl('span', {
+                    class: 'node-title' + (node.completed ? ' completed' : ''),
+                    text: node.title
+                });
+                if (!node.completed) {
+                    const p = node.priority || 0;
+                    if (p >= 4) title.style.fontWeight = '700';
+                    else if (p >= 3) title.style.fontWeight = '600';
+                    else if (p >= 2) title.style.fontWeight = '500';
+                }
+                return title;
+            }
+
+            // Helper: Attach common node events (mousedown, touchstart, contextmenu)
+            function attachNodeEvents(el, node) {
+                el.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showCanvasContextMenu(e.clientX, e.clientY, e);
+                });
+                el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
+                el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+            }
+
             // Helper: recursively render children of a node using children array order
             function renderChildren(parentNode, containerEl, depth) {
                 const childIds = parentNode.children || [];
@@ -4920,49 +4984,10 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                     childEl.style.borderRadius = '12px';
 
-                    const childCheckbox = createEl('span', {
-                        class: 'node-color',
-                        text: child.completed ? '✓' : '',
-                        style: {
-                            width: '14px', height: '14px', borderRadius: '3px',
-                            backgroundColor: getNodeDisplayColor(child),
-                            cursor: 'pointer', alignItems: 'center', justifyContent: 'center',
-                            flexShrink: 0, color: 'white', fontSize: '11px', fontWeight: 'bold', marginRight: '4px'
-                        },
-                        on: {
-                            mousedown: (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                if (e.button === 2) return;
-                                const wasCompleted = child.completed;
-                                child.completed = !child.completed;
-                                child.completedAt = child.completed ? new Date().toISOString() : null;
-                                if (child.completed) {
-                                    saveChildPosition(child);
-                                    updateWhenOnComplete(child);
-                                } else if (wasCompleted) {
-                                    undoWhenComplete(child);
-                                    restoreChildPosition(child);
-                                }
-                                renderNodes();
-                            },
-                            contextmenu: (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                showColorPicker(e, child);
-                            }
-                        }
-                    });
+                    const childCheckbox = createCompletionCheckbox(child, 14);
+                    childCheckbox.style.marginRight = '4px';
 
-                    const childTitle = createEl('span', {
-                        class: 'node-title' + (child.completed ? ' completed' : ''),
-                        text: child.title
-                    });
-                    if (!child.completed) {
-                        if (cp >= 4) childTitle.style.fontWeight = '700';
-                        else if (cp >= 3) childTitle.style.fontWeight = '600';
-                        else if (cp >= 2) childTitle.style.fontWeight = '500';
-                    }
+                    const childTitle = createNodeTitle(child);
 
                     // Expand/collapse button
                     const hasChildren = state.nodes.some(n => n.parentId === child.id);
@@ -5213,40 +5238,7 @@ function getNodeEdgePoint(node, targetNode) {
 
                     const wrapper = createEl('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } });
 
-                    const dragDisplayColor = getNodeDisplayColor(node);
-                    const checkbox = createEl('span', {
-                        class: 'node-color',
-                        text: node.completed ? '✓' : '',
-                        style: {
-                            width: '14px', height: '14px', borderRadius: '3px',
-                            backgroundColor: dragDisplayColor, cursor: 'pointer',
-                            alignItems: 'center', justifyContent: 'center',
-                            flexShrink: 0, color: 'white', fontSize: '11px', fontWeight: 'bold'
-                        },
-                        on: {
-                            mousedown: (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                if (e.button === 2) return;
-                                const wasCompleted = node.completed;
-                                node.completed = !node.completed;
-                                node.completedAt = node.completed ? new Date().toISOString() : null;
-                                if (node.completed) {
-                                    saveChildPosition(node);
-                                    updateWhenOnComplete(node);
-                                } else if (wasCompleted) {
-                                    undoWhenComplete(node);
-                                    restoreChildPosition(node);
-                                }
-                                renderNodes();
-                            },
-                            contextmenu: (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                showColorPicker(e, node);
-                            }
-                        }
-                    });
+                    const checkbox = createCompletionCheckbox(node, 14);
 
                     const title = createEl('span', {
                         class: 'node-title' + (node.completed ? ' completed' : ''),
@@ -5258,14 +5250,7 @@ function getNodeEdgePoint(node, targetNode) {
                     wrapper.appendChild(title);
                     el.appendChild(wrapper);
 
-                    el.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        showCanvasContextMenu(e.clientX, e.clientY, e);
-                    });
-
-                    el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
-                    el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+                    attachNodeEvents(el, node);
 
                     nodesEl.appendChild(el);
                     return;
@@ -5274,51 +5259,9 @@ function getNodeEdgePoint(node, targetNode) {
                 // Standard root node rendering
                 const header = createEl('div', { class: 'node-header' });
 
-                const rootDisplayColor = getNodeDisplayColor(node);
-                const color = createEl('div', {
-                    class: 'node-color',
-                    text: node.completed ? '✓' : '',
-                    style: {
-                        width: '16px', height: '16px', borderRadius: '3px',
-                        backgroundColor: rootDisplayColor, cursor: 'pointer',
-                        alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, color: 'white', fontSize: '12px', fontWeight: 'bold'
-                    },
-                    on: {
-                        mousedown: (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (e.button === 2) return;
-                            const wasCompleted = node.completed;
-                            node.completed = !node.completed;
-                            node.completedAt = node.completed ? new Date().toISOString() : null;
-                            if (node.completed) {
-                                saveChildPosition(node);
-                                updateWhenOnComplete(node);
-                            } else if (wasCompleted) {
-                                undoWhenComplete(node);
-                                restoreChildPosition(node);
-                            }
-                            renderNodes();
-                        },
-                        contextmenu: (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            showColorPicker(e, node);
-                        }
-                    }
-                });
+                const color = createCompletionCheckbox(node, 16);
 
-                const title = createEl('span', {
-                    class: 'node-title' + (node.completed ? ' completed' : ''),
-                    text: node.title
-                });
-                if (!node.completed) {
-                    const tp = node.priority || 0;
-                    if (tp >= 4) title.style.fontWeight = '700';
-                    else if (tp >= 3) title.style.fontWeight = '600';
-                    else if (tp >= 2) title.style.fontWeight = '500';
-                }
+                const title = createNodeTitle(node);
 
                 const hasChildren = state.nodes.some(n => n.parentId === node.id);
                 const expandBtn = createEl('button', {
