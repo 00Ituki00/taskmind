@@ -5846,25 +5846,30 @@ function getNodeEdgePoint(node, targetNode) {
             const totalWidth = days * dayWidth;
 
             // Container
-            const container = document.createElement('div');
-            container.className = 'timeline-container';
-            container.style.width = Math.max(totalWidth, window.innerWidth) + 'px';
+            const container = createEl('div', {
+                class: 'timeline-container',
+                style: { width: Math.max(totalWidth, window.innerWidth) + 'px' }
+            });
 
             // Date header
-            const header = document.createElement('div');
-            header.className = 'timeline-header';
-            header.style.width = Math.max(totalWidth, window.innerWidth) + 'px';
+            const header = createEl('div', {
+                class: 'timeline-header',
+                style: { width: Math.max(totalWidth, window.innerWidth) + 'px' }
+            });
+            const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
             for (let i = 0; i < days; i++) {
                 const d = new Date(viewStart);
                 d.setDate(d.getDate() + i);
-                const dayEl = document.createElement('div');
-                dayEl.className = 'timeline-day-header';
-                dayEl.style.width = dayWidth + 'px';
-                const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                dayEl.innerHTML = `<div>${d.getMonth() + 1}/${d.getDate()}<br><small style="color:${isWeekend ? '#e74c3c' : '#666'}">${dayNames[d.getDay()]}</small></div>`;
-                if (isWeekend) dayEl.style.background = 'rgba(231,76,60,0.05)';
-                header.appendChild(dayEl);
+                const dayEl = createEl('div', {
+                    class: 'timeline-day-header',
+                    style: {
+                        width: dayWidth + 'px',
+                        background: isWeekend ? 'rgba(231,76,60,0.05)' : undefined
+                    },
+                    html: `<div>${d.getMonth() + 1}/${d.getDate()}<br><small style="color:${isWeekend ? '#e74c3c' : '#666'}">${dayNames[d.getDay()]}</small></div>`,
+                    parent: header
+                });
             }
             container.appendChild(header);
 
@@ -5957,31 +5962,26 @@ function getNodeEdgePoint(node, targetNode) {
             });
 
             // Unified lane for dated nodes
-            const lanesEl = document.createElement('div');
-            lanesEl.className = 'timeline-lanes';
+            const lanesEl = createEl('div', { class: 'timeline-lanes' });
 
-            const laneEl = document.createElement('div');
-            laneEl.className = 'timeline-unified-lane';
+            const laneEl = createEl('div', { class: 'timeline-unified-lane' });
 
             // Grid lines
-            const grid = document.createElement('div');
-            grid.className = 'timeline-grid';
+            const grid = createEl('div', { class: 'timeline-grid' });
             for (let i = 0; i < days; i++) {
                 const d = new Date(viewStart);
                 d.setDate(d.getDate() + i);
-                const line = document.createElement('div');
-                line.className = 'timeline-grid-line' + ((d.getDay() === 0 || d.getDay() === 6) ? ' weekend' : '');
-                line.style.width = dayWidth + 'px';
-                grid.appendChild(line);
+                createEl('div', {
+                    class: 'timeline-grid-line' + ((d.getDay() === 0 || d.getDay() === 6) ? ' weekend' : ''),
+                    style: { width: dayWidth + 'px' },
+                    parent: grid
+                });
             }
             laneEl.appendChild(grid);
 
             // Place dated nodes
             if (datedNodes.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'timeline-empty-lane';
-                empty.textContent = 'ノードがありません';
-                laneEl.appendChild(empty);
+                createEl('div', { class: 'timeline-empty-lane', text: 'ノードがありません', parent: laneEl });
             } else {
                 // Sort by start date
                 datedNodes.sort((a, b) => {
@@ -6018,45 +6018,42 @@ function getNodeEdgePoint(node, targetNode) {
                         rows[rowIndex] = nodeEndX;
                     }
 
-                    const nodeEl = document.createElement('div');
-                    nodeEl.className = 'timeline-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
                     const displayColor = getNodeDisplayColor(node);
                     const bgColor = node.color || getNodeTypeColor(node.type);
                     const lightBg = node.completed ? '#e0e0e0' : lightenColor(bgColor, 0.85);
                     const borderRgba = `rgba(${parseInt(displayColor.substr(1,2),16)},${parseInt(displayColor.substr(3,2),16)},${parseInt(displayColor.substr(5,2),16)},0.7)`;
-                    
-                    nodeEl.style.setProperty('background-color', lightBg, 'important');
-                    nodeEl.style.borderLeft = '4px solid ' + borderRgba;
-                    nodeEl.style.color = getContrastColor(displayColor);
-                    nodeEl.style.borderTop = '1px solid ' + borderRgba;
-                    nodeEl.style.borderRight = '1px solid ' + borderRgba;
-                    nodeEl.style.borderBottom = '1px solid ' + borderRgba;
-                    nodeEl.style.textShadow = 'none';
-                    nodeEl.style.fontWeight = '600';
-                    nodeEl.style.left = (startX + 2) + 'px';
-                    nodeEl.style.top = (rowIndex * rowHeight + 8) + 'px';
-                    nodeEl.style.width = nodeWidth + 'px';
-                    nodeEl.dataset.id = node.id;
-                    nodeEl.textContent = node.title;
 
-                    // Hover tooltip
-                    nodeEl.addEventListener('mouseenter', (e) => showTimelineTooltip(e, node));
-                    nodeEl.addEventListener('mouseleave', hideTimelineTooltip);
-
-                    // Click to select
-                    nodeEl.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        selectNode(node.id);
-                    });
-
-                    // Right-click to show node context menu (same as free layout node)
-                    nodeEl.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Select node first
-                        selectNode(node.id);
-                        // Show node context menu at mouse position
-                        showCanvasContextMenu(e.clientX, e.clientY, e);
+                    const nodeEl = createEl('div', {
+                        class: 'timeline-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0),
+                        text: node.title,
+                        attrs: { 'data-id': node.id },
+                        style: {
+                            backgroundColor: lightBg + ' !important',
+                            borderLeft: '4px solid ' + borderRgba,
+                            color: getContrastColor(displayColor),
+                            borderTop: '1px solid ' + borderRgba,
+                            borderRight: '1px solid ' + borderRgba,
+                            borderBottom: '1px solid ' + borderRgba,
+                            textShadow: 'none',
+                            fontWeight: '600',
+                            left: (startX + 2) + 'px',
+                            top: (rowIndex * rowHeight + 8) + 'px',
+                            width: nodeWidth + 'px'
+                        },
+                        on: {
+                            mouseenter: (e) => showTimelineTooltip(e, node),
+                            mouseleave: hideTimelineTooltip,
+                            click: (e) => {
+                                e.stopPropagation();
+                                selectNode(node.id);
+                            },
+                            contextmenu: (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                selectNode(node.id);
+                                showCanvasContextMenu(e.clientX, e.clientY, e);
+                            }
+                        }
                     });
 
                     laneEl.appendChild(nodeEl);
@@ -6072,58 +6069,52 @@ function getNodeEdgePoint(node, targetNode) {
 
             // Undated nodes panel (bottom pane) - only top-level nodes
             if (topLevelUndatedNodes.length > 0) {
-                const undatedPanel = document.createElement('div');
-                undatedPanel.className = 'timeline-undated-panel';
-                
-                const undatedHeader = document.createElement('div');
-                undatedHeader.className = 'timeline-undated-header';
-                undatedHeader.textContent = `期限なし (${topLevelUndatedNodes.length})`;
-                undatedPanel.appendChild(undatedHeader);
+                const undatedPanel = createEl('div', { class: 'timeline-undated-panel' });
+                createEl('div', {
+                    class: 'timeline-undated-header',
+                    text: `期限なし (${topLevelUndatedNodes.length})`,
+                    parent: undatedPanel
+                });
 
-                const undatedList = document.createElement('div');
-                undatedList.className = 'timeline-undated-list';
-                
+                const undatedList = createEl('div', { class: 'timeline-undated-list', parent: undatedPanel });
+
                 topLevelUndatedNodes.forEach(node => {
-                    const nodeEl = document.createElement('div');
-                    nodeEl.className = 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0);
                     const displayColor = getNodeDisplayColor(node);
                     const bgColor = node.color || getNodeTypeColor(node.type);
                     const lightBg = node.completed ? '#e0e0e0' : lightenColor(bgColor, 0.85);
                     const borderRgba = `rgba(${parseInt(displayColor.substr(1,2),16)},${parseInt(displayColor.substr(3,2),16)},${parseInt(displayColor.substr(5,2),16)},0.7)`;
-                    nodeEl.style.setProperty('background-color', lightBg, 'important');
-                    nodeEl.style.borderLeft = '4px solid ' + borderRgba;
-                    nodeEl.style.color = getContrastColor(displayColor);
-                    nodeEl.style.borderTop = '1px solid ' + borderRgba;
-                    nodeEl.style.borderRight = '1px solid ' + borderRgba;
-                    nodeEl.style.borderBottom = '1px solid ' + borderRgba;
-                    nodeEl.style.textShadow = 'none';
-                    nodeEl.style.fontWeight = '600';
-                    nodeEl.textContent = node.title;
-                    
-                    // Hover tooltip
-                    nodeEl.addEventListener('mouseenter', (e) => showTimelineTooltip(e, node));
-                    nodeEl.addEventListener('mouseleave', hideTimelineTooltip);
-                    
-                    // Click to select
-                    nodeEl.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        selectNode(node.id);
+
+                    const nodeEl = createEl('div', {
+                        class: 'timeline-undated-node type-' + (node.type || 'task') + ' priority-' + (node.priority || 0),
+                        text: node.title,
+                        style: {
+                            backgroundColor: lightBg + ' !important',
+                            borderLeft: '4px solid ' + borderRgba,
+                            color: getContrastColor(displayColor),
+                            borderTop: '1px solid ' + borderRgba,
+                            borderRight: '1px solid ' + borderRgba,
+                            borderBottom: '1px solid ' + borderRgba,
+                            textShadow: 'none',
+                            fontWeight: '600'
+                        },
+                        on: {
+                            mouseenter: (e) => showTimelineTooltip(e, node),
+                            mouseleave: hideTimelineTooltip,
+                            click: (e) => {
+                                e.stopPropagation();
+                                selectNode(node.id);
+                            },
+                            contextmenu: (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                selectNode(node.id);
+                                showCanvasContextMenu(e.clientX, e.clientY, e);
+                            }
+                        },
+                        parent: undatedList
                     });
-                    
-                    // Right-click to show node context menu (same as free layout node)
-                    nodeEl.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Select node first
-                        selectNode(node.id);
-                        // Show node context menu at mouse position
-                        showCanvasContextMenu(e.clientX, e.clientY, e);
-                    });
-                    
-                    undatedList.appendChild(nodeEl);
                 });
-                
-                undatedPanel.appendChild(undatedList);
+
                 container.appendChild(undatedPanel);
             }
 
@@ -6131,10 +6122,11 @@ function getNodeEdgePoint(node, targetNode) {
 
             // Tooltip element
             if (!document.getElementById('timeline-tooltip')) {
-                const tooltip = document.createElement('div');
-                tooltip.id = 'timeline-tooltip';
-                tooltip.className = 'timeline-node-tooltip';
-                document.body.appendChild(tooltip);
+                createEl('div', {
+                    id: 'timeline-tooltip',
+                    class: 'timeline-node-tooltip',
+                    parent: document.body
+                });
             }
 
             // Restore previous scroll position if any
