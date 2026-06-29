@@ -2778,167 +2778,121 @@
             const existing = document.querySelector('.custom-type-input');
             if (existing) existing.remove();
 
-            const popup = document.createElement('div');
-            popup.className = 'custom-type-input';
-            popup.style.cssText = `
-                position:fixed; left:${x}px; top:${y}px;
-                background:white; border:1px solid #ddd; border-radius:8px;
-                padding:10px; box-shadow:0 4px 16px rgba(0,0,0,0.15);
-                z-index:10000; display:flex; flex-direction:column; gap:6px;
-                font-size:13px; min-width:200px; max-width:260px;
-            `;
-
-            const title = document.createElement('div');
-            title.style.cssText = 'font-weight:600; font-size:12px; color:#666; margin-bottom:4px;';
-            title.textContent = '接続タイプを入力';
-            popup.appendChild(title);
-
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.placeholder = '例: 関連, 前提, 派生...';
-            input.style.cssText = 'width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:13px; box-sizing:border-box;';
-            if (mode === 'edit') {
-                input.value = target.customType || '';
-            }
-            popup.appendChild(input);
-
-            // アイコン選択
-            const iconLabel = document.createElement('div');
-            iconLabel.style.cssText = 'font-size:12px; color:#666; margin-top:4px;';
-            iconLabel.textContent = 'アイコンを選択';
-            popup.appendChild(iconLabel);
-
-            const iconGrid = document.createElement('div');
-            iconGrid.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; padding:2px 0;';
-            const icons = ['','🔍','🔧','⚠️','✅','🔀','❗','➡️','📌','📎','💡','⭐','📝','📋','🔔','⚡','🔥','💎','🎯','🚀','❤️','💚','💙','💛','🧡','💜','🖤','🤍','🤎'];
             let selectedIcon = '';
+            let selectedColor = state.colors[0];
             if (mode === 'edit' && target.customType) {
                 const existingCt = state.customConnectionTypes.find(ct => ct.label === target.customType);
                 if (existingCt) {
                     selectedIcon = existingCt.icon || '';
-                }
-            }
-            icons.forEach(ic => {
-                const btn = document.createElement('button');
-                const isSelected = selectedIcon === ic;
-                btn.textContent = ic || '─';
-                btn.style.cssText = `width:28px;height:28px;border:2px solid ${isSelected ? '#333' : '#ddd'};border-radius:4px;background:${isSelected ? '#e3f2fd' : '#fff'};cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0;`;
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    selectedIcon = ic;
-                    iconGrid.querySelectorAll('button').forEach(b => {
-                        b.style.border = '2px solid #ddd';
-                        b.style.background = '#fff';
-                    });
-                    btn.style.border = '2px solid #333';
-                    btn.style.background = '#e3f2fd';
-                });
-                iconGrid.appendChild(btn);
-            });
-            popup.appendChild(iconGrid);
-
-            // 色選択
-            const colorLabel = document.createElement('div');
-            colorLabel.style.cssText = 'font-size:12px; color:#666; margin-top:4px;';
-            colorLabel.textContent = '色を選択';
-            popup.appendChild(colorLabel);
-
-            const colorPicker = document.createElement('div');
-            colorPicker.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; padding:2px 0;';
-            let selectedColor = state.colors[0];
-            // 編集時は既存のカスタムタイプの色を探す
-            if (mode === 'edit' && target.customType) {
-                const existingCt = state.customConnectionTypes.find(ct => ct.label === target.customType);
-                if (existingCt) {
                     selectedColor = existingCt.color;
                 }
             }
-            state.colors.forEach(c => {
-                const swatch = document.createElement('div');
-                swatch.style.cssText = `width:20px;height:20px;border-radius:4px;background:${c};cursor:pointer;border:2px solid ${c === selectedColor ? '#333' : 'transparent'};`;
-                swatch.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    selectedColor = c;
-                    colorPicker.querySelectorAll('div').forEach(s => s.style.border = '2px solid transparent');
-                    swatch.style.border = '2px solid #333';
+
+            const popup = createEl('div', {
+                class: 'custom-type-input',
+                style: {
+                    position: 'fixed', left: x + 'px', top: y + 'px',
+                    background: 'white', border: '1px solid #ddd', borderRadius: '8px',
+                    padding: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                    zIndex: 10000, display: 'flex', flexDirection: 'column', gap: '6px',
+                    fontSize: '13px', minWidth: '200px', maxWidth: '260px'
+                }
+            });
+
+            createEl('div', { style: { fontWeight: 600, fontSize: '12px', color: '#666', marginBottom: '4px' }, text: '接続タイプを入力', parent: popup });
+
+            const input = createEl('input', {
+                attrs: { type: 'text', placeholder: '例: 関連, 前提, 派生...' },
+                style: { width: '100%', padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' },
+                parent: popup
+            });
+            if (mode === 'edit') input.value = target.customType || '';
+
+            createEl('div', { style: { fontSize: '12px', color: '#666', marginTop: '4px' }, text: 'アイコンを選択', parent: popup });
+            const iconGrid = createEl('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '4px', padding: '2px 0' }, parent: popup });
+            const icons = ['','🔍','🔧','⚠️','✅','🔀','❗','➡️','📌','📎','💡','⭐','📝','📋','🔔','⚡','🔥','💎','🎯','🚀','❤️','💚','💙','💛','🧡','💜','🖤','🤍','🤎'];
+            icons.forEach(ic => {
+                const btn = createEl('button', {
+                    style: { width: '28px', height: '28px', border: `2px solid ${selectedIcon === ic ? '#333' : '#ddd'}`, borderRadius: '4px', background: selectedIcon === ic ? '#e3f2fd' : '#fff', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
+                    text: ic || '─',
+                    on: {
+                        click: (e) => {
+                            e.stopPropagation();
+                            selectedIcon = ic;
+                            iconGrid.querySelectorAll('button').forEach(b => { b.style.border = '2px solid #ddd'; b.style.background = '#fff'; });
+                            btn.style.border = '2px solid #333'; btn.style.background = '#e3f2fd';
+                        }
+                    },
+                    parent: iconGrid
                 });
-                colorPicker.appendChild(swatch);
-            });
-            popup.appendChild(colorPicker);
-
-            const btnRow = document.createElement('div');
-            btnRow.style.cssText = 'display:flex; justify-content:flex-end; gap:6px; margin-top:4px;';
-
-            const cancelBtn = document.createElement('button');
-            cancelBtn.textContent = 'キャンセル';
-            cancelBtn.style.cssText = 'padding:4px 10px; font-size:12px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer;';
-            cancelBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                popup.remove();
             });
 
-            const saveBtn = document.createElement('button');
-            saveBtn.textContent = '保存';
-            saveBtn.style.cssText = 'padding:4px 10px; font-size:12px; border:none; border-radius:4px; background:#4a90d9; color:white; cursor:pointer;';
-            saveBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const val = input.value.trim();
-                const iconVal = selectedIcon;
-                if (val) {
-                    // カスタムタイプを登録/更新
-                    const existingIdx = state.customConnectionTypes.findIndex(ct => ct.label === val);
-                    if (existingIdx >= 0) {
-                        state.customConnectionTypes[existingIdx].color = selectedColor;
-                        state.customConnectionTypes[existingIdx].icon = iconVal;
-                    } else {
-                        state.customConnectionTypes.push({ label: val, color: selectedColor, icon: iconVal });
+            createEl('div', { style: { fontSize: '12px', color: '#666', marginTop: '4px' }, text: '色を選択', parent: popup });
+            const colorPicker = createEl('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '4px', padding: '2px 0' }, parent: popup });
+            state.colors.forEach(c => {
+                createEl('div', {
+                    style: { width: '20px', height: '20px', borderRadius: '4px', background: c, cursor: 'pointer', border: `2px solid ${c === selectedColor ? '#333' : 'transparent'}` },
+                    on: {
+                        click: (e) => {
+                            e.stopPropagation();
+                            selectedColor = c;
+                            colorPicker.querySelectorAll('div').forEach(s => s.style.border = '2px solid transparent');
+                            e.target.style.border = '2px solid #333';
+                        }
+                    },
+                    parent: colorPicker
+                });
+            });
+
+            const btnRow = createEl('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }, parent: popup });
+
+            const cancelBtn = createEl('button', {
+                style: { padding: '4px 10px', fontSize: '12px', border: '1px solid #ddd', borderRadius: '4px', background: '#f5f5f5', cursor: 'pointer' },
+                text: 'キャンセル',
+                on: { click: (e) => { e.stopPropagation(); popup.remove(); } },
+                parent: btnRow
+            });
+
+            const saveBtn = createEl('button', {
+                style: { padding: '4px 10px', fontSize: '12px', border: 'none', borderRadius: '4px', background: '#4a90d9', color: 'white', cursor: 'pointer' },
+                text: '保存',
+                on: {
+                    click: (e) => {
+                        e.stopPropagation();
+                        const val = input.value.trim();
+                        if (val) {
+                            const existingIdx = state.customConnectionTypes.findIndex(ct => ct.label === val);
+                            if (existingIdx >= 0) {
+                                state.customConnectionTypes[existingIdx].color = selectedColor;
+                                state.customConnectionTypes[existingIdx].icon = selectedIcon;
+                            } else {
+                                state.customConnectionTypes.push({ label: val, color: selectedColor, icon: selectedIcon });
+                            }
+                            if (mode === 'edit') {
+                                target.customType = val; target.type = ''; target.label = '';
+                            } else {
+                                state.pendingConnectionType = '';
+                                state.pendingConnectionCustomType = val;
+                                state.connectingFrom = target;
+                                state.mode = 'connect';
+                                modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                                modeIndicator.classList.add('active');
+                            }
+                        }
+                        popup.remove();
+                        if (mode === 'edit') renderConnections();
                     }
-
-                    if (mode === 'edit') {
-                        target.customType = val;
-                        target.type = '';
-                        target.label = '';
-                    } else {
-                        state.pendingConnectionType = '';
-                        state.pendingConnectionCustomType = val;
-                        state.connectingFrom = target;
-                        state.mode = 'connect';
-                        modeIndicator.textContent = '接続モード: 終了ノードを選択';
-                        modeIndicator.classList.add('active');
-                    }
-                }
-                popup.remove();
-                if (mode === 'edit') {
-                    renderConnections();
-                }
+                },
+                parent: btnRow
             });
-
-            btnRow.appendChild(cancelBtn);
-            btnRow.appendChild(saveBtn);
-            popup.appendChild(btnRow);
 
             document.body.appendChild(popup);
-            input.focus();
-            input.select();
-
-            const closeHandler = (e) => {
-                if (!popup.contains(e.target)) {
-                    popup.remove();
-                    document.removeEventListener('mousedown', closeHandler);
-                }
-            };
-            setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
+            input.focus(); input.select();
+            closeOnClickOutside(popup);
 
             input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    saveBtn.click();
-                }
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    popup.remove();
-                    document.removeEventListener('mousedown', closeHandler);
-                }
+                if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
+                if (e.key === 'Escape') { e.preventDefault(); popup.remove(); }
             });
         }
 
