@@ -8255,7 +8255,8 @@ function getNodeEdgePoint(node, targetNode) {
                 // No special handling for parent/child/sibling - all nodes are treated equally
                 // Throttled to 60fps to avoid excessive DOM queries during fast mouse movement
                 const now = performance.now();
-                if (state.dragNode && !state.selectedNodeIds.includes(state.dragNode.id) && now - _lastDropCheckTime >= DRAG_THROTTLE_MS) {
+                const isMultiDrag = state.dragSelectedNodes && state.dragSelectedNodes.length > 0;
+                if (state.dragNode && (!state.selectedNodeIds.includes(state.dragNode.id) || isMultiDrag) && now - _lastDropCheckTime >= DRAG_THROTTLE_MS) {
                     _lastDropCheckTime = now;
                     const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
                     const mx = (e.clientX - canvasRect.left - state.panX) / state.scale;
