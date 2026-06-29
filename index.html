@@ -9442,7 +9442,8 @@ function getNodeEdgePoint(node, targetNode) {
                 connections: state.connections,
                 nextId: state.nextId,
                 customConnectionTypes: state.customConnectionTypes,
-                lastFileName: state.lastFileName
+                lastFileName: state.lastFileName,
+                lastFilePath: state.lastFilePath
             };
             const json = JSON.stringify(data, null, 2);
             
@@ -10197,6 +10198,7 @@ function getNodeEdgePoint(node, targetNode) {
                         state.nextId = data.nextId || 1;
                         state.customConnectionTypes = data.customConnectionTypes || [];
                         state.lastFileName = data.lastFileName || null;
+                        state.lastFilePath = data.lastFilePath || data.lastFileName || null;
                         renderNodes();
                         renderConnections();
                         showToast('自動保存データを復元しました');
