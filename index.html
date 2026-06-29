@@ -7406,23 +7406,6 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.type-picker');
             if (existing) existing.remove();
 
-            const picker = document.createElement('div');
-            picker.className = 'type-picker';
-            picker.style.cssText = `
-                position: fixed;
-                background: white;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                padding: 8px;
-                box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-                z-index: 10000;
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-            `;
-            picker.style.left = e.clientX + 'px';
-            picker.style.top = e.clientY + 'px';
-
             const typeOptions = [
                 { value: 'task', label: '✓ タスク', color: '#4a90d9' },
                 { value: 'condition', label: '❓ 条件', color: '#f5a623' },
@@ -7430,49 +7413,44 @@ function getNodeEdgePoint(node, targetNode) {
                 { value: 'startend', label: '▶ 開始/終了', color: '#4a90d9' }
             ];
 
-            typeOptions.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.style.cssText = `
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 6px 12px;
-                    border: none;
-                    border-radius: 4px;
-                    background: transparent;
-                    cursor: pointer;
-                    font-size: 13px;
-                    color: #333;
-                    transition: background 0.15s;
-                `;
-                btn.innerHTML = `<span style="font-size:14px;">${opt.label.split(' ')[0]}</span><span>${opt.label.split(' ')[1]}</span>`;
-                if (node.type === opt.value || (!node.type && opt.value === 'task')) {
-                    btn.style.background = '#f0f0f0';
-                    btn.style.fontWeight = '600';
+            const picker = createEl('div', {
+                class: 'type-picker',
+                style: {
+                    position: 'fixed', left: e.clientX + 'px', top: e.clientY + 'px',
+                    background: 'white', border: '1px solid #ddd', borderRadius: '8px',
+                    padding: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                    zIndex: 10000, display: 'flex', flexDirection: 'column', gap: '4px'
                 }
-                btn.addEventListener('mouseenter', () => btn.style.background = '#f5f5f5');
-                btn.addEventListener('mouseleave', () => {
-                    if (node.type !== opt.value) btn.style.background = 'transparent';
+            });
+
+            typeOptions.forEach(opt => {
+                const isSelected = node.type === opt.value || (!node.type && opt.value === 'task');
+                const btn = createEl('button', {
+                    style: {
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '6px 12px', border: 'none', borderRadius: '4px',
+                        background: isSelected ? '#f0f0f0' : 'transparent',
+                        cursor: 'pointer', fontSize: '13px', color: '#333',
+                        fontWeight: isSelected ? 600 : 400,
+                        transition: 'background 0.15s'
+                    },
+                    html: `<span style="font-size:14px;">${opt.label.split(' ')[0]}</span><span>${opt.label.split(' ')[1]}</span>`,
+                    on: {
+                        mouseenter: () => btn.style.background = '#f5f5f5',
+                        mouseleave: () => { if (node.type !== opt.value) btn.style.background = 'transparent'; },
+                        click: () => {
+                            node.type = opt.value;
+                            renderNodes(); saveSnapshot();
+                            picker.remove();
+                            showToast(`ノードタイプを「${opt.label.split(' ')[1]}」に変更しました`);
+                        }
+                    },
+                    parent: picker
                 });
-                btn.addEventListener('click', () => {
-                    node.type = opt.value;
-                    renderNodes();
-                    saveSnapshot();
-                    picker.remove();
-                    showToast(`ノードタイプを「${opt.label.split(' ')[1]}」に変更しました`);
-                });
-                picker.appendChild(btn);
             });
 
             document.body.appendChild(picker);
-
-            const close = (e) => {
-                if (!picker.contains(e.target)) {
-                    picker.remove();
-                    document.removeEventListener('click', close);
-                }
-            };
-            setTimeout(() => document.addEventListener('click', close), 10);
+            closeOnClickOutside(picker);
         }
 
         function showColorPicker(e, node) {
