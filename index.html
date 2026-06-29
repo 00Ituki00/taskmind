@@ -2348,11 +2348,8 @@
                     const source = state.nodes.find(n => n.id === conn.from);
                     const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
                     const sourceColor = source ? source.color : '#4a90d9';
-                    const typeLabels = {}; // プリセット廃止: カスタムタイプのみ使用
-                    const typeColors = {};
-                    const displayType = conn.customType || conn.type || '';
-                    const typeTag = displayType ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[displayType] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[displayType] || displayType)}</span>` : '';
-                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${typeTag}${sourceTitle}</div>`;
+                    const label = escapeHtml(conn.customType || conn.label || '');
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle}${label ? ' → ' + label : ''}</div>`;
                 });
             }
             
@@ -2381,11 +2378,8 @@
                     const target = state.nodes.find(n => n.id === conn.to);
                     const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
                     const targetColor = target ? target.color : '#e67e22';
-                    const typeLabels = {}; // プリセット廃止: カスタムタイプのみ使用
-                    const typeColors = {};
-                    const displayType = conn.customType || conn.type || '';
-                    const typeTag = displayType ? `<span style="font-size:10px;padding:1px 4px;border-radius:3px;background:${typeColors[displayType] || '#888'};color:white;margin-right:4px;">${escapeHtml(typeLabels[displayType] || displayType)}</span>` : '';
-                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${typeTag}${targetTitle}</div>`;
+                    const label = escapeHtml(conn.customType || conn.label || '');
+                    html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${label ? label + ' → ' : ''}${targetTitle}</div>`;
                 });
                 if (hasDetails || incomingConns.length > 0) html += '</div>';
             }
@@ -5377,62 +5371,6 @@ function getNodeEdgePoint(node, targetNode) {
                 let tooltipTimer = null;
                 let tooltipVisible = false;
                 
-                function buildTooltipHtml() {
-                    const why = node.details?.why?.trim();
-                    const what = node.details?.what?.trim();
-                    const where = node.details?.where?.trim();
-                    const who = node.details?.who?.trim();
-                    const outgoingConns = state.connections.filter(c => c.from === node.id && (c.label || c.type || c.customType));
-                    const incomingConns = state.connections.filter(c => c.to === node.id && (c.label || c.type || c.customType));
-                    
-                    const hasDetails = why || what || where || who;
-                    const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
-                    if (!hasDetails && !hasConns) return '';
-                    
-                    let html = '';
-                    
-                    // From: incoming connections
-                    if (incomingConns.length > 0) {
-                        incomingConns.forEach(conn => {
-                            const source = state.nodes.find(n => n.id === conn.from);
-                            const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
-                            const sourceColor = source ? source.color : '#4a90d9';
-                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;">${sourceTitle} → ${escapeHtml(conn.customType || conn.label || '')}</div>`;
-                        });
-                    }
-                    
-                    // Detail fields
-                    const fields = [];
-                    if (why) fields.push({label:'why', value:why});
-                    if (what) fields.push({label:'what', value:what});
-                    if (where) fields.push({label:'where', value:where});
-                    if (who) fields.push({label:'who', value:who});
-                    
-                    if (fields.length > 0) {
-                        if (incomingConns.length > 0) html += '<div style="margin-top:8px;">';
-                        fields.forEach((f, i) => {
-                            if (i > 0) html += '<div style="margin-top:6px;"></div>';
-                            html += `<div style="font-weight:600;color:#333;margin-bottom:2px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(f.label)}</div>`;
-                            html += `<div style="color:#555;white-space:pre-wrap;word-break:break-word;padding-left:8px;border-left:2px solid #888;">${escapeHtml(f.value)}</div>`;
-                        });
-                        if (incomingConns.length > 0) html += '</div>';
-                    }
-                    
-                    // To: outgoing connections
-                    if (outgoingConns.length > 0) {
-                        if (hasDetails || incomingConns.length > 0) html += '<div style="margin-top:8px;">';
-                        outgoingConns.forEach(conn => {
-                            const target = state.nodes.find(n => n.id === conn.to);
-                            const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
-                            const targetColor = target ? target.color : '#e67e22';
-                            html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;">${escapeHtml(conn.customType || conn.label || '')} → ${targetTitle}</div>`;
-                        });
-                        if (hasDetails || incomingConns.length > 0) html += '</div>';
-                    }
-                    
-                    return html;
-                }
-                
                 function positionTooltip() {
                     const rect = el.getBoundingClientRect();
                     const ttRect = tooltipEl.getBoundingClientRect();
@@ -5458,7 +5396,7 @@ function getNodeEdgePoint(node, targetNode) {
                 
                 function showTooltip() {
                     if (state.dragNode) return;
-                    const html = buildTooltipHtml();
+                    const html = buildNodeTooltipHtml(node);
                     if (!html) return;
                     
                     tooltipEl.innerHTML = html;
@@ -6431,53 +6369,6 @@ function getNodeEdgePoint(node, targetNode) {
             let timelineTooltipTimer = null;
             let timelineTooltipVisible = false;
 
-            function buildTimelineTooltipHtml() {
-                const why = node.details?.why?.trim();
-                const what = node.details?.what?.trim();
-                const where = node.details?.where?.trim();
-                const who = node.details?.who?.trim();
-                const outgoingConns = state.connections.filter(c => c.from === node.id && (c.label || c.type || c.customType));
-                const incomingConns = state.connections.filter(c => c.to === node.id && (c.label || c.type || c.customType));
-
-                const hasDetails = why || what || where || who;
-                const hasConns = outgoingConns.length > 0 || incomingConns.length > 0;
-                if (!hasDetails && !hasConns) return '';
-
-                let html = '';
-                if (incomingConns.length > 0) {
-                    incomingConns.forEach(conn => {
-                        const source = state.nodes.find(n => n.id === conn.from);
-                        const sourceTitle = source ? escapeHtml(source.title) : `ノード${conn.from}`;
-                        const sourceColor = source ? source.color : '#4a90d9';
-                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${sourceColor};font-size:12px;"\u003e${sourceTitle} → ${escapeHtml(conn.customType || conn.label || '')}</div\u003e`;
-                    });
-                }
-                const fields = [];
-                if (why) fields.push({label:'why', value:why});
-                if (what) fields.push({label:'what', value:what});
-                if (where) fields.push({label:'where', value:where});
-                if (who) fields.push({label:'who', value:who});
-                if (fields.length > 0) {
-                    if (incomingConns.length > 0) html += '<div style="margin-top:8px;"\u003e';
-                    fields.forEach((f, i) => {
-                        if (i > 0) html += '<div style="margin-top:6px;"\u003e</div\u003e';
-                        html += `<div style="font-weight:600;color:#333;margin-bottom:2px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;"\u003e${escapeHtml(f.label)}</div\u003e`;
-                        html += `<div style="color:#555;white-space:pre-wrap;word-break:break-word;padding-left:8px;border-left:2px solid #888;"\u003e${escapeHtml(f.value)}</div\u003e`;
-                    });
-                    if (incomingConns.length > 0) html += '</div\u003e';
-                }
-                if (outgoingConns.length > 0) {
-                    if (hasDetails || incomingConns.length > 0) html += '<div style="margin-top:8px;"\u003e';
-                    outgoingConns.forEach(conn => {
-                        const target = state.nodes.find(n => n.id === conn.to);
-                        const targetTitle = target ? escapeHtml(target.title) : `ノード${conn.to}`;
-                        const targetColor = target ? target.color : '#e67e22';
-                        html += `<div style="color:#555;margin-bottom:2px;padding-left:8px;border-left:3px solid ${targetColor};font-size:12px;"\u003e${escapeHtml(conn.customType || conn.label || '')} → ${targetTitle}</div\u003e`;
-                    });
-                    if (hasDetails || incomingConns.length > 0) html += '</div\u003e';
-                }
-                return html;
-            }
 
             function positionTimelineTooltip() {
                 const rect = el.getBoundingClientRect();
@@ -6498,7 +6389,7 @@ function getNodeEdgePoint(node, targetNode) {
 
             function showTimelineTooltip() {
                 if (state.dragNode) return;
-                const html = buildTimelineTooltipHtml();
+                const html = buildNodeTooltipHtml(node);
                 if (!html) return;
                 timelineTooltipEl.innerHTML = html;
                 timelineTooltipEl.style.display = 'block';
