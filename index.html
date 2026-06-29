@@ -5152,12 +5152,18 @@ function getNodeEdgePoint(node, targetNode) {
                 // Skip completed nodes when hideCompleted is enabled
                 if (state.hideCompleted && node.completed) return;
 
-                const el = document.createElement('div');
-                el.className = 'node type-' + (node.type || 'task')
+                // Build className
+                const elClassName = 'node type-' + (node.type || 'task')
                     + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
                     + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
                     + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '')
                     + (getNodeWhenStatus(node) ? ' ' + getNodeWhenStatus(node) : '');
+
+                // Build style object
+                const elStyle = {};
+                if (node.width) elStyle.width = node.width + 'px';
+                if (node.height && node.expanded) elStyle.minHeight = node.height + 'px';
+                if (hiddenNodeIds.has(node.id)) elStyle.display = 'none';
 
                 // Use absolute position for actively dragged child nodes only
                 if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
@@ -5170,11 +5176,11 @@ function getNodeEdgePoint(node, targetNode) {
                         absX = absPos.x;
                         absY = absPos.y;
                     }
-                    el.style.left = absX + 'px';
-                    el.style.top = absY + 'px';
+                    elStyle.left = absX + 'px';
+                    elStyle.top = absY + 'px';
                 } else {
-                    el.style.left = node.x + 'px';
-                    el.style.top = node.y + 'px';
+                    elStyle.left = node.x + 'px';
+                    elStyle.top = node.y + 'px';
                     const rootDisplayColor = getNodeDisplayColor(node);
                     // Root/single nodes: full border with node color, thickness by priority
                     const rp = node.priority || 0;
@@ -5186,22 +5192,14 @@ function getNodeEdgePoint(node, targetNode) {
                         else if (rp >= 2) borderWidth = '2px';
                         else if (rp >= 1) borderWidth = '1.5px';
                     }
-                    el.style.border = `${borderWidth} solid ${rootDisplayColor}`;
-                }
-                el.dataset.id = node.id;
-
-                // Set explicit width/height for resizable nodes
-                if (node.width) {
-                    el.style.width = node.width + 'px';
-                }
-                // Only apply explicit height when expanded - collapsed nodes should auto-shrink to header
-                if (node.height && node.expanded) {
-                    el.style.minHeight = node.height + 'px';
+                    elStyle.border = `${borderWidth} solid ${rootDisplayColor}`;
                 }
 
-                if (hiddenNodeIds.has(node.id)) {
-                    el.style.display = 'none';
-                }
+                const el = createEl('div', {
+                    class: elClassName,
+                    attrs: { 'data-id': node.id },
+                    style: elStyle
+                });
 
                 // If dragging a child node and drag has actually started, render as simplified element
                 if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
