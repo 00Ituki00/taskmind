@@ -9263,21 +9263,44 @@ function getNodeEdgePoint(node, targetNode) {
                         setMode('select');
                     }});
                 } else {
-                    items.push({ text: 'ノード追加', icon: '📦', action: () => {
-                        const cx = (x - state.panX) / state.scale;
-                        const cy = (y - state.panY) / state.scale;
-                        const newNode = createNode(cx, cy);
-                        clearSelection();
-                        requestAnimationFrame(() => {
-                            const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
-                            const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
-                            try {
-                                enableTitleEdit(titleEl, newNode);
-                            } catch (err) {
-                                console.error('Error in enableTitleEdit:', err);
+                    // ノードタイプ別作成ボタン（直接表示）
+                    const nodeTypes = [
+                        { type: 'task', label: 'タスク', icon: '📋', color: '#4a90d9' },
+                        { type: 'schedule', label: 'スケジュール', icon: '📅', color: '#9b59b6' },
+                        { type: 'daily', label: '日次', icon: '📆', color: '#2ecc71' },
+                        { type: 'monthly', label: '月次', icon: '📅', color: '#e67e22' },
+                        { type: 'memo', label: 'メモ', icon: '📝', color: '#888888' },
+                        { type: 'condition', label: '条件', icon: '❓', color: '#e74c3c' },
+                        { type: 'asap', label: 'ASAP', icon: '⚡', color: '#c0392b' }
+                    ];
+                    
+                    nodeTypes.forEach(t => {
+                        items.push({ 
+                            text: t.label, 
+                            icon: t.icon, 
+                            action: () => {
+                                const cx = (x - state.panX) / state.scale;
+                                const cy = (y - state.panY) / state.scale;
+                                const newNode = createNode(cx, cy, '新規' + t.label, t.type);
+                                clearSelection();
+                                renderNodes();
+                                renderConnections();
+                                showToast(`${t.label}を作成しました`);
+                                // タイトル編集モードに
+                                requestAnimationFrame(() => {
+                                    const nodeEl = document.querySelector('.node[data-id="' + newNode.id + '"]');
+                                    const titleEl = nodeEl ? nodeEl.querySelector('.node-title') : null;
+                                    if (titleEl) {
+                                        try {
+                                            enableTitleEdit(titleEl, newNode);
+                                        } catch (err) {
+                                            console.error('Error in enableTitleEdit:', err);
+                                        }
+                                    }
+                                });
                             }
                         });
-                    }});
+                    });
                 }
 
             }
