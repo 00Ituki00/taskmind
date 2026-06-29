@@ -5106,15 +5106,23 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             // Helper: Create completed label
-            function createCompletedLabel(node, parentEl) {
+            function createCompletedLabel(node, parentEl, options = {}) {
                 if (!node.completed || !node.completedAt) return;
                 const completedDate = new Date(node.completedAt);
-                createEl('div', {
-                    class: 'node-completed-label',
-                    text: '完了済み ✓',
-                    style: { fontSize: '9px', color: '#27ae60', marginTop: '2px', fontWeight: 600 },
-                    parent: parentEl
-                });
+                if (options.detailed) {
+                    createEl('div', {
+                        text: `完了: ${completedDate.getMonth()+1}/${completedDate.getDate()} ${String(completedDate.getHours()).padStart(2,'0')}:${String(completedDate.getMinutes()).padStart(2,'0')}`,
+                        style: { fontSize: '10px', color: '#999', padding: '2px 0 4px 22px', fontStyle: 'italic' },
+                        parent: parentEl
+                    });
+                } else {
+                    createEl('div', {
+                        class: 'node-completed-label',
+                        text: '完了済み ✓',
+                        style: { fontSize: '9px', color: '#27ae60', marginTop: '2px', fontWeight: 600 },
+                        parent: parentEl
+                    });
+                }
             }
 
             // Helper: Create children container
@@ -5379,14 +5387,7 @@ function getNodeEdgePoint(node, targetNode) {
                 el.appendChild(header);
 
                 // Completed date display
-                if (node.completed && node.completedAt) {
-                    const completedDate = new Date(node.completedAt);
-                    const completedLabel = createEl('div', {
-                        text: `完了: ${completedDate.getMonth()+1}/${completedDate.getDate()} ${String(completedDate.getHours()).padStart(2,'0')}:${String(completedDate.getMinutes()).padStart(2,'0')}`,
-                        style: { fontSize: '10px', color: '#999', padding: '2px 0 4px 22px', fontStyle: 'italic' },
-                        parent: el
-                    });
-                }
+                createCompletedLabel(node, el, { detailed: true });
 
                 // When progress bar
                 const whenProgress = createWhenProgressBar(node);
