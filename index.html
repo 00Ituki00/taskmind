@@ -3592,45 +3592,38 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function createPriorityPicker(node, el, clientX, clientY) {
-            // 既存ピッカーがあれば閉じる
             const existingPicker = document.querySelector('.priority-picker');
-            if (existingPicker) { console.log('[DEBUG] removing existing picker'); existingPicker.remove(); return; }
+            if (existingPicker) { existingPicker.remove(); return; }
 
-            console.log('[DEBUG] creating new priority picker');
-
-            const picker = document.createElement('div');
-            picker.className = 'priority-picker';
-
-            // bodyに fixed配置してノードの overflowに影響されないようにする
-            picker.style.cssText = 'position:fixed;display:flex;gap:4px;align-items:center;background:white;border:1px solid #ddd;border-radius:8px;padding:6px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;';
+            const picker = createEl('div', {
+                class: 'priority-picker',
+                style: { position: 'fixed', display: 'flex', gap: '4px', alignItems: 'center', background: 'white', border: '1px solid #ddd', borderRadius: '8px', padding: '6px 10px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', zIndex: 99999 }
+            });
             document.body.appendChild(picker);
 
             for (let i = 1; i <= 5; i++) {
-                const star = document.createElement('span');
-                star.textContent = i <= (node.priority || 0) ? '★' : '☆';
-                star.style.cssText = 'cursor:pointer;font-size:16px;color:#f0a500;line-height:1;user-select:none;pointer-events:auto;';
-                star.dataset.value = i;
-                star.addEventListener('mouseenter', () => {
-                    picker.querySelectorAll('span').forEach((s, idx) => {
-                        s.textContent = idx < i ? '★' : '☆';
-                    });
+                createEl('span', {
+                    text: i <= (node.priority || 0) ? '★' : '☆',
+                    style: { cursor: 'pointer', fontSize: '16px', color: '#f0a500', lineHeight: 1, userSelect: 'none', pointerEvents: 'auto' },
+                    attrs: { 'data-value': i },
+                    on: {
+                        mouseenter: () => {
+                            picker.querySelectorAll('span').forEach((s, idx) => { s.textContent = idx < i ? '★' : '☆'; });
+                        },
+                        mouseleave: () => {
+                            picker.querySelectorAll('span').forEach((s, idx) => { s.textContent = idx < (node.priority || 0) ? '★' : '☆'; });
+                        },
+                        click: (ev) => {
+                            ev.stopPropagation();
+                            node.priority = (node.priority === i) ? 0 : i;
+                            picker.remove();
+                            renderNodes();
+                        }
+                    },
+                    parent: picker
                 });
-                star.addEventListener('mouseleave', () => {
-                    picker.querySelectorAll('span').forEach((s, idx) => {
-                        s.textContent = idx < (node.priority || 0) ? '★' : '☆';
-                    });
-                });
-                star.addEventListener('click', (ev) => {
-                    ev.stopPropagation();
-                    // 同じ値をクリックしたら0にリセット
-                    node.priority = (node.priority === i) ? 0 : i;
-                    picker.remove();
-                    renderNodes();
-                });
-                picker.appendChild(star);
             }
 
-            // mousedown座標でピッカー配置(clickイベントのclientXが0になる場合への対策)
             const pickerRect = picker.getBoundingClientRect();
             const vw = window.innerWidth;
             const vh = window.innerHeight;
@@ -3641,14 +3634,7 @@ function getNodeEdgePoint(node, targetNode) {
             picker.style.left = px + 'px';
             picker.style.top = py + 'px';
 
-            // ピッカー外クリックで閉じる(ピッカー内クリックは除外)
-            setTimeout(() => {
-                document.addEventListener('click', function closePicker(ev) {
-                    if (picker.contains(ev.target)) return;
-                    picker.remove();
-                    document.removeEventListener('click', closePicker);
-                });
-            }, 0);
+            closeOnClickOutside(picker);
         }
 
         function openDetailEditor(node, type) {
