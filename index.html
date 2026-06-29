@@ -4875,22 +4875,17 @@ function getNodeEdgePoint(node, targetNode) {
                     if (hiddenNodeIds.has(child.id)) return;
 
                     const isDraggingMulti = state.dragSelectedNodes?.some(n => n.id === child.id) && state.isDragging;
-                    const childEl = document.createElement('div');
-                    childEl.className = 'node type-' + (child.type || 'task')
-                        + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
-                        + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
-                        + (child.completed ? ' completed' : '')
-                        + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '')
-                        + (isDraggingMulti ? ' dragging' : '')
-                        + (getNodeWhenStatus(child) ? ' ' + getNodeWhenStatus(child) : '');
-                    childEl.dataset.id = child.id;
-                    childEl.dataset.depth = depth;
-                    
-                    // 子ノードの色を設定（完了済みはグレー）
-                    const childNodeColor = child.color || getNodeTypeColor(child.type);
-                    const childDisplayColor = getNodeDisplayColor(child);
-                    const childDisplayBg = child.completed ? '#e0e0e0' : lightenColor(childNodeColor, 0.75);
-                    childEl.style.backgroundColor = childDisplayBg;
+                    const childEl = createEl('div', {
+                        class: 'node type-' + (child.type || 'task')
+                            + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
+                            + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
+                            + (child.completed ? ' completed' : '')
+                            + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '')
+                            + (isDraggingMulti ? ' dragging' : '')
+                            + (getNodeWhenStatus(child) ? ' ' + getNodeWhenStatus(child) : ''),
+                        attrs: { 'data-id': child.id, 'data-depth': depth },
+                        style: { backgroundColor: childDisplayBg }
+                    });
                     
                     // Priority border styling for child nodes (0-5), skip if completed
                     const cp = child.priority || 0;
@@ -5129,11 +5124,9 @@ function getNodeEdgePoint(node, targetNode) {
                     });
 
                     // Child nodes area with recursive rendering (same structure as root nodes)
-                    const childTasksEl = document.createElement('div');
-                    childTasksEl.className = 'node-tasks';
-                    if (!child.expanded) {
-                        childTasksEl.classList.add('collapsed');
-                    }
+                    const childTasksEl = createEl('div', {
+                        class: 'node-tasks' + (!child.expanded ? ' collapsed' : '')
+                    });
 
                     if (child.expanded) {
                         renderChildren(child, childTasksEl, depth + 1);
@@ -5211,42 +5204,48 @@ function getNodeEdgePoint(node, targetNode) {
                     el.style.minHeight = 'auto';
                     el.style.padding = '8px 10px';
 
-                    const wrapper = document.createElement('div');
-                    wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;';
+                    const wrapper = createEl('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } });
 
-                    const checkbox = document.createElement('span');
-                    checkbox.className = 'node-color';
                     const dragDisplayColor = getNodeDisplayColor(node);
-                    checkbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${dragDisplayColor};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;`;
-                    checkbox.textContent = node.completed ? '✓' : '';
-                    checkbox.addEventListener('mousedown', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Ignore right-click (button === 2), only toggle on left-click
-                        if (e.button === 2) return;
-                        const wasCompleted = node.completed;
-                        node.completed = !node.completed;
-                        node.completedAt = node.completed ? new Date().toISOString() : null;
-                        if (node.completed) {
-                            saveChildPosition(node);
-                            updateWhenOnComplete(node);
-                        } else if (wasCompleted) {
-                            // Undo completion: restore previous nextDate if available
-                            undoWhenComplete(node);
-                            restoreChildPosition(node);
+                    const checkbox = createEl('span', {
+                        class: 'node-color',
+                        text: node.completed ? '✓' : '',
+                        style: {
+                            width: '14px', height: '14px', borderRadius: '3px',
+                            backgroundColor: dragDisplayColor, cursor: 'pointer',
+                            alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0, color: 'white', fontSize: '11px', fontWeight: 'bold'
+                        },
+                        on: {
+                            mousedown: (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (e.button === 2) return;
+                                const wasCompleted = node.completed;
+                                node.completed = !node.completed;
+                                node.completedAt = node.completed ? new Date().toISOString() : null;
+                                if (node.completed) {
+                                    saveChildPosition(node);
+                                    updateWhenOnComplete(node);
+                                } else if (wasCompleted) {
+                                    undoWhenComplete(node);
+                                    restoreChildPosition(node);
+                                }
+                                renderNodes();
+                            },
+                            contextmenu: (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                showColorPicker(e, node);
+                            }
                         }
-                        renderNodes();
-                    });
-                    checkbox.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        showColorPicker(e, node);
                     });
 
-                    const title = document.createElement('span');
-                    title.textContent = node.title;
-                    title.className = 'node-title' + (node.completed ? ' completed' : '');
-                    title.style.cssText = 'flex:1;font-size:13px;word-break:break-word;';
+                    const title = createEl('span', {
+                        class: 'node-title' + (node.completed ? ' completed' : ''),
+                        text: node.title,
+                        style: { flex: '1', fontSize: '13px', wordBreak: 'break-word' }
+                    });
 
                     wrapper.appendChild(checkbox);
                     wrapper.appendChild(title);
@@ -5266,41 +5265,47 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 // Standard root node rendering
-                const header = document.createElement('div');
-                header.className = 'node-header';
+                const header = createEl('div', { class: 'node-header' });
 
-                const color = document.createElement('div');
-                color.className = 'node-color';
                 const rootDisplayColor = getNodeDisplayColor(node);
-                color.style.backgroundColor = rootDisplayColor;
-                color.style.cssText = `width:16px;height:16px;border-radius:3px;background-color:${rootDisplayColor};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:12px;font-weight:bold;`;
-                color.textContent = node.completed ? '✓' : '';
-                color.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Ignore right-click (button === 2), only toggle on left-click
-                    if (e.button === 2) return;
-                    const wasCompleted = node.completed;
-                    node.completed = !node.completed;
-                    node.completedAt = node.completed ? new Date().toISOString() : null;
-                    if (node.completed) {
-                        saveChildPosition(node);
-                        updateWhenOnComplete(node);
-                    } else if (wasCompleted) {
-                        undoWhenComplete(node);
-                        restoreChildPosition(node);
+                const color = createEl('div', {
+                    class: 'node-color',
+                    text: node.completed ? '✓' : '',
+                    style: {
+                        width: '16px', height: '16px', borderRadius: '3px',
+                        backgroundColor: rootDisplayColor, cursor: 'pointer',
+                        alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0, color: 'white', fontSize: '12px', fontWeight: 'bold'
+                    },
+                    on: {
+                        mousedown: (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (e.button === 2) return;
+                            const wasCompleted = node.completed;
+                            node.completed = !node.completed;
+                            node.completedAt = node.completed ? new Date().toISOString() : null;
+                            if (node.completed) {
+                                saveChildPosition(node);
+                                updateWhenOnComplete(node);
+                            } else if (wasCompleted) {
+                                undoWhenComplete(node);
+                                restoreChildPosition(node);
+                            }
+                            renderNodes();
+                        },
+                        contextmenu: (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            showColorPicker(e, node);
+                        }
                     }
-                    renderNodes();
-                });
-                color.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    showColorPicker(e, node);
                 });
 
-                const title = document.createElement('span');
-                title.className = 'node-title' + (node.completed ? ' completed' : '');
-                title.textContent = node.title;
+                const title = createEl('span', {
+                    class: 'node-title' + (node.completed ? ' completed' : ''),
+                    text: node.title
+                });
                 if (!node.completed) {
                     const tp = node.priority || 0;
                     if (tp >= 4) title.style.fontWeight = '700';
@@ -5308,52 +5313,62 @@ function getNodeEdgePoint(node, targetNode) {
                     else if (tp >= 2) title.style.fontWeight = '500';
                 }
 
-                const expandBtn = document.createElement('button');
-                expandBtn.className = 'expand-btn';
-                expandBtn.textContent = node.expanded ? '▼' : '▶';
                 const hasChildren = state.nodes.some(n => n.parentId === node.id);
-                if (!hasChildren) expandBtn.style.visibility = 'hidden';
-                expandBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    node.expanded = !node.expanded;
-                    renderNodes();
+                const expandBtn = createEl('button', {
+                    class: 'expand-btn',
+                    text: node.expanded ? '▼' : '▶',
+                    style: { visibility: hasChildren ? 'visible' : 'hidden' },
+                    on: {
+                        click: (e) => {
+                            e.stopPropagation();
+                            node.expanded = !node.expanded;
+                            renderNodes();
+                        }
+                    }
                 });
 
                 header.appendChild(color);
 
                 // Type icon for root nodes
-                const typeIcon = document.createElement('span');
-                typeIcon.className = 'node-type-icon';
                 const typeIcons = { task: '✓', condition: '❓', memo: '📝', startend: '▶' };
-                typeIcon.textContent = typeIcons[node.type || 'task'] || '✓';
-                header.appendChild(typeIcon);
+                createEl('span', {
+                    class: 'node-type-icon',
+                    text: typeIcons[node.type || 'task'] || '✓',
+                    parent: header
+                });
 
                 header.appendChild(title);
 
                 // Link icon (shown when link is set) - placed right after title
                 const link = node.details?.link?.trim();
                 if (link) {
-                    const linkIcon = document.createElement('span');
-                    linkIcon.textContent = '🔗';
-                    linkIcon.style.cssText = 'margin-left:2px;font-size:13px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
-                    linkIcon.title = 'Open link: ' + link;
-                    linkIcon.addEventListener('mouseenter', () => linkIcon.style.opacity = '1');
-                    linkIcon.addEventListener('mouseleave', () => linkIcon.style.opacity = '0.7');
-                    linkIcon.addEventListener('mousedown', (e) => {
-                        e.stopPropagation();
-                        linkIcon.dataset.linkPending = 'true';
+                    const linkIcon = createEl('span', {
+                        text: '🔗',
+                        title: 'Open link: ' + link,
+                        style: {
+                            marginLeft: '2px', fontSize: '13px', textDecoration: 'none',
+                            cursor: 'pointer', flexShrink: 0, opacity: '0.7', transition: 'opacity 0.15s'
+                        },
+                        on: {
+                            mouseenter: () => linkIcon.style.opacity = '1',
+                            mouseleave: () => {
+                                linkIcon.style.opacity = '0.7';
+                                linkIcon.dataset.linkPending = '';
+                            },
+                            mousedown: (e) => {
+                                e.stopPropagation();
+                                linkIcon.dataset.linkPending = 'true';
+                            },
+                            mouseup: (e) => {
+                                e.stopPropagation();
+                                if (linkIcon.dataset.linkPending === 'true') {
+                                    window.open(link, '_blank', 'noopener,noreferrer');
+                                }
+                                linkIcon.dataset.linkPending = '';
+                            }
+                        },
+                        parent: header
                     });
-                    linkIcon.addEventListener('mouseup', (e) => {
-                        e.stopPropagation();
-                        if (linkIcon.dataset.linkPending === 'true') {
-                            window.open(link, '_blank', 'noopener,noreferrer');
-                        }
-                        linkIcon.dataset.linkPending = '';
-                    });
-                    linkIcon.addEventListener('mouseleave', () => {
-                        linkIcon.dataset.linkPending = '';
-                    });
-                    header.appendChild(linkIcon);
                 }
 
                 // Add detail indicators inside header
@@ -5367,20 +5382,28 @@ function getNodeEdgePoint(node, targetNode) {
                 const completedChildren = children.filter(n => n.completed).length;
                 const totalChildren = children.length;
                 if (totalChildren > 0) {
-                    const badge = document.createElement('span');
-                    badge.style.cssText = 'font-size:11px;color:#999;margin-left:4px;flex-shrink:0;';
-                    badge.textContent = '(' + completedChildren + '/' + totalChildren + ')';
-                    header.appendChild(badge);
+                    createEl('span', {
+                        text: '(' + completedChildren + '/' + totalChildren + ')',
+                        style: { fontSize: '11px', color: '#999', marginLeft: '4px', flexShrink: 0 },
+                        parent: header
+                    });
                 }
 
                 // Hover tooltip for why/what info — singleton pattern, attached to entire node
                 // Reuse single tooltip element across all nodes
                 let tooltipEl = document.querySelector('.node-hover-tooltip-global');
                 if (!tooltipEl) {
-                    tooltipEl = document.createElement('div');
-                    tooltipEl.className = 'node-hover-tooltip-global';
-                    tooltipEl.style.cssText = 'position:fixed;display:none;z-index:10001;background:white;border:1px solid #ddd;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);font-size:12px;max-width:280px;pointer-events:none;opacity:0;transition:opacity 0.15s ease;will-change:transform,opacity;';
-                    document.body.appendChild(tooltipEl);
+                    tooltipEl = createEl('div', {
+                        class: 'node-hover-tooltip-global',
+                        style: {
+                            position: 'fixed', display: 'none', zIndex: 10001, background: 'white',
+                            border: '1px solid #ddd', borderRadius: '8px', padding: '12px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.15)', fontSize: '12px',
+                            maxWidth: '280px', pointerEvents: 'none', opacity: 0,
+                            transition: 'opacity 0.15s ease', willChange: 'transform,opacity'
+                        },
+                        parent: document.body
+                    });
                 }
                 
                 let tooltipTimer = null;
@@ -5519,10 +5542,11 @@ function getNodeEdgePoint(node, targetNode) {
                 // Completed date display
                 if (node.completed && node.completedAt) {
                     const completedDate = new Date(node.completedAt);
-                    const completedLabel = document.createElement('div');
-                    completedLabel.style.cssText = 'font-size:10px;color:#999;padding:2px 0 4px 22px;font-style:italic;';
-                    completedLabel.textContent = `完了: ${completedDate.getMonth()+1}/${completedDate.getDate()} ${String(completedDate.getHours()).padStart(2,'0')}:${String(completedDate.getMinutes()).padStart(2,'0')}`;
-                    el.appendChild(completedLabel);
+                    const completedLabel = createEl('div', {
+                        text: `完了: ${completedDate.getMonth()+1}/${completedDate.getDate()} ${String(completedDate.getHours()).padStart(2,'0')}:${String(completedDate.getMinutes()).padStart(2,'0')}`,
+                        style: { fontSize: '10px', color: '#999', padding: '2px 0 4px 22px', fontStyle: 'italic' },
+                        parent: el
+                    });
                 }
 
                 // When progress bar
@@ -5536,16 +5560,13 @@ function getNodeEdgePoint(node, targetNode) {
                 });
 
                 // Child nodes area with recursive rendering
-                const tasksEl = document.createElement('div');
-                tasksEl.className = 'node-tasks';
-                if (!node.expanded) {
-                    tasksEl.classList.add('collapsed');
-                }
+                const tasksEl = createEl('div', {
+                    class: 'node-tasks' + (!node.expanded ? ' collapsed' : '')
+                });
 
                 if (node.expanded) {
                     renderChildren(node, tasksEl, 0);
                 }
-
                 el.appendChild(tasksEl);
 
                 el.addEventListener('mousedown', (e) => handleNodeMouseDown(e, node));
