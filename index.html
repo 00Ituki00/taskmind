@@ -1886,6 +1886,7 @@
             reorderTarget: null,
             lastFileHandle: null,
             lastFileName: null,
+            lastFilePath: null,
             hideCompleted: false,
             layoutMode: 'free',  // 'free' | 'timeline'
             timeline: {
@@ -9476,6 +9477,7 @@ function getNodeEdgePoint(node, targetNode) {
                 return window.showSaveFilePicker(opts).then(handle => {
                     state.lastFileHandle = handle;
                     state.lastFileName = handle.name;
+                    state.lastFilePath = handle.name;
                     updateFileInfoDisplay(); // ファイル名のみ先行表示
                     return handle.createWritable().then(writable => {
                         return writable.write(json).then(() => {
@@ -9501,9 +9503,9 @@ function getNodeEdgePoint(node, targetNode) {
         function updateFileInfoDisplay() {
             const pathEl = document.getElementById('file-path');
             if (pathEl) {
-                const fileName = state.lastFileName || state.currentFileName;
-                pathEl.textContent = fileName ? '📄 ' + fileName : '';
-                pathEl.title = fileName || '';
+                const path = state.lastFilePath || state.lastFileName;
+                pathEl.textContent = path ? '📁 パス: ' + path : '';
+                pathEl.title = path || '';
             }
         }
 
@@ -9528,6 +9530,7 @@ function getNodeEdgePoint(node, targetNode) {
                     });
                     state.lastFileHandle = handle;
                     state.lastFileName = handle.name;
+                    state.lastFilePath = handle.name;
                     const fileObj = await handle.getFile();
                     await parseFileData(fileObj);
                     return;
@@ -9541,6 +9544,7 @@ function getNodeEdgePoint(node, targetNode) {
             // Legacy path (from file input or fallback)
             if (file) {
                 state.lastFileName = file.name;
+                state.lastFilePath = file.name;
                 await parseFileData(file);
             }
         }
@@ -10227,11 +10231,11 @@ function getNodeEdgePoint(node, targetNode) {
                 })
                 .catch(() => { if (el && versionText) el.textContent = '🕐 ---' + versionText; });
             
-            // ファイル名表示更新
+            // ファイルパス表示更新
             if (pathEl) {
-                const fileName = state.lastFileName || state.currentFileName;
-                pathEl.textContent = fileName ? '📄 ' + fileName : '';
-                pathEl.title = fileName || '';
+                const path = state.lastFilePath || state.lastFileName;
+                pathEl.textContent = path ? '📁 パス: ' + path : '';
+                pathEl.title = path || '';
             }
         })();
 
