@@ -6584,11 +6584,12 @@ function getNodeEdgePoint(node, targetNode) {
             if (!isChild && node.details?.when?.repeatType && node.details.when.repeatType !== 'none') {
                 const whenText = buildWhenText(node.details.when);
                 if (whenText) {
-                    const preview = document.createElement('div');
-                    preview.className = 'when-preview';
-                    preview.textContent = whenText;
-                    preview.style.cssText = 'font-size:11px;color:#666;padding:2px 8px;border-top:1px solid #eee;';
-                    el.appendChild(preview);
+                    const preview = createEl('div', {
+                        class: 'when-preview',
+                        text: whenText,
+                        style: { fontSize: '11px', color: '#666', padding: '2px 8px', borderTop: '1px solid #eee' },
+                        parent: el
+                    });
                 }
             }
 
