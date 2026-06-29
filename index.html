@@ -4918,36 +4918,44 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                     childEl.style.borderRadius = '12px';
 
-                    const childCheckbox = document.createElement('span');
-                    childCheckbox.className = 'node-color';
-                    childCheckbox.style.cssText = `width:14px;height:14px;border-radius:3px;background-color:${getNodeDisplayColor(child)};cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:11px;font-weight:bold;margin-right:4px;`;
-                    childCheckbox.textContent = child.completed ? '✓' : '';
-                    childCheckbox.addEventListener('mousedown', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Ignore right-click (button === 2), only toggle on left-click
-                        if (e.button === 2) return;
-                        const wasCompleted = child.completed;
-                        child.completed = !child.completed;
-                        child.completedAt = child.completed ? new Date().toISOString() : null;
-                        if (child.completed) {
-                            saveChildPosition(child);
-                            updateWhenOnComplete(child);
-                        } else if (wasCompleted) {
-                            undoWhenComplete(child);
-                            restoreChildPosition(child);
+                    const childCheckbox = createEl('span', {
+                        class: 'node-color',
+                        text: child.completed ? '✓' : '',
+                        style: {
+                            width: '14px', height: '14px', borderRadius: '3px',
+                            backgroundColor: getNodeDisplayColor(child),
+                            cursor: 'pointer', alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0, color: 'white', fontSize: '11px', fontWeight: 'bold', marginRight: '4px'
+                        },
+                        on: {
+                            mousedown: (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (e.button === 2) return;
+                                const wasCompleted = child.completed;
+                                child.completed = !child.completed;
+                                child.completedAt = child.completed ? new Date().toISOString() : null;
+                                if (child.completed) {
+                                    saveChildPosition(child);
+                                    updateWhenOnComplete(child);
+                                } else if (wasCompleted) {
+                                    undoWhenComplete(child);
+                                    restoreChildPosition(child);
+                                }
+                                renderNodes();
+                            },
+                            contextmenu: (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                showColorPicker(e, child);
+                            }
                         }
-                        renderNodes();
-                    });
-                    childCheckbox.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        showColorPicker(e, child);
                     });
 
-                    const childTitle = document.createElement('span');
-                    childTitle.className = 'node-title' + (child.completed ? ' completed' : '');
-                    childTitle.textContent = child.title;
+                    const childTitle = createEl('span', {
+                        class: 'node-title' + (child.completed ? ' completed' : ''),
+                        text: child.title
+                    });
                     if (!child.completed) {
                         if (cp >= 4) childTitle.style.fontWeight = '700';
                         else if (cp >= 3) childTitle.style.fontWeight = '600';
@@ -4955,42 +4963,49 @@ function getNodeEdgePoint(node, targetNode) {
                     }
 
                     // Expand/collapse button
-                    const expandBtn = document.createElement('span');
-                    expandBtn.style.cssText = 'margin-left:4px;font-size:11px;color:#4a90d9;cursor:pointer;width:14px;text-align:center;flex-shrink:0;';
-                    expandBtn.textContent = child.expanded ? '▼' : '▶';
                     const hasChildren = state.nodes.some(n => n.parentId === child.id);
-                    if (!hasChildren) expandBtn.style.visibility = 'hidden';
-                    expandBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        child.expanded = !child.expanded;
-                        renderNodes();
+                    const expandBtn = createEl('span', {
+                        text: child.expanded ? '▼' : '▶',
+                        style: {
+                            marginLeft: '4px', fontSize: '11px', color: '#4a90d9',
+                            cursor: 'pointer', width: '14px', textAlign: 'center', flexShrink: '0',
+                            visibility: hasChildren ? 'visible' : 'hidden'
+                        },
+                        on: {
+                            click: (e) => {
+                                e.stopPropagation();
+                                child.expanded = !child.expanded;
+                                renderNodes();
+                            }
+                        }
                     });
 
                     // Task count badge
-                    const badge = document.createElement('span');
-                    badge.style.cssText = 'font-size:11px;color:#999;margin-left:4px;flex-shrink:0;';
                     const children = state.nodes.filter(n => n.parentId === child.id);
                     const completedChildren = children.filter(n => n.completed).length;
                     const totalChildren = children.length;
-                    badge.textContent = totalChildren > 0 ? '(' + completedChildren + '/' + totalChildren + ')' : '';
-                    badge.dataset.badge = 'true';
+                    const badge = createEl('span', {
+                        text: totalChildren > 0 ? '(' + completedChildren + '/' + totalChildren + ')' : '',
+                        attrs: { 'data-badge': 'true' },
+                        style: { fontSize: '11px', color: '#999', marginLeft: '4px', flexShrink: 0 }
+                    });
 
                     childEl.appendChild(childCheckbox);
 
                     // Type icon for child nodes
-                    const childTypeIcon = document.createElement('span');
-                    childTypeIcon.className = 'node-type-icon';
                     const childTypeIcons = { task: '✓', condition: '❓', memo: '📝', startend: '▶' };
-                    childTypeIcon.textContent = childTypeIcons[child.type || 'task'] || '✓';
-                    childEl.appendChild(childTypeIcon);
+                    createEl('span', {
+                        class: 'node-type-icon',
+                        text: childTypeIcons[child.type || 'task'] || '✓',
+                        parent: childEl
+                    });
 
                     childEl.appendChild(childTitle);
 
                     // Link icon for child nodes (shown when link is set) - placed right after title
                     const childLink = child.details?.link?.trim();
                     if (childLink) {
-                        const childLinkIcon = document.createElement('span');
-                        childLinkIcon.textContent = '🔗';
+                        const childLinkIcon = createEl('span', { text: '🔗' });
                         childLinkIcon.style.cssText = 'margin-left:2px;font-size:11px;text-decoration:none;cursor:pointer;flex-shrink:0;opacity:0.7;transition:opacity 0.15s;';
                         childLinkIcon.title = 'Open link: ' + childLink;
                         childLinkIcon.addEventListener('mouseenter', () => childLinkIcon.style.opacity = '1');
