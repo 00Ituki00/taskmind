@@ -8854,11 +8854,10 @@ function getNodeEdgePoint(node, targetNode) {
             const existing = document.querySelector('.context-menu');
             if (existing) existing.remove();
 
-            const menu = document.createElement('div');
-            menu.className = 'context-menu';
-            menu.style.display = 'block';
-            menu.style.left = x + 'px';
-            menu.style.top = y + 'px';
+            const menu = createEl('div', {
+                class: 'context-menu',
+                style: { display: 'block', left: x + 'px', top: y + 'px' }
+            });
 
             const items = [];
             const isMultiSelect = state.selectedNodeIds && state.selectedNodeIds.length > 1;
@@ -8870,39 +8869,33 @@ function getNodeEdgePoint(node, targetNode) {
             // Helper: add indicator toolbar to context menu (horizontal icons)
             function addIndicatorToolbar(node) {
                 if (!node) return;
-                const toolbar = document.createElement('div');
-                toolbar.className = 'context-indicator-toolbar';
-                toolbar.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 0;border-top:1px solid #eee;margin-top:4px;';
+                const toolbar = createEl('div', {
+                    class: 'context-indicator-toolbar',
+                    style: { display: 'flex', gap: '6px', alignItems: 'center', padding: '4px 0', borderTop: '1px solid #eee', marginTop: '4px' }
+                });
 
                 const indicators = [
-                    { type: 'priority', icon: () => {
-                        const p = node.priority || 0;
-                        return p === 0 ? '☆' : '★'.repeat(p);
-                    }, title: '優先度', active: () => (node.priority || 0) > 0 },
-                    { type: 'when', icon: () => '🕐', title: '期限', active: () => {
-                        const w = node.details?.when;
-                        return w && w.repeatType !== 'none';
-                    }},
+                    { type: 'priority', icon: () => { const p = node.priority || 0; return p === 0 ? '☆' : '★'.repeat(p); }, title: '優先度', active: () => (node.priority || 0) > 0 },
+                    { type: 'when', icon: () => '🕐', title: '期限', active: () => { const w = node.details?.when; return w && w.repeatType !== 'none'; } },
                     { type: 'what', icon: () => '📝', title: '内容', active: () => !!node.details?.what },
                     { type: 'who', icon: () => '👤', title: '担当', active: () => !!node.details?.who },
                     { type: 'where', icon: () => '📍', title: '場所', active: () => !!node.details?.where }
                 ];
 
                 indicators.forEach(ind => {
-                    const btn = document.createElement('span');
-                    btn.className = 'context-indicator-btn';
-                    btn.textContent = ind.icon();
-                    btn.title = ind.title;
                     const isActive = ind.active();
-                    btn.style.cssText = `cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:background 0.15s,opacity 0.15s;opacity:${isActive ? '1' : '0.35'};${isActive ? 'color:#333;' : ''}`;
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        menu.remove();
-                        openDetailEditor(node, ind.type);
+                    createEl('span', {
+                        class: 'context-indicator-btn',
+                        text: ind.icon(),
+                        attrs: { title: ind.title },
+                        style: { cursor: 'pointer', fontSize: '14px', padding: '2px 4px', borderRadius: '4px', transition: 'background 0.15s,opacity 0.15s', opacity: isActive ? '1' : '0.35', color: isActive ? '#333' : '' },
+                        on: {
+                            click: (e) => { e.stopPropagation(); menu.remove(); openDetailEditor(node, ind.type); },
+                            mouseenter: (e) => e.target.style.background = '#f0f0f0',
+                            mouseleave: (e) => e.target.style.background = 'transparent'
+                        },
+                        parent: toolbar
                     });
-                    btn.addEventListener('mouseenter', () => btn.style.background = '#f0f0f0');
-                    btn.addEventListener('mouseleave', () => btn.style.background = 'transparent');
-                    toolbar.appendChild(btn);
                 });
                 menu.appendChild(toolbar);
             }
@@ -9145,24 +9138,21 @@ function getNodeEdgePoint(node, targetNode) {
 
             items.forEach(item => {
                 if (item.class === 'context-separator') {
-                    const sep = document.createElement('div');
-                    sep.className = 'context-separator';
-                    menu.appendChild(sep);
+                    createEl('div', { class: 'context-separator', parent: menu });
                 } else {
-                    const el = document.createElement('div');
-                    el.className = 'context-item' + (item.class ? ' ' + item.class : '') + (item.disabled ? ' disabled' : '');
-                    el.innerHTML = `${item.icon} ${item.text}`;
-                    el.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        if (item.disabled) return;
-                        try {
-                            item.action();
-                        } catch (err) {
-                            console.error('Error in menu action:', err);
-                        }
-                        menu.remove();
+                    const el = createEl('div', {
+                        class: 'context-item' + (item.class ? ' ' + item.class : '') + (item.disabled ? ' disabled' : ''),
+                        html: `${item.icon} ${item.text}`,
+                        on: {
+                            click: (e) => {
+                                e.stopPropagation();
+                                if (item.disabled) return;
+                                try { item.action(); } catch (err) { console.error('Error in menu action:', err); }
+                                menu.remove();
+                            }
+                        },
+                        parent: menu
                     });
-                    menu.appendChild(el);
                 }
             });
 
@@ -9173,13 +9163,7 @@ function getNodeEdgePoint(node, targetNode) {
             if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
             if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
 
-            const close = (e) => {
-                if (!menu.contains(e.target)) {
-                    menu.remove();
-                    document.removeEventListener('click', close);
-                }
-            };
-            setTimeout(() => document.addEventListener('click', close), 10);
+            closeOnClickOutside(menu);
         }
 
         function openBulkEditDialog() {
