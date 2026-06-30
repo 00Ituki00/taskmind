@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.5">
+    <meta name="version" content="v1.3.6">
     <title>TaskMind</title>
     <style>
         * {
@@ -5092,6 +5092,33 @@ function getNodeEdgePoint(node, targetNode) {
             nodesEl.appendChild(el);
         }
 
+        // Apply priority-based border styling to a node element
+        function applyPriorityBorder(el, node, displayColor) {
+            const p = node.priority || 0;
+            if (!node.completed) {
+                if (p >= 5) {
+                    el.style.border = `3px solid #c0392b`;
+                    el.style.borderLeft = `4px solid ${displayColor}`;
+                } else if (p >= 4) {
+                    el.style.border = `2.5px solid #e74c3c`;
+                    el.style.borderLeft = `4px solid ${displayColor}`;
+                } else if (p >= 3) {
+                    el.style.border = `2px solid #e67e22`;
+                    el.style.borderLeft = `3px solid ${displayColor}`;
+                } else if (p >= 2) {
+                    el.style.border = `1.5px solid #f39c12`;
+                    el.style.borderLeft = `3px solid ${displayColor}`;
+                } else if (p >= 1) {
+                    el.style.border = `1px solid #f0c040`;
+                    el.style.borderLeft = `3px solid ${displayColor}`;
+                } else {
+                    el.style.borderLeft = `3px solid ${displayColor}`;
+                }
+            } else {
+                el.style.borderLeft = `3px solid ${displayColor}`;
+            }
+        }
+
         function renderNodes() {
             if (window._workerDebug) {
                 window._workerDebug.lastRenderTime = new Date().toISOString();
@@ -5147,32 +5174,6 @@ function getNodeEdgePoint(node, targetNode) {
             // Helper: Attach common node events (mousedown, touchstart, contextmenu)
             // MOVED TO OUTER SCOPE - see attachNodeEvents above
 
-            // Helper: Apply priority-based border styling
-            function applyPriorityBorder(el, node, displayColor) {
-                const p = node.priority || 0;
-                if (!node.completed) {
-                    if (p >= 5) {
-                        el.style.border = `3px solid #c0392b`;
-                        el.style.borderLeft = `4px solid ${displayColor}`;
-                    } else if (p >= 4) {
-                        el.style.border = `2.5px solid #e74c3c`;
-                        el.style.borderLeft = `4px solid ${displayColor}`;
-                    } else if (p >= 3) {
-                        el.style.border = `2px solid #e67e22`;
-                        el.style.borderLeft = `3px solid ${displayColor}`;
-                    } else if (p >= 2) {
-                        el.style.border = `1.5px solid #f39c12`;
-                        el.style.borderLeft = `3px solid ${displayColor}`;
-                    } else if (p >= 1) {
-                        el.style.border = `1px solid #f0c040`;
-                        el.style.borderLeft = `3px solid ${displayColor}`;
-                    } else {
-                        el.style.borderLeft = `3px solid ${displayColor}`;
-                    }
-                } else {
-                    el.style.borderLeft = `3px solid ${displayColor}`;
-                }
-            }
 
             // Helper: Create link icon element
             function createLinkIcon(node, parentEl) {
