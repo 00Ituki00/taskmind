@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.20">
+    <meta name="version" content="v1.3.21">
     <title>TaskMind</title>
     <style>
         * {
@@ -5202,6 +5202,121 @@ function getNodeEdgePoint(node, targetNode) {
 
             state.hiddenNodeIds = getHiddenNodeIds();
             return true;
+        }
+
+        function renderChildren(parentNode, containerEl, depth, hiddenNodeIds) {
+            const childIds = parentNode.children || [];
+            childIds.forEach(childId => {
+                const child = state.nodes.find(n => n.id === childId);
+                if (!child) return;
+                // Skip completed nodes when hideCompleted is enabled
+                if (state.hideCompleted && child.completed) return;
+                // Skip if this child is currently being dragged (and drag has actually started)
+                if (state.dragNode?.id === child.id && state.isDragging) return;
+                // Skip if this child is part of multi-drag selection
+                if (state.dragSelectedNodes?.some(n => n.id === child.id) && state.isDragging) return;
+                // Skip hidden nodes
+                if (hiddenNodeIds.has(child.id)) return;
+
+                const isDraggingMulti = state.dragSelectedNodes?.some(n => n.id === child.id) && state.isDragging;
+
+                // 子ノードの色を設定（完了済みはグレー）
+                const childNodeColor = child.color || getNodeTypeColor(child.type);
+                const childDisplayColor = getNodeDisplayColor(child);
+                const childDisplayBg = child.completed ? '#e0e0e0' : lightenColor(childNodeColor, 0.75);
+
+                const childEl = createEl('div', {
+                    class: 'node type-' + (child.type || 'task')
+                        + (state.selectedNodeIds.includes(child.id) || child.id === state.selectedNodeId ? ' selected' : '')
+                        + (state.dropTarget && state.dropTarget.id === child.id ? ' drop-target' : '')
+                        + (child.completed ? ' completed' : '')
+                        + (state.dragNode?.id === child.id && state.isDragging ? ' dragging' : '')
+                        + (isDraggingMulti ? ' dragging' : '')
+                        + (getNodeWhenStatus(child) ? ' ' + getNodeWhenStatus(child) : ''),
+                    attrs: { 'data-id': child.id, 'data-depth': depth },
+                    style: { backgroundColor: childDisplayBg }
+                });
+
+                // Priority border styling for child nodes
+                applyPriorityBorder(childEl, child, childDisplayColor);
+                childEl.style.borderRadius = '12px';
+
+                const childCheckbox = createCompletionCheckbox(child, 14);
+                childCheckbox.style.marginRight = '4px';
+
+                const childTitle = createNodeTitle(child);
+
+                // Expand/collapse button
+                const expandBtn = createExpandBtn(child, true);
+
+                // Task count badge
+                const badge = createTaskBadge(child);
+
+                childEl.appendChild(childCheckbox);
+
+                // Type icon for child nodes
+                createTypeIcon(child, childEl);
+
+                childEl.appendChild(childTitle);
+
+                // Link icon for child nodes
+                createLinkIcon(child, childEl);
+
+                // Add detail indicators for child nodes
+                const childIndicators = createIndicatorMenu(child);
+                childEl.appendChild(childIndicators);
+
+                childEl.appendChild(expandBtn);
+
+                if (badge) {
+                    childEl.appendChild(badge);
+                }
+
+                // When progress bar for child nodes
+                const childWhenProgress = createWhenProgressBar(child);
+                if (childWhenProgress) childEl.appendChild(childWhenProgress);
+
+                // Completed date display for child nodes
+                createCompletedLabel(child, childEl, { detailed: false });
+
+                attachNodeEvents(childEl, child, { includeDragHandlers: true });
+
+                childEl.addEventListener('click', (e) => {
+                    if (state.connectingFrom) {
+                        e.stopPropagation();
+                        if (state.connectingFrom.id !== child.id) {
+                            createConnection(state.connectingFrom, child, state.pendingConnectionType, state.pendingConnectionCustomType);
+                            state.connectingFrom = null;
+                            state.pendingConnectionType = null;
+                            state.pendingConnectionCustomType = null;
+                            const tempLine = document.getElementById('pending-connection');
+                            if (tempLine) tempLine.remove();
+                            modeIndicator.classList.remove('active');
+                            setMode('select');
+                        }
+                        return;
+                    }
+                });
+
+                childEl.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    child.expanded = !child.expanded;
+                    renderNodes();
+                });
+
+                // Child nodes area with recursive rendering (same structure as root nodes)
+                const childTasksEl = createEl('div', {
+                    class: 'node-tasks' + (!child.expanded ? ' collapsed' : '')
+                });
+
+                if (child.expanded) {
+                    renderChildren(child, childTasksEl, depth + 1, hiddenNodeIds);
+                }
+
+                childEl.appendChild(childTasksEl);
+
+                containerEl.appendChild(childEl);
+            });
         }
 
         function renderNodes() {
