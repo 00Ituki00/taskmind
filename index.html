@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.4">
+    <meta name="version" content="v1.3.5">
     <title>TaskMind</title>
     <style>
         * {
@@ -9709,66 +9709,69 @@ function getNodeEdgePoint(node, targetNode) {
         nProject.expanded = true;
 
         // Child: 週次MTG
-        const nWeekly = createNode(0, 0, '週次MTG');
-        nWeekly.color = '#64b5f6';
-        nWeekly.priority = 3;
-        nWeekly.parentId = nProject.id;
-        nProject.children.push(nWeekly.id);
-        nWeekly.details.when = {
-            repeatType: 'weekly',
-            daysOfWeek: [1],
-            baseDateTime: '2026-05-19T01:00:00.000Z',
-            baseTime: '10:00',
-            deadlineType: 'relative',
-            deadlineDays: 0,
-            deadlineTime: '11:00',
-            deadlineDate: null,
-            nextDate: '2026-05-26T01:00:00.000Z',
-            lastCompleted: null
-        };
-        nWeekly.details.what = '週次進捗確認と次週計画';
-        nWeekly.details.who = '全員';
-        nWeekly.details.where = '会議室A';
+        const nWeekly = createDemoChild(nProject, '週次MTG', {
+            color: '#64b5f6',
+            priority: 3,
+            details: {
+                when: {
+                    repeatType: 'weekly',
+                    daysOfWeek: [1],
+                    baseDateTime: '2026-05-19T01:00:00.000Z',
+                    baseTime: '10:00',
+                    deadlineType: 'relative',
+                    deadlineDays: 0,
+                    deadlineTime: '11:00',
+                    deadlineDate: null,
+                    nextDate: '2026-05-26T01:00:00.000Z',
+                    lastCompleted: null
+                },
+                what: '週次進捗確認と次週計画',
+                who: '全員',
+                where: '会議室A'
+            }
+        });
 
         // Child: 月次レポート
-        const nMonthly = createNode(0, 0, '月次レポート');
-        nMonthly.color = '#7986cb';
-        nMonthly.priority = 4;
-        nMonthly.parentId = nProject.id;
-        nProject.children.push(nMonthly.id);
-        nMonthly.details.when = {
-            repeatType: 'monthly-day',
-            daysOfWeek: [],
-            baseDateTime: '2026-05-01T05:00:00.000Z',
-            baseTime: '14:00',
-            deadlineType: 'relative',
-            deadlineDays: 0,
-            deadlineTime: '17:00',
-            deadlineDate: null,
-            nextDate: '2026-06-01T05:00:00.000Z',
-            lastCompleted: null
-        };
-        nMonthly.details.what = '月次業務レポート作成・提出';
+        const nMonthly = createDemoChild(nProject, '月次レポート', {
+            color: '#7986cb',
+            priority: 4,
+            details: {
+                when: {
+                    repeatType: 'monthly-day',
+                    daysOfWeek: [],
+                    baseDateTime: '2026-05-01T05:00:00.000Z',
+                    baseTime: '14:00',
+                    deadlineType: 'relative',
+                    deadlineDays: 0,
+                    deadlineTime: '17:00',
+                    deadlineDate: null,
+                    nextDate: '2026-06-01T05:00:00.000Z',
+                    lastCompleted: null
+                },
+                what: '月次業務レポート作成・提出'
+            }
+        });
 
         // Child: 日次確認
-        const nDaily = createNode(0, 0, '日次確認');
-        nDaily.color = '#4dd0e1';
-        nDaily.priority = 2;
-        nDaily.parentId = nProject.id;
-        nProject.children.push(nDaily.id);
-        nDaily.details.when = {
-            repeatType: 'daily',
-            daysOfWeek: [1,2,3,4,5],
-            baseDateTime: '2026-05-19T00:00:00.000Z',
-            baseTime: '09:00',
-            deadlineType: 'relative',
-            deadlineDays: 0,
-            deadlineTime: '09:30',
-            deadlineDate: null,
-            nextDate: '2026-05-20T00:00:00.000Z',
-            lastCompleted: null
-        };
-        nDaily.details.what = '前日実績確認と本日予定の見直し';
+        const nDaily = createDemoChild(nProject, '日次確認', {
+            color: '#4dd0e1',
+            priority: 2,
+            details: {
+                when: {
+                    repeatType: 'daily',
+                    daysOfWeek: [1,2,3,4,5],
+                    baseDateTime: '2026-05-19T00:00:00.000Z',
+                    baseTime: '09:00',
+                    deadlineType: 'relative',
+                    deadlineDays: 0,
+                    deadlineTime: '09:30',
+                    deadlineDate: null,
+                    nextDate: '2026-05-20T00:00:00.000Z',
+                    lastCompleted: null
+                },
+                what: '前日実績確認と本日予定の見直し'
+            }
+        });
 
         // Root: 開発タスク
         const nDev = createNode(500, 700, '開発タスク');
@@ -9779,45 +9782,47 @@ function getNodeEdgePoint(node, targetNode) {
         nDev.expanded = true;
 
         // Child: フロントエンド実装
-        const nFront = createNode(0, 0, 'フロントエンド実装');
-        nFront.color = '#aed581';
-        nFront.priority = 4;
-        nFront.parentId = nDev.id;
-        nDev.children.push(nFront.id);
-        nFront.details.when = {
-            repeatType: 'none',
-            daysOfWeek: [],
-            baseDateTime: '2026-05-25T09:00:00.000Z',
-            baseTime: '09:00',
-            deadlineType: 'absolute',
-            deadlineDays: 0,
-            deadlineTime: '18:00',
-            deadlineDate: '2026-05-25T09:00:00.000Z',
-            nextDate: null,
-            lastCompleted: null
-        };
-        nFront.details.link = 'https://developer.mozilla.org';
-        nFront.details.what = 'UIコンポーネント実装・スタイル調整';
+        const nFront = createDemoChild(nDev, 'フロントエンド実装', {
+            color: '#aed581',
+            priority: 4,
+            details: {
+                when: {
+                    repeatType: 'none',
+                    daysOfWeek: [],
+                    baseDateTime: '2026-05-25T09:00:00.000Z',
+                    baseTime: '09:00',
+                    deadlineType: 'absolute',
+                    deadlineDays: 0,
+                    deadlineTime: '18:00',
+                    deadlineDate: '2026-05-25T09:00:00.000Z',
+                    nextDate: null,
+                    lastCompleted: null
+                },
+                link: 'https://developer.mozilla.org',
+                what: 'UIコンポーネント実装・スタイル調整'
+            }
+        });
 
         // Child: バックエンドAPI
-        const nBack = createNode(0, 0, 'バックエンドAPI');
-        nBack.color = '#dce775';
-        nBack.priority = 4;
-        nBack.parentId = nDev.id;
-        nDev.children.push(nBack.id);
-        nBack.details.when = {
-            repeatType: 'none',
-            daysOfWeek: [],
-            baseDateTime: '2026-05-28T09:00:00.000Z',
-            baseTime: '09:00',
-            deadlineType: 'absolute',
-            deadlineDays: 0,
-            deadlineTime: '18:00',
-            deadlineDate: '2026-05-28T09:00:00.000Z',
-            nextDate: null,
-            lastCompleted: null
-        };
-        nBack.details.what = 'REST API設計・実装・テスト';
+        const nBack = createDemoChild(nDev, 'バックエンドAPI', {
+            color: '#dce775',
+            priority: 4,
+            details: {
+                when: {
+                    repeatType: 'none',
+                    daysOfWeek: [],
+                    baseDateTime: '2026-05-28T09:00:00.000Z',
+                    baseTime: '09:00',
+                    deadlineType: 'absolute',
+                    deadlineDays: 0,
+                    deadlineTime: '18:00',
+                    deadlineDate: '2026-05-28T09:00:00.000Z',
+                    nextDate: null,
+                    lastCompleted: null
+                },
+                what: 'REST API設計・実装・テスト'
+            }
+        });
 
         // Child: テスト作成
         const nTest = createNode(0, 0, 'テスト作成');
@@ -9880,43 +9885,42 @@ function getNodeEdgePoint(node, targetNode) {
         nAsap.expanded = true;
 
         // Child: 問い合わせ対応
-        const nInquiry = createNode(0, 0, '問い合わせ対応');
-        nInquiry.color = '#f06292';
-        nInquiry.priority = 3;
-        nInquiry.parentId = nAsap.id;
-        nAsap.children.push(nInquiry.id);
-        nInquiry.details.what = '顧客からの問い合わせ対応';
+        const nInquiry = createDemoChild(nAsap, '問い合わせ対応', {
+            color: '#f06292',
+            priority: 3,
+            details: { what: '顧客からの問い合わせ対応' }
+        });
 
         // Child: バグ修正
-        const nBug = createNode(0, 0, 'バグ修正 #123');
-        nBug.color = '#ba68c8';
-        nBug.priority = 5;
-        nBug.parentId = nAsap.id;
-        nAsap.children.push(nBug.id);
-        nBug.details.when = {
-            repeatType: 'none',
-            daysOfWeek: [],
-            baseDateTime: '2026-05-20T03:00:00.000Z',
-            baseTime: '09:00',
-            deadlineType: 'absolute',
-            deadlineDays: 0,
-            deadlineTime: '12:00',
-            deadlineDate: '2026-05-20T03:00:00.000Z',
-            nextDate: null,
-            lastCompleted: null
-        };
-        nBug.details.link = 'https://github.com/00Ituki00/taskmind/issues/123';
-        nBug.details.what = '接続線が重複表示されるバグの修正';
+        const nBug = createDemoChild(nAsap, 'バグ修正 #123', {
+            color: '#ba68c8',
+            priority: 5,
+            details: {
+                when: {
+                    repeatType: 'none',
+                    daysOfWeek: [],
+                    baseDateTime: '2026-05-20T03:00:00.000Z',
+                    baseTime: '09:00',
+                    deadlineType: 'absolute',
+                    deadlineDays: 0,
+                    deadlineTime: '12:00',
+                    deadlineDate: '2026-05-20T03:00:00.000Z',
+                    nextDate: null,
+                    lastCompleted: null
+                },
+                link: 'https://github.com/00Ituki00/taskmind/issues/123',
+                what: '接続線が重複表示されるバグの修正'
+            }
+        });
 
         // Child: ドキュメント更新
-        const nDoc = createNode(0, 0, 'ドキュメント更新');
-        nDoc.color = '#9575cd';
-        nDoc.priority = 2;
-        nDoc.parentId = nAsap.id;
-        nAsap.children.push(nDoc.id);
+        const nDoc = createDemoChild(nAsap, 'ドキュメント更新', {
+            color: '#9575cd',
+            priority: 2,
+            details: { what: 'READMEと設計書の更新' }
+        });
         nDoc.completed = true;
         nDoc.completedAt = '2026-05-18T10:00:00.000Z';
-        nDoc.details.what = 'READMEと設計書の更新';
 
         // Root: 未設定タスク
         const nUnset = createNode(900, 950, '未設定タスク');
