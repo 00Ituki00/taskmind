@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.2.4">
+    <meta name="version" content="v1.2.5">
     <title>TaskMind</title>
     <style>
         * {
@@ -6033,7 +6033,9 @@ function getNodeEdgePoint(node, targetNode) {
                 });
 
                 // Set lane height based on number of rows
-                const laneHeight = Math.max(60, rows.length * rowHeight + 16);
+                const maxRowIndex = Math.max(...layout.map(l => l.rowIndex), -1);
+                const rowCount = maxRowIndex + 1;
+                const laneHeight = Math.max(60, rowCount * rowHeight + 16);
                 laneEl.style.minHeight = laneHeight + 'px';
             }
 
