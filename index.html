@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.18">
+    <meta name="version" content="v1.3.19">
     <title>TaskMind</title>
     <style>
         * {
@@ -9857,11 +9857,9 @@ function getNodeEdgePoint(node, targetNode) {
         });
 
         // Child: テスト作成
-        const nTest = createNode(0, 0, 'テスト作成');
+        const nTest = createDemoChild(nDev, 0, 0, 'テスト作成');
         nTest.color = '#fff176';
         nTest.priority = 3;
-        nTest.parentId = nDev.id;
-        nDev.children.push(nTest.id);
         nTest.details.what = '単体テスト・結合テスト作成';
 
         // Root: リマインダー
@@ -9871,11 +9869,9 @@ function getNodeEdgePoint(node, targetNode) {
         nRemind.expanded = true;
 
         // Child: 健康診断
-        const nHealth = createNode(0, 0, '健康診断');
+        const nHealth = createDemoChild(nRemind, 0, 0, '健康診断');
         nHealth.color = '#ffb74d';
         nHealth.priority = 5;
-        nHealth.parentId = nRemind.id;
-        nRemind.children.push(nHealth.id);
         nHealth.details.when = {
             repeatType: 'yearly-date',
             daysOfWeek: [],
@@ -9891,11 +9887,10 @@ function getNodeEdgePoint(node, targetNode) {
         nHealth.details.what = '年1回定期健康診断';
 
         // Child: 備品発注
-        const nSupply = createNode(0, 0, '備品発注');
+        // Child: 備品発注
+        const nSupply = createDemoChild(nRemind, 0, 0, '備品発注');
         nSupply.color = '#ff8a65';
         nSupply.priority = 2;
-        nSupply.parentId = nRemind.id;
-        nRemind.children.push(nSupply.id);
         nSupply.details.when = {
             repeatType: 'monthly-day',
             daysOfWeek: [],
