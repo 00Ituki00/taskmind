@@ -5441,48 +5441,51 @@ function getNodeEdgePoint(node, targetNode) {
                 // Skip completed nodes when hideCompleted is enabled
                 if (state.hideCompleted && node.completed) return;
 
-                // Build className
-                const elClassName = 'node type-' + (node.type || 'task')
-                    + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
-                    + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
-                    + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '')
-                    + (getNodeWhenStatus(node) ? ' ' + getNodeWhenStatus(node) : '');
+        function buildNodeClassName(node, hiddenNodeIds) {
+            return 'node type-' + (node.type || 'task')
+                + (state.selectedNodeIds.includes(node.id) || node.id === state.selectedNodeId ? ' selected' : '')
+                + (state.dropTarget && state.dropTarget.id === node.id ? ' drop-target' : '')
+                + (state.dragNode?.id === node.id && state.isDragging ? ' dragging' : '')
+                + (getNodeWhenStatus(node) ? ' ' + getNodeWhenStatus(node) : '');
+        }
 
-                // Build style object
-                const elStyle = {};
-                if (node.width) elStyle.width = node.width + 'px';
-                if (node.height && node.expanded) elStyle.minHeight = node.height + 'px';
-                if (hiddenNodeIds.has(node.id)) elStyle.display = 'none';
+        function buildNodeStyle(node, hiddenNodeIds) {
+            const style = {};
+            if (node.width) style.width = node.width + 'px';
+            if (node.height && node.expanded) style.minHeight = node.height + 'px';
+            if (hiddenNodeIds.has(node.id)) style.display = 'none';
 
-                // Use absolute position for actively dragged child nodes only
-                if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
-                    let absX, absY;
-                    if (node.absX !== undefined && node.absY !== undefined) {
-                        absX = node.absX;
-                        absY = node.absY;
-                    } else {
-                        const absPos = getNodeAbsolutePosition(node);
-                        absX = absPos.x;
-                        absY = absPos.y;
-                    }
-                    elStyle.left = absX + 'px';
-                    elStyle.top = absY + 'px';
+            // Use absolute position for actively dragged child nodes only
+            if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
+                let absX, absY;
+                if (node.absX !== undefined && node.absY !== undefined) {
+                    absX = node.absX;
+                    absY = node.absY;
                 } else {
-                    elStyle.left = node.x + 'px';
-                    elStyle.top = node.y + 'px';
-                    const rootDisplayColor = getNodeDisplayColor(node);
-                    // Root/single nodes: full border with node color, thickness by priority
-                    const rp = node.priority || 0;
-                    let borderWidth = '2px';
-                    if (!node.completed) {
-                        if (rp >= 5) borderWidth = '3.5px';
-                        else if (rp >= 4) borderWidth = '3px';
-                        else if (rp >= 3) borderWidth = '2.5px';
-                        else if (rp >= 2) borderWidth = '2px';
-                        else if (rp >= 1) borderWidth = '1.5px';
-                    }
-                    elStyle.border = `${borderWidth} solid ${rootDisplayColor}`;
+                    const absPos = getNodeAbsolutePosition(node);
+                    absX = absPos.x;
+                    absY = absPos.y;
                 }
+                style.left = absX + 'px';
+                style.top = absY + 'px';
+            } else {
+                style.left = node.x + 'px';
+                style.top = node.y + 'px';
+                const rootDisplayColor = getNodeDisplayColor(node);
+                // Root/single nodes: full border with node color, thickness by priority
+                const rp = node.priority || 0;
+                let borderWidth = '2px';
+                if (!node.completed) {
+                    if (rp >= 5) borderWidth = '3.5px';
+                    else if (rp >= 4) borderWidth = '3px';
+                    else if (rp >= 3) borderWidth = '2.5px';
+                    else if (rp >= 2) borderWidth = '2px';
+                    else if (rp >= 1) borderWidth = '1.5px';
+                }
+                style.border = `${borderWidth} solid ${rootDisplayColor}`;
+            }
+            return style;
+        }
 
                 // If dragging a child node and drag has actually started, render as simplified element
                 if (node.parentId !== null && state.dragNode?.id === node.id && state.isDragging) {
