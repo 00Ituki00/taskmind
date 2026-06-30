@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.3">
+    <meta name="version" content="v1.3.4">
     <title>TaskMind</title>
     <style>
         * {
@@ -8569,6 +8569,10 @@ function getNodeEdgePoint(node, targetNode) {
         function addContextMenuItems(menu, items) {
             items.forEach(item => {
                 if (item === null) return;
+                if (item.class === 'context-separator') {
+                    createEl('div', { class: 'context-separator', parent: menu });
+                    return;
+                }
                 createEl('div', {
                     class: 'context-item' + (item.class ? ' ' + item.class : '') + (item.disabled ? ' disabled' : ''),
                     html: item.html || `${item.icon || ''} ${item.text || ''}`,
@@ -8900,25 +8904,7 @@ function getNodeEdgePoint(node, targetNode) {
 
             console.log('Context menu items count:', items.length, 'targetChildNode:', !!targetChildNode, 'targetNode:', !!targetNode);
 
-            items.forEach(item => {
-                if (item.class === 'context-separator') {
-                    createEl('div', { class: 'context-separator', parent: menu });
-                } else {
-                    const el = createEl('div', {
-                        class: 'context-item' + (item.class ? ' ' + item.class : '') + (item.disabled ? ' disabled' : ''),
-                        html: `${item.icon} ${item.text}`,
-                        on: {
-                            click: (e) => {
-                                e.stopPropagation();
-                                if (item.disabled) return;
-                                try { item.action(); } catch (err) { console.error('Error in menu action:', err); }
-                                menu.remove();
-                            }
-                        },
-                        parent: menu
-                    });
-                }
-            });
+            addContextMenuItems(menu, items);
         }
 
         function openBulkEditDialog() {
@@ -9568,6 +9554,22 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         // ==================== Init ====================
+        function createDemoNode(x, y, text, props) {
+            const n = createNode(x, y, text);
+            if (props.color) n.color = props.color;
+            if (props.priority) n.priority = props.priority;
+            if (props.expanded) n.expanded = true;
+            if (props.details) Object.assign(n.details, props.details);
+            return n;
+        }
+
+        function createDemoChild(parent, text, props) {
+            const n = createDemoNode(0, 0, text, props);
+            n.parentId = parent.id;
+            parent.children.push(n.id);
+            return n;
+        }
+
         function initDemoData() {
         // Mind-map style demo data with new connection type expressions
         const nCenter = createNode(500, 250, 'TaskMind アイデア発想');
