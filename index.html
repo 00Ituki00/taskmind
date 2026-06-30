@@ -9739,24 +9739,20 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         // ==================== Init ====================
-        function createDemoNode(x, y, text, props) {
-            const n = createNode(x, y, text);
-            if (props.color) n.color = props.color;
-            if (props.priority) n.priority = props.priority;
-            if (props.expanded) n.expanded = true;
-            if (props.details) Object.assign(n.details, props.details);
-            return n;
-        }
-
         function createDemoChild(parent, text, props) {
-            const n = createDemoNode(0, 0, text, props);
+            const n = createNode(0, 0, text);
             n.parentId = parent.id;
             parent.children.push(n.id);
+            if (props) {
+                if (props.color) n.color = props.color;
+                if (props.priority) n.priority = props.priority;
+                if (props.expanded) n.expanded = true;
+                if (props.details) Object.assign(n.details, props.details);
+            }
             return n;
         }
 
         function initDemoData() {
-        // Mind-map style demo data with new connection type expressions
         const nCenter = createNode(500, 250, 'TaskMind アイデア発想');
         nCenter.color = '#4a90d9';
         nCenter.priority = 5;
