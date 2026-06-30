@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.31">
+    <meta name="version" content="v1.3.32">
     <title>TaskMind</title>
     <style>
         * {
@@ -6587,22 +6587,6 @@ function getNodeEdgePoint(node, targetNode) {
             return node;
         }
 
-        function getHiddenNodeIds(connections) {
-            const hiddenNodeIds = new Set();
-            connections.forEach(conn => {
-                if (conn.collapsed) {
-                    const hideDescendants = (nodeId) => {
-                        hiddenNodeIds.add(nodeId);
-                        connections
-                            .filter(c => c.from === nodeId)
-                            .forEach(c => hideDescendants(c.to));
-                    };
-                    hideDescendants(conn.to);
-                }
-            });
-            return hiddenNodeIds;
-        }
-
         function getConnectionEdgePoints(fromNode, toNode) {
             if (!fromNode || !toNode) return null;
             let fromEdge, toEdge;
@@ -6902,7 +6886,7 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             // Collect all nodes that are hidden due to parent connection collapse (cascade)
-            const hiddenNodeIds = getHiddenNodeIds(state.connections);
+            const hiddenNodeIds = getHiddenNodeIds();
 
             state.connections.forEach(conn => {
                 // If filterConnIds is provided, only render matching connections (incremental update)
