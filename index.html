@@ -4875,7 +4875,68 @@ function getNodeEdgePoint(node, targetNode) {
             return null;
         }
 
-        function renderNodes() {
+        function createResizeHandles(node, el, nodesEl) {
+                // Show/hide resize handles on node hover
+                el.addEventListener('mouseenter', () => {
+                    document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(h => {
+                        h.style.opacity = '1';
+                    });
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(h => {
+                        h.style.opacity = '';
+                    });
+                });
+
+                // Resize handles - appended to nodesEl (outside .node) to avoid overflow clipping
+                const positions = ['nw', 'ne', 'sw', 'se'];
+                positions.forEach(pos => {
+                    const resizeHandle = createEl('div', {
+                        class: 'resize-handle ' + pos,
+                        attrs: { 'data-node-id': node.id, 'data-pos': pos },
+                        on: {
+                            mousedown: (e) => {
+                                e.stopPropagation();
+                                const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                                state.resizingNode = node;
+                                state.resizeHandle = pos;
+                                state.resizeStartX = e.clientX;
+                                state.resizeStartY = e.clientY;
+                                state.resizeStartWidth = node.width || 200;
+                                state.resizeStartHeight = node.height || (domEl ? domEl.offsetHeight : 50);
+
+                                let resizeStartLeft, resizeStartTop;
+                                if (node.parentId !== null) {
+                                    const parent = state.nodes.find(n => n.id === node.parentId);
+                                    if (parent) {
+                                        const absPos = getNodeAbsolutePosition(node);
+                                        resizeStartLeft = absPos.x;
+                                        resizeStartTop = absPos.y;
+                                    } else {
+                                        resizeStartLeft = node.x;
+                                        resizeStartTop = node.y;
+                                    }
+                                } else {
+                                    resizeStartLeft = node.x;
+                                    resizeStartTop = node.y;
+                                }
+                                state.resizeStartLeft = resizeStartLeft;
+                                state.resizeStartTop = resizeStartTop;
+
+                                if (domEl) {
+                                    domEl.classList.add('resizing');
+                                }
+                                resizeHandle.classList.add('resizing');
+                            }
+                        }
+                    });
+
+                    nodesEl.appendChild(resizeHandle);
+                });
+            }
+
+            function renderNodes() {
             if (window._workerDebug) {
                 window._workerDebug.lastRenderTime = new Date().toISOString();
                 window._workerDebug.renderCount++;
