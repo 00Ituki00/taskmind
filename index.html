@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.6">
+    <meta name="version" content="v1.3.7">
     <title>TaskMind</title>
     <style>
         * {
@@ -5119,6 +5119,22 @@ function getNodeEdgePoint(node, targetNode) {
             }
         }
 
+        function getHiddenNodeIds() {
+            const hiddenNodeIds = new Set();
+            state.connections.forEach(conn => {
+                if (conn.collapsed) {
+                    const hideDescendants = (nodeId) => {
+                        hiddenNodeIds.add(nodeId);
+                        state.connections
+                            .filter(c => c.from === nodeId)
+                            .forEach(c => hideDescendants(c.to));
+                    };
+                    hideDescendants(conn.to);
+                }
+            });
+            return hiddenNodeIds;
+        }
+
         function renderNodes() {
             if (window._workerDebug) {
                 window._workerDebug.lastRenderTime = new Date().toISOString();
@@ -5150,20 +5166,7 @@ function getNodeEdgePoint(node, targetNode) {
                 updateTransform();
             }
 
-            // Collect all nodes hidden by cascade collapse
-            const hiddenNodeIds = new Set();
-            state.connections.forEach(conn => {
-                if (conn.collapsed) {
-                    const hideDescendants = (nodeId) => {
-                        hiddenNodeIds.add(nodeId);
-                        state.connections
-                            .filter(c => c.from === nodeId)
-                            .forEach(c => hideDescendants(c.to));
-                    };
-                    hideDescendants(conn.to);
-                }
-            });
-            state.hiddenNodeIds = hiddenNodeIds;
+            state.hiddenNodeIds = getHiddenNodeIds();
 
             // Helper: Create completion checkbox (shared between child and parent nodes)
             // MOVED TO OUTER SCOPE - see createCompletionCheckbox above
