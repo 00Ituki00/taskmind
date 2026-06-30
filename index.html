@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.14">
+    <meta name="version" content="v1.3.15">
     <title>TaskMind</title>
     <style>
         * {
@@ -5416,7 +5416,7 @@ function getNodeEdgePoint(node, targetNode) {
                 });
             }
 
-            // Global tooltip element (shared across all root nodes)
+        function getOrCreateTooltipController() {
             let tooltipEl = document.querySelector('.node-hover-tooltip-global');
             if (!tooltipEl) {
                 tooltipEl = createEl('div', {
@@ -5431,7 +5431,8 @@ function getNodeEdgePoint(node, targetNode) {
                     parent: document.body
                 });
             }
-            const tooltipCtrl = createTooltipController(tooltipEl);
+            return createTooltipController(tooltipEl);
+        }
 
             // Render root nodes
             state.nodes.forEach(node => {
