@@ -5637,6 +5637,72 @@ function getNodeEdgePoint(node, targetNode) {
             return header;
         }
 
+        function setupTimelinePan(container) {
+            // Timeline pan drag - only setup window listeners once
+            if (!state._timelineWindowListenersSetup) {
+                state._timelineWindowListenersSetup = true;
+
+                window.addEventListener('mousemove', (e) => {
+                    if (!state.timelinePanState || !state.timelinePanState.isPanning) return;
+                    const ps = state.timelinePanState;
+                    const dx = ps.startX - e.clientX;
+                    const dy = ps.startY - e.clientY;
+                    ps.container.scrollLeft = ps.scrollStartX + dx;
+                    ps.container.scrollTop = ps.scrollStartY + dy;
+                });
+
+                window.addEventListener('mouseup', (e) => {
+                    if (state.timelinePanState) {
+                        state.timelinePanState.isPanning = false;
+                        state.timelinePanState.container.classList.remove('panning');
+                        state.timelinePanState = null;
+                    }
+                });
+            }
+
+            // Prevent contextmenu in timeline container (right-click is used for panning)
+            window.addEventListener('contextmenu', (e) => {
+                if (state.layoutMode === 'timeline' && e.target.closest('.timeline-container') && !e.target.closest('.timeline-node')) {
+                    e.preventDefault();
+                }
+            });
+
+            container.addEventListener('contextmenu', (e) => {
+                if (e.target.closest('.timeline-node')) return;
+                e.preventDefault();
+            });
+
+            container.addEventListener('mousedown', (e) => {
+                if (e.button !== 2) return; // right-click only
+                if (e.target.closest('.timeline-node')) return;
+
+                state.timelineRightClickStart = { x: e.clientX, y: e.clientY, moved: false };
+
+                state.timelinePanState = {
+                    isPanning: true,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    scrollStartX: container.scrollLeft,
+                    scrollStartY: container.scrollTop,
+                    container: container
+                };
+                container.classList.add('panning');
+                e.preventDefault();
+            });
+
+            // Track movement to detect actual pan vs simple right-click
+            const trackPanMovement = (e) => {
+                if (!state.timelineRightClickStart || state.timelineRightClickStart.moved) return;
+                const dx = Math.abs(e.clientX - state.timelineRightClickStart.x);
+                const dy = Math.abs(e.clientY - state.timelineRightClickStart.y);
+                if (dx > 5 || dy > 5) {
+                    state.timelineRightClickStart.moved = true;
+                }
+            };
+
+            container.addEventListener('mousemove', trackPanMovement);
+        }
+
         function renderTimeline() {
             const timeline = state.timeline;
             const dayWidth = timeline.dayWidth;
@@ -5940,63 +6006,7 @@ function getNodeEdgePoint(node, targetNode) {
                 state._timelineScroll = null;
             }
 
-            // Timeline pan drag - only setup window listeners once
-            if (!state._timelineWindowListenersSetup) {
-                state._timelineWindowListenersSetup = true;
-
-                window.addEventListener('mousemove', (e) => {
-                    if (!state.timelinePanState || !state.timelinePanState.isPanning) return;
-                    const ps = state.timelinePanState;
-                    const dx = ps.startX - e.clientX;
-                    const dy = ps.startY - e.clientY;
-                    ps.container.scrollLeft = ps.scrollStartX + dx;
-                    ps.container.scrollTop = ps.scrollStartY + dy;
-                });
-
-                window.addEventListener('mouseup', (e) => {
-                    if (state.timelinePanState) {
-                        state.timelinePanState.isPanning = false;
-                        state.timelinePanState.container.classList.remove('panning');
-                        state.timelinePanState = null;
-                    }
-                });
-            }
-
-            container.addEventListener('contextmenu', (e) => {
-                if (e.target.closest('.timeline-node')) return;
-                e.preventDefault();
-            });
-
-            // Prevent contextmenu in timeline container (right-click is used for panning)
-            window.addEventListener('contextmenu', (e) => {
-                if (state.layoutMode === 'timeline' && e.target.closest('.timeline-container') && !e.target.closest('.timeline-node')) {
-                    e.preventDefault();
-                }
-            });
-
-            container.addEventListener('mousedown', (e) => {
-                if (e.button !== 2) return; // right-click only
-                if (e.target.closest('.timeline-node')) return;
-
-                // Track if we actually panned (moved enough) before suppressing contextmenu
-                state.timelineRightClickStart = { x: e.clientX, y: e.clientY, moved: false };
-
-                state.timelinePanState = {
-                    isPanning: true,
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    scrollStartX: container.scrollLeft,
-                    scrollStartY: container.scrollTop,
-                    container: container
-                };
-                container.classList.add('panning');
-                e.preventDefault();
-            });
-
-            // Track movement to detect actual pan vs simple right-click
-            const trackPanMovement = (e) => {
-                if (!state.timelineRightClickStart || state.timelineRightClickStart.moved) return;
-                const dx = Math.abs(e.clientX - state.timelineRightClickStart.x);
+            setupTimelinePan(container);
                 const dy = Math.abs(e.clientY - state.timelineRightClickStart.y);
                 if (dx > 3 || dy > 3) {
                     // Actual pan detected - suppress the upcoming contextmenu
