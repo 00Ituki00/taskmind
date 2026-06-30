@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.1">
+    <meta name="version" content="v1.3.2">
     <title>TaskMind</title>
     <style>
         * {
@@ -3966,6 +3966,54 @@ function getNodeEdgePoint(node, targetNode) {
         // Unified When Editor UI Generator
         // Returns { el, getValue, updatePreview }
         // UI types: none | daily | weekly | monthly-day | monthly-week | yearly-date | yearly-week
+        function getWhenUIType(whenData) {
+            const w = whenData || {};
+            let uiType = w.repeatType || 'disabled';
+            if (uiType === 'monthly') uiType = (w.monthlyMode === 'week') ? 'monthly-week' : 'monthly-day';
+            if (uiType === 'yearly') uiType = (w.yearlyMode === 'week') ? 'yearly-week' : 'yearly-date';
+            return uiType;
+        }
+
+        function formatWhenPreviewText(uiType, baseStr, baseTimeStr, daysOfWeek, weekOfMonth, yearMonth, yearDay, monthDay, dayNames, weekOptions) {
+            if (uiType === 'disabled') return 'なし（期限・プログレスバーなし）';
+            if (uiType === 'none') return '開始:' + baseStr;
+
+            let text = '次回:' + baseStr + '\n周期:';
+            const weekLabel = weekOptions.find(o => o.key === weekOfMonth)?.label || '';
+            const fmtDays = () => {
+                if (!daysOfWeek || daysOfWeek.length === 0) return '未選択';
+                if (daysOfWeek.length === 7) return '毎日';
+                return daysOfWeek.sort().map(d => dayNames[d]).join('・') + '曜日';
+            };
+
+            switch (uiType) {
+                case 'daily': text += '毎日 ' + baseTimeStr; break;
+                case 'weekly': text += weekLabel + fmtDays() + ' ' + baseTimeStr; break;
+                case 'monthly-day': text += '毎月 ' + monthDay + '日 ' + baseTimeStr; break;
+                case 'monthly-week': text += '毎月 ' + weekLabel + fmtDays() + ' ' + baseTimeStr; break;
+                case 'yearly-date': text += '毎年 ' + yearMonth + '月 ' + yearDay + '日 ' + baseTimeStr; break;
+                case 'yearly-week': text += '毎年 ' + yearMonth + '月 ' + weekLabel + fmtDays() + ' ' + baseTimeStr; break;
+            }
+            return text;
+        }
+
+        function formatDateTimeInfo(dates) {
+            const fmt = dateStr => {
+                if (!dateStr) return null;
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return null;
+                return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            };
+
+            let html = '';
+            if (dates.createdAt) html += `<div>📝 登録: ${fmt(dates.createdAt)}</div>`;
+            if (dates.base) html += `<div>▶ 開始: ${fmt(dates.base)}</div>`;
+            if (dates.deadline) html += `<div>⏰ 締切: ${fmt(dates.deadline)}</div>`;
+            if (dates.next) html += `<div>📌 次回: ${fmt(dates.next)}</div>`;
+            if (dates.last) html += `<div>✓ 完了: ${fmt(dates.last)}</div>`;
+            return html || '<div style="color:#999;">日時情報なし</div>';
+        }
+
         function createWhenEditorUI(whenData, onChange, createdAt) {
             const w = whenData || {};
             const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
@@ -3978,10 +4026,7 @@ function getNodeEdgePoint(node, targetNode) {
                 { key: 'last', label: '最終' }
             ];
 
-            // データ→UIタイプ変換
-            let uiType = w.repeatType || 'disabled';
-            if (uiType === 'monthly') uiType = (w.monthlyMode === 'week') ? 'monthly-week' : 'monthly-day';
-            if (uiType === 'yearly') uiType = (w.yearlyMode === 'week') ? 'yearly-week' : 'yearly-date';
+            let uiType = getWhenUIType(whenData);
 
             let currentDaysOfWeek = w.daysOfWeek || (w.dayOfWeek !== undefined ? [w.dayOfWeek] : [0]);
             let currentWeekOfMonth = w.weekOfMonth || 'all';
@@ -4402,12 +4447,6 @@ function getNodeEdgePoint(node, targetNode) {
                 };
             }
 
-            function formatDaysOfWeek(days) {
-                if (!days || days.length === 0) return '未選択';
-                if (days.length === 7) return '毎日';
-                return days.sort().map(d => dayNames[d]).join('・') + '曜日';
-            }
-
             function updatePreview() {
                 const baseDt = timeInput.value;
                 const baseDate = baseDt ? new Date(baseDt) : null;
@@ -4425,36 +4464,10 @@ function getNodeEdgePoint(node, targetNode) {
                     displayStr = nextD.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 }
 
-                let text = '';
+                let text = formatWhenPreviewText(uiType, displayStr, baseTimeStr, currentDaysOfWeek, currentWeekOfMonth, currentYearMonth, currentYearDay, currentMonthDay, dayNames, weekOptions);
 
-                if (uiType === 'disabled') {
-                    text = 'なし（期限・プログレスバーなし）';
-                } else {
-                    // 開始日時(常に先頭)
-                    if (uiType === 'none') {
-                        text = '開始:' + displayStr;
-                    } else {
-                        text = '次回:' + displayStr;
-                        text += '\n周期:';
-                        if (uiType === 'daily') {
-                            text += '毎日 ' + baseTimeStr;
-                        } else if (uiType === 'weekly') {
-                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                            text += weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
-                        } else if (uiType === 'monthly-day') {
-                            text += '毎月 ' + currentMonthDay + '日 ' + baseTimeStr;
-                        } else if (uiType === 'monthly-week') {
-                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                            text += '毎月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
-                        } else if (uiType === 'yearly-date') {
-                            text += '毎年 ' + currentYearMonth + '月 ' + currentYearDay + '日 ' + baseTimeStr;
-                        } else if (uiType === 'yearly-week') {
-                            const weekLabel = weekOptions.find(o => o.key === currentWeekOfMonth)?.label || '';
-                            text += '毎年 ' + currentYearMonth + '月 ' + weekLabel + formatDaysOfWeek(currentDaysOfWeek) + ' ' + baseTimeStr;
-                        }
-                    }
-
-                    // 期限(開始の後に表示)
+                // 期限(開始の後に表示)
+                if (uiType !== 'disabled') {
                     if (dlType === 'absolute' && dlDate) {
                         const dl = new Date(dlDate);
                         text += '\n期限:' + dl.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで';
@@ -4466,25 +4479,15 @@ function getNodeEdgePoint(node, targetNode) {
                 preview.innerHTML = text.replace(/\n/g, '<br>');
 
                 // 日時情報更新
-                const fmt = dateStr => {
-                    if (!dateStr) return null;
-                    const d = new Date(dateStr);
-                    if (isNaN(d.getTime())) return null;
-                    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-                };
                 const baseDtIso = timeInput.value ? new Date(timeInput.value).toISOString() : null;
                 const dlDateIso = deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null;
-                const nextDt = w.nextDate || null;
-                const lastDt = w.lastCompleted || null;
-
-                let dateInfoHtml = '';
-                if (createdAt) dateInfoHtml += `<div>📝 登録: ${fmt(createdAt)}</div>`;
-                if (baseDtIso) dateInfoHtml += `<div>▶ 開始: ${fmt(baseDtIso)}</div>`;
-                if (dlDateIso) dateInfoHtml += `<div>⏰ 締切: ${fmt(dlDateIso)}</div>`;
-                if (nextDt) dateInfoHtml += `<div>📌 次回: ${fmt(nextDt)}</div>`;
-                if (lastDt) dateInfoHtml += `<div>✓ 完了: ${fmt(lastDt)}</div>`;
-
-                dateInfoContent.innerHTML = dateInfoHtml || '<div style="color:#999;">日時情報なし</div>';
+                dateInfoContent.innerHTML = formatDateTimeInfo({
+                    createdAt: createdAt,
+                    base: baseDtIso,
+                    deadline: dlDateIso,
+                    next: w.nextDate || null,
+                    last: w.lastCompleted || null
+                });
             }
 
             updatePreview();
