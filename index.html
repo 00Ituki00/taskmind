@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.10">
+    <meta name="version" content="v1.3.11">
     <title>TaskMind</title>
     <style>
         * {
@@ -8668,6 +8668,18 @@ function getNodeEdgePoint(node, targetNode) {
             menu.appendChild(toolbar);
         }
 
+        function addCancelConnectionItem(items) {
+            items.push({ text: '接続モードをキャンセル', icon: '❌', action: () => {
+                state.connectingFrom = null;
+                state.pendingConnectionType = null;
+                state.pendingConnectionCustomType = null;
+                const tempLine = document.getElementById('pending-connection');
+                if (tempLine) tempLine.remove();
+                modeIndicator.classList.remove('active');
+                setMode('select');
+            }});
+        }
+
         function showCanvasContextMenu(x, y, clickEvent) {
             const menu = createContextMenu(x, y);
 
@@ -8842,15 +8854,7 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Canvas items
                 if (!targetConnGroup && state.connectingFrom) {
-                    items.push({ text: '接続モードをキャンセル', icon: '❌', action: () => {
-                        state.connectingFrom = null;
-                        state.pendingConnectionType = null;
-                        state.pendingConnectionCustomType = null;
-                        const tempLine = document.getElementById('pending-connection');
-                        if (tempLine) tempLine.remove();
-                        modeIndicator.classList.remove('active');
-                        setMode('select');
-                    }});
+                    addCancelConnectionItem(items);
                 } else {
                     // ノードタイプ別作成ボタン（直接表示）
                     const nodeTypes = [
