@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.26">
+    <meta name="version" content="v1.3.27">
     <title>TaskMind</title>
     <style>
         * {
@@ -5685,9 +5685,7 @@ function getNodeEdgePoint(node, targetNode) {
 
                 nodesEl.appendChild(el);
 
-        function createNodeResizeHandles(node, el, container) {
-            createResizeHandles(node, el, container);
-        }
+                createNodeResizeHandles(node, el, nodesEl);
             });
 
             // Update all resize handle positions after DOM rendering is fully complete
