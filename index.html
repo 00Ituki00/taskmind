@@ -6387,6 +6387,23 @@ function getNodeEdgePoint(node, targetNode) {
             return { x1, y1, x2, y2, cx1, cy1, cx2, cy2, len, edgeLen };
         }
 
+        function getVisibleConnection(conn, hiddenNodeIds) {
+            if (hiddenNodeIds.has(conn.from)) return null;
+
+            const rawFromNode = state.nodes.find(n => n.id === conn.from);
+            const rawToNode = state.nodes.find(n => n.id === conn.to);
+            if (!rawFromNode || !rawToNode) return null;
+
+            const fromNode = getVisibleEndpoint(rawFromNode);
+            const toNode = getVisibleEndpoint(rawToNode);
+
+            if (fromNode.id === toNode.id) return null;
+            if (state.hideCompleted && (fromNode.completed || toNode.completed)) return null;
+            if (rawToNode.parentId === rawFromNode.id || rawFromNode.parentId === rawToNode.id) return null;
+
+            return { conn, rawFromNode, rawToNode, fromNode, toNode };
+        }
+
         function renderConnections(filterConnIds = null) {
             // If filterConnIds is provided, only remove and re-render those connections
             // Otherwise, clear all connections (default behavior)
@@ -6410,25 +6427,11 @@ function getNodeEdgePoint(node, targetNode) {
                 if (filterConnIds && !filterConnIds.includes(`${conn.from}-${conn.to}`)) return;
                 
                 // Skip connections whose source is hidden by parent collapse
-                if (hiddenNodeIds.has(conn.from)) return;
-
-                const rawFromNode = state.nodes.find(n => n.id === conn.from);
-                const rawToNode = state.nodes.find(n => n.id === conn.to);
-                if (!rawFromNode || !rawToNode) return;
-
-                // If either endpoint is a child of a collapsed parent, redirect to the parent node
-                const fromNode = getVisibleEndpoint(rawFromNode);
-                const toNode = getVisibleEndpoint(rawToNode);
-
-                // Skip if both endpoints resolved to the same node (e.g. both children of same collapsed parent)
-                if (fromNode.id === toNode.id) return;
-
-                // Skip connections involving completed nodes when hideCompleted is enabled
-                if (state.hideCompleted && (fromNode.completed || toNode.completed)) return;
-
-                // Skip parent-child relationships (already shown as nested list)
-                // Check against raw nodes to preserve original parent-child semantics
-                if (rawToNode.parentId === rawFromNode.id || rawFromNode.parentId === rawToNode.id) return;
+                const visibleConn = getVisibleConnection(conn, hiddenNodeIds);
+                if (!visibleConn) return;
+                const { conn: c, fromNode, toNode } = visibleConn;
+                const rawFromNode = state.nodes.find(n => n.id === c.from);
+                const rawToNode = state.nodes.find(n => n.id === c.to);
 
                 // Calculate edge points: root nodes use center, child nodes use left/right side
                 const { fromEdge, toEdge } = getConnectionEdgePoints(fromNode, toNode);
