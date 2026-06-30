@@ -6342,6 +6342,51 @@ function getNodeEdgePoint(node, targetNode) {
             return { fromEdge, toEdge };
         }
 
+        function calculateBezierConnection(fromNode, toNode, fromEdge, toEdge) {
+            const x1 = fromEdge.x, y1 = fromEdge.y;
+            const x2 = toEdge.x, y2 = toEdge.y;
+
+            let fromAbsX = fromNode.x, fromAbsY = fromNode.y;
+            let toAbsX = toNode.x, toAbsY = toNode.y;
+            if (fromNode.parentId !== null) {
+                const abs = getNodeAbsolutePosition(fromNode);
+                fromAbsX = abs.x; fromAbsY = abs.y;
+            }
+            if (toNode.parentId !== null) {
+                const abs = getNodeAbsolutePosition(toNode);
+                toAbsX = abs.x; toAbsY = abs.y;
+            }
+
+            const fromCx = fromAbsX + (fromNode.width || 200) / 2;
+            const fromCy = fromAbsY + (fromNode.height || 50) / 2;
+            const toCx = toAbsX + (toNode.width || 200) / 2;
+            const toCy = toAbsY + (toNode.height || 50) / 2;
+
+            const dx = toCx - fromCx;
+            const dy = toCy - fromCy;
+            const len = Math.sqrt(dx * dx + dy * dy);
+
+            const edgeDx1 = x1 - fromCx;
+            const edgeDy1 = y1 - fromCy;
+            const edgeLen1 = Math.sqrt(edgeDx1 * edgeDx1 + edgeDy1 * edgeDy1) || 1;
+            const edgeDx2 = x2 - toCx;
+            const edgeDy2 = y2 - toCy;
+            const edgeLen2 = Math.sqrt(edgeDx2 * edgeDx2 + edgeDy2 * edgeDy2) || 1;
+
+            const edgeDx = x2 - x1;
+            const edgeDy = y2 - y1;
+            const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy) || 1;
+
+            const controlDist = Math.max(edgeLen * 0.4, 50);
+
+            const cx1 = x1 + (edgeDx1 / edgeLen1) * controlDist;
+            const cy1 = y1 + (edgeDy1 / edgeLen1) * controlDist;
+            const cx2 = x2 + (edgeDx2 / edgeLen2) * controlDist;
+            const cy2 = y2 + (edgeDy2 / edgeLen2) * controlDist;
+
+            return { x1, y1, x2, y2, cx1, cy1, cx2, cy2, len, edgeLen };
+        }
+
         function renderConnections(filterConnIds = null) {
             // If filterConnIds is provided, only remove and re-render those connections
             // Otherwise, clear all connections (default behavior)
@@ -6388,53 +6433,7 @@ function getNodeEdgePoint(node, targetNode) {
                 // Calculate edge points: root nodes use center, child nodes use left/right side
                 const { fromEdge, toEdge } = getConnectionEdgePoints(fromNode, toNode);
 
-                const x1 = fromEdge.x;
-                const y1 = fromEdge.y;
-                const x2 = toEdge.x;
-                const y2 = toEdge.y;
-
-                // Calculate absolute centers for control points
-                let fromAbsX = fromNode.x, fromAbsY = fromNode.y;
-                let toAbsX = toNode.x, toAbsY = toNode.y;
-                if (fromNode.parentId !== null) {
-                    const abs = getNodeAbsolutePosition(fromNode);
-                    fromAbsX = abs.x; fromAbsY = abs.y;
-                }
-                if (toNode.parentId !== null) {
-                    const abs = getNodeAbsolutePosition(toNode);
-                    toAbsX = abs.x; toAbsY = abs.y;
-                }
-
-                const fromCx = fromAbsX + (fromNode.width || 200) / 2;
-                const fromCy = fromAbsY + (fromNode.height || 50) / 2;
-                const toCx = toAbsX + (toNode.width || 200) / 2;
-                const toCy = toAbsY + (toNode.height || 50) / 2;
-
-                const dx = toCx - fromCx;
-                const dy = toCy - fromCy;
-                const len = Math.sqrt(dx * dx + dy * dy);
-
-                // Calculate control points from edge points, extending in the direction
-                // from node center to edge point (natural tangent direction)
-                const edgeDx1 = x1 - fromCx;
-                const edgeDy1 = y1 - fromCy;
-                const edgeLen1 = Math.sqrt(edgeDx1 * edgeDx1 + edgeDy1 * edgeDy1) || 1;
-                const edgeDx2 = x2 - toCx;
-                const edgeDy2 = y2 - toCy;
-                const edgeLen2 = Math.sqrt(edgeDx2 * edgeDx2 + edgeDy2 * edgeDy2) || 1;
-
-                // Edge-to-edge distance (more accurate than center-to-center for curve length)
-                const edgeDx = x2 - x1;
-                const edgeDy = y2 - y1;
-                const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy) || 1;
-
-                // Control distance: proportional to edge-to-edge distance, with minimum for visibility
-                const controlDist = Math.max(edgeLen * 0.4, 50);
-
-                const cx1 = x1 + (edgeDx1 / edgeLen1) * controlDist;
-                const cy1 = y1 + (edgeDy1 / edgeLen1) * controlDist;
-                const cx2 = x2 + (edgeDx2 / edgeLen2) * controlDist;
-                const cy2 = y2 + (edgeDy2 / edgeLen2) * controlDist;
+                const { x1, y1, x2, y2, cx1, cy1, cx2, cy2, len, edgeLen } = calculateBezierConnection(fromNode, toNode, fromEdge, toEdge);
 
                 const pathD = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
 
