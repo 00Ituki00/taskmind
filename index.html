@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.2.9">
+    <meta name="version" content="v1.3.0">
     <title>TaskMind</title>
     <style>
         * {
@@ -2101,8 +2101,7 @@
                     const toNode = state.nodes.find(n => n.id === to);
                     if (toNode) closestConn.originalToPos = { x: toNode.x, y: toNode.y };
                 }
-                renderNodes();
-                renderConnections();
+                renderAll();
             } else {
                 svgConnLastMouseDown = now;
                 svgConnMouseDownPos = { x: e.clientX, y: e.clientY };
@@ -2435,6 +2434,11 @@
             return el;
         }
 
+        // Render both nodes and connections
+        function renderAll() {
+            renderAll();
+        }
+
         function createTooltipController(tooltipEl) {
             let timer = null;
             let visible = false;
@@ -2543,8 +2547,7 @@
             state.nextId = snapshot.nextId;
             state.selectedNodeId = null;
             state.selectedNodeIds = [];
-            renderNodes();
-            renderConnections();
+            renderAll();
         }
 
         function updateUndoRedoButtons() {
@@ -2721,8 +2724,7 @@
             // 6. Delete child node
             deleteNode(childNode.id);
 
-            renderNodes();
-            renderConnections();
+            renderAll();
             showToast('子ノードを親に統合しました');
         }
 
@@ -2751,8 +2753,7 @@
                 }
             });
 
-            renderNodes();
-            renderConnections();
+            renderAll();
             saveSnapshot();
         }
 
@@ -3029,8 +3030,7 @@
                             const ny = (window.innerHeight / 2 - state.panY) / state.scale;
                             const node = createNode(nx, ny, '新規' + t.label, t.type);
                             popup.remove();
-                            renderNodes();
-                            renderConnections();
+                            renderAll();
                             showToast(`${t.label}を作成しました`);
                             setTimeout(() => {
                                 const el = document.querySelector(`.node[data-id="${node.id}"]`);
@@ -5754,8 +5754,7 @@ function getNodeEdgePoint(node, targetNode) {
                     // Only re-render connections related to dragged node
                     renderConnections(_draggedConnIds);
                 } else if (!state.isDragging) {
-                    renderNodes();
-                    renderConnections();
+                    renderAll();
                 }
             });
         }
@@ -6797,8 +6796,7 @@ function getNodeEdgePoint(node, targetNode) {
                         delete conn.indX;
                         delete conn.indY;
                     }
-                    renderNodes();
-                    renderConnections();
+                    renderAll();
                 };
 
                 hitPath.addEventListener('dblclick', doToggleCollapse);
@@ -6919,8 +6917,7 @@ function getNodeEdgePoint(node, targetNode) {
                                     delete conn.indX;
                                     delete conn.indY;
                                 }
-                                renderNodes();
-                                renderConnections();
+                                renderAll();
                                 return;
                             }
 
@@ -7639,8 +7636,7 @@ function getNodeEdgePoint(node, targetNode) {
                 state.dragIndicator.conn.indX = newIndX;
                 state.dragIndicator.conn.indY = newIndY;
 
-                renderNodes();
-                renderConnections();
+                renderAll();
                 return;
             }
 
@@ -8119,8 +8115,7 @@ function getNodeEdgePoint(node, targetNode) {
                     });
                 }
 
-                renderNodes();
-                renderConnections();
+                renderAll();
                 renderGroups();
             }
 
@@ -8402,8 +8397,7 @@ function getNodeEdgePoint(node, targetNode) {
             state.pendingExtract = false;
             const tooltip = document.getElementById('drag-tooltip');
             if (tooltip) tooltip.classList.remove('show');
-            renderNodes();
-            renderConnections();
+            renderAll();
 
             if (didAction) {
                 saveSnapshot();
@@ -8586,8 +8580,7 @@ function getNodeEdgePoint(node, targetNode) {
                     if (conn.collapsed && !conn.originalToPos && toNode) {
                         conn.originalToPos = { x: toNode.x, y: toNode.y };
                     }
-                    renderNodes();
-                    renderConnections();
+                    renderAll();
                 }},
                 { text: 'タイプ変更', icon: '🏷️', action: () => {
                     showConnectionTypeSelectorForEdit(conn, x, y);
@@ -8697,8 +8690,7 @@ function getNodeEdgePoint(node, targetNode) {
                             }
                             state.nodes = state.nodes.filter(n => n.id !== childId);
                             state.connections = state.connections.filter(c => c.from !== childId && c.to !== childId);
-                            renderNodes();
-                            renderConnections();
+                            renderAll();
                         }
                     }});
                     items.push({ text: '親ノードに統合', icon: '⏏️', disabled: isMultiSelect, action: () => {
@@ -8810,8 +8802,7 @@ function getNodeEdgePoint(node, targetNode) {
                             if (conn.collapsed && !conn.originalToPos) {
                                 conn.originalToPos = { x: toNode.x, y: toNode.y };
                             }
-                            renderNodes();
-                            renderConnections();
+                            renderAll();
                         }});
                         items.push({ text: '接続を削除', icon: '🗑️', class: 'delete', action: () => {
                             if (confirm('この接続を削除しますか?')) {
@@ -8849,8 +8840,7 @@ function getNodeEdgePoint(node, targetNode) {
                                 const cy = (y - state.panY) / state.scale;
                                 const newNode = createNode(cx, cy, '新規' + t.label, t.type);
                                 clearSelection();
-                                renderNodes();
-                                renderConnections();
+                                renderAll();
                                 showToast(`${t.label}を作成しました`);
                                 // タイトル編集モードに
                                 requestAnimationFrame(() => {
@@ -8880,8 +8870,7 @@ function getNodeEdgePoint(node, targetNode) {
                     if (confirm(`${state.selectedNodeIds.length}個のノードを削除しますか?`)) {
                         state.selectedNodeIds.forEach(id => deleteNode(id));
                         state.selectedNodeIds = [];
-                        renderNodes();
-                        renderConnections();
+                        renderAll();
                         showToast(`${state.selectedNodeIds.length}個のノードを削除しました`);
                     }
                     menu.remove();
@@ -9335,8 +9324,7 @@ function getNodeEdgePoint(node, targetNode) {
                         state.nextId = data.nextId || 1;
                         state.customConnectionTypes = data.customConnectionTypes || [];
 
-                        renderNodes();
-                        renderConnections();
+                        renderAll();
                         fitToView();
                         // 履歴をクリアし、初期スナップショットとして保存
                         state.history = [];
@@ -9410,8 +9398,7 @@ function getNodeEdgePoint(node, targetNode) {
             state.history = [];
             state.historyIndex = -1;
             createNode(400, 300, '新規ノード');
-            renderNodes();
-            renderConnections();
+            renderAll();
             saveSnapshot();
             showToast('新規作成しました');
         });
@@ -9523,8 +9510,7 @@ function getNodeEdgePoint(node, targetNode) {
                 connectionsSvg.style.display = '';
             }
 
-            renderNodes();
-            renderConnections();
+            renderAll();
 
             // Ensure connections are hidden in timeline mode after renderConnections
             if (state.layoutMode === 'timeline') {
@@ -9541,8 +9527,7 @@ function getNodeEdgePoint(node, targetNode) {
                     sortedCount++;
                 }
             });
-            renderNodes();
-            renderConnections();
+            renderAll();
             showToast(sortedCount > 0 ? sortedCount + '個のノードをソートしました' : 'ソート対象のノードがありません');
         });
         document.getElementById('btn-hide-completed').addEventListener('click', () => {
@@ -9551,8 +9536,7 @@ function getNodeEdgePoint(node, targetNode) {
             btn.title = state.hideCompleted ? '完了済みノードを表示' : '完了済みノードを非表示';
             btn.classList.toggle('active', state.hideCompleted);
             btn.classList.toggle('hide-active', state.hideCompleted);
-            renderNodes();
-            renderConnections();
+            renderAll();
             showToast(state.hideCompleted ? '完了済みノードを非表示にしました' : '完了済みノードを表示しました');
         });
         fileInput.addEventListener('change', (e) => {
@@ -9952,8 +9936,7 @@ function getNodeEdgePoint(node, targetNode) {
                         state.customConnectionTypes = data.customConnectionTypes || [];
                         state.lastFileName = data.lastFileName || null;
                         state.lastFilePath = data.lastFilePath || data.lastFileName || null;
-                        renderNodes();
-                        renderConnections();
+                        renderAll();
                         // 履歴をクリアし、初期スナップショットとして保存
                         state.history = [];
                         state.historyIndex = -1;
@@ -10720,8 +10703,7 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         // 初期描画
-        renderNodes();
-        renderConnections();
+        renderAll();
     </script>
 </body>
 </html>
