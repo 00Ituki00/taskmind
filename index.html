@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.23">
+    <meta name="version" content="v1.3.24">
     <title>TaskMind</title>
     <style>
         * {
@@ -5319,6 +5319,58 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
+        function createNodeHeader(node, tooltipCtrl) {
+            const header = createEl('div', { class: 'node-header' });
+
+            const color = createCompletionCheckbox(node, 16);
+
+            const title = createNodeTitle(node);
+
+            const hasChildren = state.nodes.some(n => n.parentId === node.id);
+            const expandBtn = createExpandBtn(node, false);
+            expandBtn.style.visibility = hasChildren ? 'visible' : 'hidden';
+
+            header.appendChild(color);
+
+            // Type icon for root nodes
+            createTypeIcon(node, header);
+
+            header.appendChild(title);
+
+            // Link icon for root nodes
+            createLinkIcon(node, header);
+
+            // Add detail indicators inside header
+            const indicatorsEl = createIndicatorMenu(node);
+            header.appendChild(indicatorsEl);
+
+            header.appendChild(expandBtn);
+
+            // Task count badge for parent nodes
+            createTaskBadge(node, header);
+
+            // Hover tooltip for why/what info — singleton pattern, attached to entire node
+            // Reuse single tooltip element across all nodes
+            // Mouse enter on header only (same as drop target boundary)
+            header.addEventListener('mouseenter', () => {
+                if (state.dragNode) return;
+                tooltipCtrl.cancelTimer();
+                tooltipCtrl.scheduleShow(buildNodeTooltipHtml(node), header);
+            });
+            
+            header.addEventListener('mouseleave', () => {
+                tooltipCtrl.cancelTimer();
+                if (tooltipCtrl.isVisible) tooltipCtrl.hide();
+            });
+            
+            header.addEventListener('mousedown', () => {
+                tooltipCtrl.cancelTimer();
+                if (tooltipCtrl.isVisible) tooltipCtrl.hide();
+            });
+
+            return header;
+        }
+
         function renderNodes() {
             if (!prepareRenderNodes()) return;
 
@@ -5615,53 +5667,7 @@ function getNodeEdgePoint(node, targetNode) {
                 });
 
                 // Standard root node rendering
-                const header = createEl('div', { class: 'node-header' });
-
-                const color = createCompletionCheckbox(node, 16);
-
-                const title = createNodeTitle(node);
-
-                const hasChildren = state.nodes.some(n => n.parentId === node.id);
-                const expandBtn = createExpandBtn(node, false);
-                expandBtn.style.visibility = hasChildren ? 'visible' : 'hidden';
-
-                header.appendChild(color);
-
-                // Type icon for root nodes
-                createTypeIcon(node, header);
-
-                header.appendChild(title);
-
-                // Link icon for root nodes
-                createLinkIcon(node, header);
-
-                // Add detail indicators inside header
-                const indicatorsEl = createIndicatorMenu(node);
-                header.appendChild(indicatorsEl);
-
-                header.appendChild(expandBtn);
-
-                // Task count badge for parent nodes
-                createTaskBadge(node, header);
-
-                // Hover tooltip for why/what info — singleton pattern, attached to entire node
-                // Reuse single tooltip element across all nodes
-                // Mouse enter on header only (same as drop target boundary)
-                header.addEventListener('mouseenter', () => {
-                    if (state.dragNode) return;
-                    tooltipCtrl.cancelTimer();
-                    tooltipCtrl.scheduleShow(buildNodeTooltipHtml(node), header);
-                });
-                
-                header.addEventListener('mouseleave', () => {
-                    tooltipCtrl.cancelTimer();
-                    if (tooltipCtrl.isVisible) tooltipCtrl.hide();
-                });
-                
-                header.addEventListener('mousedown', () => {
-                    tooltipCtrl.cancelTimer();
-                    if (tooltipCtrl.isVisible) tooltipCtrl.hide();
-                });
+                const header = createNodeHeader(node, tooltipCtrl);
 
                 el.appendChild(header);
 
