@@ -5660,11 +5660,13 @@ function getNodeEdgePoint(node, targetNode) {
                     return;
                 }
 
-                const el = createEl('div', {
-                    class: elClassName,
-                    attrs: { 'data-id': node.id },
-                    style: elStyle
-                });
+        function createNodeElement(node, className, style) {
+            return createEl('div', {
+                class: className,
+                attrs: { 'data-id': node.id },
+                style: style
+            });
+        }
 
                 // Standard root node rendering
                 const header = createNodeHeader(node, tooltipCtrl);
