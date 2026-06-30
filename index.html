@@ -3951,23 +3951,12 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function openDetailEditor(node, type) {
-            const existing = document.querySelector('.detail-editor-popup');
-            if (existing) existing.remove();
-
             if (type === 'when') {
                 openWhenEditor(node);
                 return;
             }
 
-            const popup = createEl('div', {
-                class: 'detail-editor-popup',
-                style: {
-                    position: 'fixed',
-                    background: 'white', border: '1px solid #ddd', borderRadius: '8px',
-                    padding: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                    zIndex: 10000, minWidth: '220px'
-                }
-            });
+            const popup = createPopup('detail-editor-popup', 0, 0, { center: true, minWidth: '220px' });
 
             createEl('div', {
                 style: { fontWeight: 600, marginBottom: '8px', fontSize: '14px', color: '#333' },
@@ -4034,11 +4023,6 @@ function getNodeEdgePoint(node, targetNode) {
                 },
                 parent: btnRow
             });
-
-            document.body.appendChild(popup);
-            const rect = popup.getBoundingClientRect();
-            popup.style.left = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2))) + 'px';
-            popup.style.top = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2))) + 'px';
         }
 
         function openBulkDetailEditor(node) {
@@ -7278,10 +7262,37 @@ function getNodeEdgePoint(node, targetNode) {
 
             tempLine.setAttribute('d', pathD);
         }
-        function showTypePicker(e, node) {
-            const existing = document.querySelector('.type-picker');
+        // ==================== Picker Utilities ====================
+        function createPopup(className, x, y, options = {}) {
+            const { minWidth = 'auto', flexDirection = 'column', gap = '4px', padding = '8px', center = false } = options;
+            const existing = document.querySelector('.' + className);
             if (existing) existing.remove();
 
+            const popup = createEl('div', {
+                class: className,
+                style: {
+                    position: 'fixed', left: x + 'px', top: y + 'px',
+                    background: 'white', border: '1px solid #ddd', borderRadius: '8px',
+                    padding: padding, boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                    zIndex: 10000, display: 'flex', flexDirection: flexDirection, gap: gap,
+                    minWidth: minWidth
+                }
+            });
+            document.body.appendChild(popup);
+            closeOnClickOutside(popup);
+            
+            if (center) {
+                requestAnimationFrame(() => {
+                    const rect = popup.getBoundingClientRect();
+                    popup.style.left = Math.min(window.innerWidth - rect.width - 10, Math.max(10, (window.innerWidth / 2) - (rect.width / 2))) + 'px';
+                    popup.style.top = Math.min(window.innerHeight - rect.height - 10, Math.max(10, (window.innerHeight / 2) - (rect.height / 2))) + 'px';
+                });
+            }
+            
+            return popup;
+        }
+
+        function showTypePicker(e, node) {
             const typeOptions = [
                 { value: 'task', label: '✓ タスク', color: '#4a90d9' },
                 { value: 'condition', label: '❓ 条件', color: '#f5a623' },
@@ -7289,15 +7300,7 @@ function getNodeEdgePoint(node, targetNode) {
                 { value: 'startend', label: '▶ 開始/終了', color: '#4a90d9' }
             ];
 
-            const picker = createEl('div', {
-                class: 'type-picker',
-                style: {
-                    position: 'fixed', left: e.clientX + 'px', top: e.clientY + 'px',
-                    background: 'white', border: '1px solid #ddd', borderRadius: '8px',
-                    padding: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                    zIndex: 10000, display: 'flex', flexDirection: 'column', gap: '4px'
-                }
-            });
+            const picker = createPopup('type-picker', e.clientX, e.clientY);
 
             typeOptions.forEach(opt => {
                 const isSelected = node.type === opt.value || (!node.type && opt.value === 'task');
@@ -7324,19 +7327,13 @@ function getNodeEdgePoint(node, targetNode) {
                     parent: picker
                 });
             });
-
-            document.body.appendChild(picker);
-            closeOnClickOutside(picker);
         }
 
         function showColorPicker(e, node) {
-            const existing = document.querySelector('.color-picker');
-            if (existing) existing.remove();
-
-            const picker = createEl('div', {
-                class: 'color-picker',
-                style: { left: e.clientX + 'px', top: e.clientY + 'px' }
-            });
+            const picker = createPopup('color-picker', e.clientX, e.clientY, { flexDirection: 'row', gap: '6px', padding: '8px' });
+            // color-picker CSS has grid layout, override inline
+            picker.style.display = 'grid';
+            picker.style.gridTemplateColumns = 'repeat(4, 24px)';
 
             state.colors.forEach(c => {
                 createEl('div', {
@@ -7353,9 +7350,6 @@ function getNodeEdgePoint(node, targetNode) {
                     parent: picker
                 });
             });
-
-            document.body.appendChild(picker);
-            closeOnClickOutside(picker);
         }
 
         // ==================== Mouse/Touch Handlers ====================
