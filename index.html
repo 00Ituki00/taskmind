@@ -6015,18 +6015,6 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             setupTimelinePan(container);
-                const dy = Math.abs(e.clientY - state.timelineRightClickStart.y);
-                if (dx > 3 || dy > 3) {
-                    // Actual pan detected - suppress the upcoming contextmenu
-                    state.timelineRightClickStart.moved = true;
-                    const suppressContextMenu = (ce) => {
-                        ce.preventDefault();
-                        ce.stopPropagation();
-                    };
-                    document.addEventListener('contextmenu', suppressContextMenu, { capture: true, once: true });
-                }
-            };
-            container.addEventListener('mousemove', trackPanMovement);
 
             // Update canvas size
             canvas.style.width = Math.max(totalWidth, window.innerWidth) + 'px';
