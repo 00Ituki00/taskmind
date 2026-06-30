@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.34">
+    <meta name="version" content="v1.3.35">
     <title>TaskMind</title>
     <style>
         * {
@@ -5394,6 +5394,15 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
+        function createTypeIcon(node, parentEl) {
+            const typeIcons = { task: '✓', condition: '❓', memo: '📝', startend: '▶' };
+            return createEl('span', {
+                class: 'node-type-icon',
+                text: typeIcons[node.type || 'task'] || '✓',
+                parent: parentEl
+            });
+        }
+
         function renderNodes() {
             if (!prepareRenderNodes()) return;
 
@@ -5417,16 +5426,6 @@ function getNodeEdgePoint(node, targetNode) {
                     text: totalChildren > 0 ? '(' + completedChildren + '/' + totalChildren + ')' : '',
                     attrs: { 'data-badge': 'true' },
                     style: { fontSize: '11px', color: '#999', marginLeft: '4px', flexShrink: 0 },
-                    parent: parentEl
-                });
-            }
-
-            // Helper: Create type icon
-            function createTypeIcon(node, parentEl) {
-                const typeIcons = { task: '✓', condition: '❓', memo: '📝', startend: '▶' };
-                return createEl('span', {
-                    class: 'node-type-icon',
-                    text: typeIcons[node.type || 'task'] || '✓',
                     parent: parentEl
                 });
             }
