@@ -5416,55 +5416,71 @@ function getNodeEdgePoint(node, targetNode) {
             return true;
         }
 
+        function buildNodeHeaderContent(node, parentEl, options = {}) {
+            const { checkboxSize = 16, tooltipCtrl = null, isChild = false } = options;
+
+            const checkbox = createCompletionCheckbox(node, checkboxSize);
+            if (!checkbox) { console.error('createCompletionCheckbox returned null for node', node.id); return null; }
+            checkbox.style.marginRight = '4px';
+            parentEl.appendChild(checkbox);
+
+            // Type icon
+            createTypeIcon(node, parentEl);
+
+            // Title
+            const title = createNodeTitle(node);
+            parentEl.appendChild(title);
+
+            // Link icon
+            createLinkIcon(node, parentEl);
+
+            // Detail indicators
+            const indicators = createIndicatorMenu(node);
+            if (isChild) {
+                indicators.style.cssText = 'position:relative;display:inline-flex;padding:0;gap:2px;font-size:11px;margin-left:4px;';
+            }
+            parentEl.appendChild(indicators);
+
+            // Expand button
+            const expandBtn = createExpandBtn(node, isChild);
+            if (!isChild) {
+                const hasChildren = state.nodes.some(n => n.parentId === node.id);
+                expandBtn.style.visibility = hasChildren ? 'visible' : 'hidden';
+            }
+            parentEl.appendChild(expandBtn);
+
+            // Task count badge
+            const badge = createTaskBadge(node);
+            if (badge) parentEl.appendChild(badge);
+
+            // Tooltip setup
+            if (tooltipCtrl) {
+                const tooltipTargets = isChild
+                    ? [checkbox, title, indicators, expandBtn, badge].filter(Boolean)
+                    : [parentEl];
+                tooltipTargets.forEach(target => {
+                    target.addEventListener('mouseenter', () => {
+                        if (state.dragNode) return;
+                        tooltipCtrl.cancelTimer();
+                        tooltipCtrl.scheduleShow(buildNodeTooltipHtml(node), target);
+                    });
+                    target.addEventListener('mouseleave', () => {
+                        tooltipCtrl.cancelTimer();
+                        if (tooltipCtrl.isVisible) tooltipCtrl.hide();
+                    });
+                    target.addEventListener('mousedown', () => {
+                        tooltipCtrl.cancelTimer();
+                        if (tooltipCtrl.isVisible) tooltipCtrl.hide();
+                    });
+                });
+            }
+
+            return { checkbox, title, expandBtn, badge, indicators };
+        }
+
         function createNodeHeader(node, tooltipCtrl) {
             const header = createEl('div', { class: 'node-header' });
-
-            const color = createCompletionCheckbox(node, 16);
-
-            const title = createNodeTitle(node);
-
-            const hasChildren = state.nodes.some(n => n.parentId === node.id);
-            const expandBtn = createExpandBtn(node, false);
-            expandBtn.style.visibility = hasChildren ? 'visible' : 'hidden';
-
-            header.appendChild(color);
-
-            // Type icon for root nodes
-            createTypeIcon(node, header);
-
-            header.appendChild(title);
-
-            // Link icon for root nodes
-            createLinkIcon(node, header);
-
-            // Add detail indicators inside header
-            const indicatorsEl = createIndicatorMenu(node);
-            header.appendChild(indicatorsEl);
-
-            header.appendChild(expandBtn);
-
-            // Task count badge for parent nodes
-            createTaskBadge(node, header);
-
-            // Hover tooltip for why/what info — singleton pattern, attached to entire node
-            // Reuse single tooltip element across all nodes
-            // Mouse enter on header only (same as drop target boundary)
-            header.addEventListener('mouseenter', () => {
-                if (state.dragNode) return;
-                tooltipCtrl.cancelTimer();
-                tooltipCtrl.scheduleShow(buildNodeTooltipHtml(node), header);
-            });
-            
-            header.addEventListener('mouseleave', () => {
-                tooltipCtrl.cancelTimer();
-                if (tooltipCtrl.isVisible) tooltipCtrl.hide();
-            });
-            
-            header.addEventListener('mousedown', () => {
-                tooltipCtrl.cancelTimer();
-                if (tooltipCtrl.isVisible) tooltipCtrl.hide();
-            });
-
+            buildNodeHeaderContent(node, header, { tooltipCtrl, isChild: false });
             return header;
         }
 
@@ -5577,35 +5593,10 @@ function getNodeEdgePoint(node, targetNode) {
                 applyPriorityBorder(childEl, child, childDisplayColor);
                 childEl.style.borderRadius = '12px';
 
-                const childCheckbox = createCompletionCheckbox(child, 14);
-                if (!childCheckbox) { console.error('createCompletionCheckbox returned null for child', child.id); return; }
-                childCheckbox.style.marginRight = '4px';
-
-                const childTitle = createNodeTitle(child);
-
-                // Expand/collapse button
-                const expandBtn = createExpandBtn(child, true);
-
-                // Task count badge
-                const badge = createTaskBadge(child);
-
-                childEl.appendChild(childCheckbox);
-
-                // Type icon for child nodes
-                createTypeIcon(child, childEl);
-
-                childEl.appendChild(childTitle);
-
-                // Link icon for child nodes
-                createLinkIcon(child, childEl);
-
-                // Add detail indicators for child nodes
-                const childIndicators = createIndicatorMenu(child);
-                childIndicators.style.cssText = 'position:relative;display:inline-flex;padding:0;gap:2px;font-size:11px;margin-left:4px;';
-                childEl.appendChild(childIndicators);
-
-                childEl.appendChild(expandBtn);
-                if (badge) childEl.appendChild(badge);
+                // Build header content using unified helper
+                const childTooltipEl = document.querySelector('.node-hover-tooltip-global');
+                const childTooltipCtrl = _createTooltipController(childTooltipEl);
+                buildNodeHeaderContent(child, childEl, { checkboxSize: 14, tooltipCtrl: childTooltipCtrl, isChild: true });
 
                 // When progress bar for child nodes
                 const childWhenProgress = createWhenProgressBar(child);
@@ -5616,27 +5607,6 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Use unified drag-and-drop handlers (same as root nodes)
                 attachNodeEvents(childEl, child, { stopPropagation: true, includeDragHandlers: true });
-
-                // Hover tooltip for child nodes — reuses global singleton
-                const childTooltipEl = document.querySelector('.node-hover-tooltip-global');
-                const childTooltipCtrl = _createTooltipController(childTooltipEl);
-                
-                // Header-equivalent hover area: checkbox + title + indicators (not nested children)
-                const childHeaderTargets = [childCheckbox, childTitle, childIndicators, expandBtn, badge].filter(Boolean);
-                childHeaderTargets.forEach(target => {
-                    target.addEventListener('mouseenter', () => {
-                        if (state.dragNode) return;
-                        childTooltipCtrl.scheduleShow(buildNodeTooltipHtml(child), target);
-                    });
-                    target.addEventListener('mouseleave', () => {
-                        childTooltipCtrl.cancelTimer();
-                        if (childTooltipCtrl.isVisible) childTooltipCtrl.hide();
-                    });
-                    target.addEventListener('mousedown', () => {
-                        childTooltipCtrl.cancelTimer();
-                        if (childTooltipCtrl.isVisible) childTooltipCtrl.hide();
-                    });
-                });
 
                 childEl.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
