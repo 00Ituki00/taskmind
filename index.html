@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.33">
+    <meta name="version" content="v1.3.34">
     <title>TaskMind</title>
     <style>
         * {
@@ -5371,6 +5371,29 @@ function getNodeEdgePoint(node, targetNode) {
             return header;
         }
 
+        function createExpandBtn(node, isChild) {
+            const hasChildren = state.nodes.some(n => n.parentId === node.id);
+            const tag = isChild ? 'span' : 'button';
+            const size = isChild ? '14px' : '12px';
+            return createEl(tag, {
+                class: isChild ? '' : 'expand-btn',
+                text: node.expanded ? '▼' : '▶',
+                style: {
+                    marginLeft: '4px', fontSize: size, color: '#4a90d9',
+                    cursor: 'pointer', width: '14px', textAlign: 'center',
+                    flexShrink: 0, visibility: hasChildren ? 'visible' : 'hidden',
+                    background: 'none', border: 'none', padding: isChild ? '0' : '0 2px'
+                },
+                on: {
+                    click: (e) => {
+                        e.stopPropagation();
+                        node.expanded = !node.expanded;
+                        renderNodes();
+                    }
+                }
+            });
+        }
+
         function renderNodes() {
             if (!prepareRenderNodes()) return;
 
@@ -5384,32 +5407,6 @@ function getNodeEdgePoint(node, targetNode) {
 
             // Helper: Attach common node events (mousedown, touchstart, contextmenu)
             // MOVED TO OUTER SCOPE - see attachNodeEvents above
-
-
-
-            // Helper: Create expand/collapse button
-            function createExpandBtn(node, isChild) {
-                const hasChildren = state.nodes.some(n => n.parentId === node.id);
-                const tag = isChild ? 'span' : 'button';
-                const size = isChild ? '14px' : '12px';
-                return createEl(tag, {
-                    class: isChild ? '' : 'expand-btn',
-                    text: node.expanded ? '▼' : '▶',
-                    style: {
-                        marginLeft: '4px', fontSize: size, color: '#4a90d9',
-                        cursor: 'pointer', width: '14px', textAlign: 'center',
-                        flexShrink: 0, visibility: hasChildren ? 'visible' : 'hidden',
-                        background: 'none', border: 'none', padding: isChild ? '0' : '0 2px'
-                    },
-                    on: {
-                        click: (e) => {
-                            e.stopPropagation();
-                            node.expanded = !node.expanded;
-                            renderNodes();
-                        }
-                    }
-                });
-            }
 
             // Helper: Create task count badge
             function createTaskBadge(node, parentEl) {
