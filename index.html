@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.2.5">
+    <meta name="version" content="v1.2.6">
     <title>TaskMind</title>
     <style>
         * {
@@ -4967,7 +4967,41 @@ function getNodeEdgePoint(node, targetNode) {
                 });
             }
 
-            function renderNodes() {
+            function createDragPreviewNode(node, nodesEl) {
+            const el = createEl('div', {
+                class: 'node' + (node.completed ? ' completed' : ''),
+                attrs: { 'data-id': node.id },
+                style: {
+                    left: node.x + 'px',
+                    top: node.y + 'px',
+                    zIndex: node.zIndex || 1
+                }
+            });
+            el.classList.add('dragging-child', 'dragging');
+            if (state.dropTarget && state.dropTarget.id === node.id) {
+                el.classList.add('drop-target');
+            }
+            el.style.width = (node.width || 200) + 'px';
+            el.style.minHeight = 'auto';
+            el.style.padding = '8px 10px';
+
+            const wrapper = createEl('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } });
+            const checkbox = createCompletionCheckbox(node, 14);
+            const title = createNodeTitle(node);
+            title.style.flex = '1';
+            title.style.fontSize = '13px';
+            title.style.wordBreak = 'break-word';
+
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(title);
+            el.appendChild(wrapper);
+
+            attachNodeEvents(el, node);
+
+            nodesEl.appendChild(el);
+        }
+
+        function renderNodes() {
             if (window._workerDebug) {
                 window._workerDebug.lastRenderTime = new Date().toISOString();
                 window._workerDebug.renderCount++;
