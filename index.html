@@ -8843,7 +8843,7 @@ function getNodeEdgePoint(node, targetNode) {
         });
 
         // Helper: add indicator toolbar to context menu (horizontal icons)
-        function addIndicatorToolbar(node) {
+        function addIndicatorToolbar(node, menu) {
             if (!node) return;
             const toolbar = createEl('div', {
                 class: 'context-indicator-toolbar',
@@ -8932,7 +8932,7 @@ function getNodeEdgePoint(node, targetNode) {
                 menu.remove();
                 openBulkDetailEditor(node);
             }});
-            addIndicatorToolbar(node);
+            addIndicatorToolbar(node, menu);
             items.push({ text: '子ノードをソート', icon: '📊', disabled: isMultiSelect, action: () => {
                 if (node.children && node.children.length > 1) {
                     sortNodeChildren(node);
@@ -9008,7 +9008,7 @@ function getNodeEdgePoint(node, targetNode) {
                 menu.remove();
                 openBulkDetailEditor(childNode);
             }});
-            addIndicatorToolbar(childNode);
+            addIndicatorToolbar(childNode, menu);
         }
 
         function buildNodeTypeMenuItems(items, x, y) {
