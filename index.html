@@ -2049,14 +2049,14 @@
                 }
             }
             
-            function escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-            
             window._taskmindUpdateErrorPanel = updateErrorPanel;
         })();
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     </script>
     <script>
         // Create drag tooltip element
@@ -2602,12 +2602,6 @@
             }
             
             return html;
-        }
-
-        // Escape HTML special characters to prevent XSS
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function positionTooltipByElement(el, tooltipEl) {
@@ -5535,25 +5529,6 @@ function getNodeEdgePoint(node, targetNode) {
             return createTooltipController(tooltipEl);
         }
 
-        function createCompletedLabel(node, parentEl, options = {}) {
-            if (!node.completed || !node.completedAt) return;
-            const completedDate = new Date(node.completedAt);
-            if (options.detailed) {
-                createEl('div', {
-                    text: `完了: ${completedDate.getMonth()+1}/${completedDate.getDate()} ${String(completedDate.getHours()).padStart(2,'0')}:${String(completedDate.getMinutes()).padStart(2,'0')}`,
-                    style: { fontSize: '10px', color: '#999', padding: '2px 0 4px 22px', fontStyle: 'italic' },
-                    parent: parentEl
-                });
-            } else {
-                createEl('div', {
-                    class: 'node-completed-label',
-                    text: '完了済み ✓',
-                    style: { fontSize: '9px', color: '#27ae60', marginTop: '2px', fontWeight: 600 },
-                    parent: parentEl
-                });
-            }
-        }
-
         function createChildrenContainer(node, parentEl, hiddenNodeIds) {
             const tasksEl = createEl('div', {
                 class: 'node-tasks' + (!node.expanded ? ' collapsed' : '')
@@ -5729,14 +5704,6 @@ function getNodeEdgePoint(node, targetNode) {
             }
             return style;
         }
-
-        function createNodeElement(node, className, style) {
-            return createEl('div', {
-                class: className,
-                attrs: { 'data-id': node.id },
-                style: style
-            });
-        }
         function renderNodes() {
             if (!prepareRenderNodes()) return;
 
@@ -5759,14 +5726,25 @@ function getNodeEdgePoint(node, targetNode) {
                 // Standard root node rendering
                 const className = buildNodeClassName(node, hiddenNodeIds);
                 const style = buildNodeStyle(node, hiddenNodeIds);
-                const el = createNodeElement(node, className, style);
+                const el = createEl('div', {
+                    class: className,
+                    attrs: { 'data-id': node.id },
+                    style: style
+                });
 
                 const header = createNodeHeader(node, tooltipCtrl);
 
                 el.appendChild(header);
 
                 // Completed date display
-                createCompletedLabel(node, el, { detailed: true });
+                if (node.completed && node.completedAt) {
+                    const completedDate = new Date(node.completedAt);
+                    createEl('div', {
+                        text: `完了: ${completedDate.getMonth()+1}/${completedDate.getDate()} ${String(completedDate.getHours()).padStart(2,'0')}:${String(completedDate.getMinutes()).padStart(2,'0')}`,
+                        style: { fontSize: '10px', color: '#999', padding: '2px 0 4px 22px', fontStyle: 'italic' },
+                        parent: el
+                    });
+                }
 
                 // When progress bar
                 const whenProgress = createWhenProgressBar(node);
