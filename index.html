@@ -6880,8 +6880,7 @@ function getNodeEdgePoint(node, targetNode) {
             return gradId;
         }
 
-        function renderConnections(filterConnIds = null) {
-            // Build a cache of node DOM rects to avoid repeated forced reflow
+        function buildNodeRectCache() {
             state._nodeRectCache = {};
             const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
             document.querySelectorAll('.node[data-id]').forEach(el => {
@@ -6894,9 +6893,9 @@ function getNodeEdgePoint(node, targetNode) {
                     height: rect.height / state.scale
                 };
             });
+        }
 
-            // If filterConnIds is provided, only remove and re-render those connections
-            // Otherwise, clear all connections (default behavior)
+        function clearConnections(filterConnIds = null) {
             if (filterConnIds) {
                 filterConnIds.forEach(id => {
                     const [from, to] = id.split('-');
@@ -6908,6 +6907,11 @@ function getNodeEdgePoint(node, targetNode) {
             } else {
                 connectionsSvg.innerHTML = '';
             }
+        }
+
+        function renderConnections(filterConnIds = null) {
+            buildNodeRectCache();
+            clearConnections(filterConnIds);
 
             // Collect all nodes that are hidden due to parent connection collapse (cascade)
             const hiddenNodeIds = getHiddenNodeIds();
