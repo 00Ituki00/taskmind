@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.13">
+    <meta name="version" content="v1.3.14">
     <title>TaskMind</title>
     <style>
         * {
@@ -8708,6 +8708,59 @@ function getNodeEdgePoint(node, targetNode) {
             }
         }
 
+        function buildParentNodeMenuItems(items, node, nodeId, menu, x, y, isMultiSelect) {
+            items.push({ text: 'タイプ変更', icon: '🏷️', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                showTypePicker({ clientX: x, clientY: y }, node);
+            }});
+            items.push({ text: 'カラー変更', icon: '🎨', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                showColorPicker({ clientX: x, clientY: y }, node);
+            }});
+            items.push({ text: '接続作成', icon: '🔗', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                showConnectionTypeSelectorAtStart(nodeId, x, y);
+            }});
+            items.push({ text: node?.expanded ? '子ノードを折りたたむ' : '子ノードを展開', icon: '📂', disabled: isMultiSelect, action: () => {
+                node.expanded = !node.expanded;
+                renderNodes();
+            }});
+            items.push({ text: '詳細情報を編集', icon: '📋', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                openBulkDetailEditor(node);
+            }});
+            addIndicatorToolbar(node);
+            items.push({ text: '子ノードをソート', icon: '📊', disabled: isMultiSelect, action: () => {
+                if (node.children && node.children.length > 1) {
+                    sortNodeChildren(node);
+                    showToast('子ノードをソートしました');
+                } else {
+                    showToast('ソート対象の子ノードがありません');
+                }
+                renderNodes();
+            }});
+            items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
+                if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
+            }});
+
+            // Ungroup option for child nodes
+            if (node?.parentId !== null) {
+                items.push({ text: '親子関係を解除', icon: '⬆️', disabled: isMultiSelect, action: () => {
+                    const oldParent = state.nodes.find(n => n.id === node.parentId);
+                    if (oldParent && oldParent.children) {
+                        oldParent.children = oldParent.children.filter(id => id !== node.id);
+                        if (oldParent.children.length === 0) {
+                            oldParent.expanded = false;
+                        }
+                    }
+                    node.parentId = null;
+                    node.width = calculateNodeWidth(node.title, !!node.details?.link);
+                    renderNodes();
+                    showToast('親子関係を解除しました');
+                }});
+            }
+        }
+
         function showCanvasContextMenu(x, y, clickEvent) {
             const menu = createContextMenu(x, y);
 
@@ -8804,56 +8857,7 @@ function getNodeEdgePoint(node, targetNode) {
                         enableTitleEdit(textSpan, node);
                     }
                 }});
-                items.push({ text: 'ノードタイプ変更', icon: '📌', disabled: isMultiSelect, action: () => {
-                    menu.remove();
-                    showTypePicker({ clientX: x, clientY: y }, node);
-                }});
-                items.push({ text: 'カラー変更', icon: '🎨', disabled: isMultiSelect, action: () => {
-                    menu.remove();
-                    showColorPicker({ clientX: x, clientY: y }, node);
-                }});
-                items.push({ text: '接続作成', icon: '🔗', disabled: isMultiSelect, action: () => {
-                    menu.remove();
-                    showConnectionTypeSelectorAtStart(nodeId, x, y);
-                }});
-                items.push({ text: node?.expanded ? '子ノードを折りたたむ' : '子ノードを展開', icon: '📂', disabled: isMultiSelect, action: () => {
-                    node.expanded = !node.expanded;
-                    renderNodes();
-                }});
-                items.push({ text: '詳細情報を編集', icon: '📋', disabled: isMultiSelect, action: () => {
-                    menu.remove();
-                    openBulkDetailEditor(node);
-                }});
-                addIndicatorToolbar(node);
-                items.push({ text: '子ノードをソート', icon: '📊', disabled: isMultiSelect, action: () => {
-                    if (node.children && node.children.length > 1) {
-                        sortNodeChildren(node);
-                        showToast('子ノードをソートしました');
-                    } else {
-                        showToast('ソート対象の子ノードがありません');
-                    }
-                    renderNodes();
-                }});
-                items.push({ text: 'ノードを削除', icon: '🗑️', class: 'delete', action: () => {
-                    if (confirm('このノードを削除しますか?')) deleteNode(nodeId);
-                }});
-
-                // Ungroup option for child nodes
-                if (node?.parentId !== null) {
-                    items.push({ text: '親子関係を解除', icon: '⬆️', disabled: isMultiSelect, action: () => {
-                        const oldParent = state.nodes.find(n => n.id === node.parentId);
-                        if (oldParent && oldParent.children) {
-                            oldParent.children = oldParent.children.filter(id => id !== node.id);
-                            if (oldParent.children.length === 0) {
-                                oldParent.expanded = false;
-                            }
-                        }
-                        node.parentId = null;
-                        node.width = calculateNodeWidth(node.title, !!node.details?.link);
-                        renderNodes();
-                        showToast('親子関係を解除しました');
-                    }});
-                }
+                buildParentNodeMenuItems(items, node, nodeId, menu, x, y, isMultiSelect);
             } else {
                 // Check for connection line click
                 const targetConnGroup = clickEvent?.target?.closest('.conn-group');
