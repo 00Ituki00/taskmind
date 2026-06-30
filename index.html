@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.7">
+    <meta name="version" content="v1.3.8">
     <title>TaskMind</title>
     <style>
         * {
@@ -8632,6 +8632,40 @@ function getNodeEdgePoint(node, targetNode) {
             showCanvasContextMenu(e.clientX, e.clientY, e);
         });
 
+        // Helper: add indicator toolbar to context menu (horizontal icons)
+        function addIndicatorToolbar(node) {
+            if (!node) return;
+            const toolbar = createEl('div', {
+                class: 'context-indicator-toolbar',
+                style: { display: 'flex', gap: '6px', alignItems: 'center', padding: '4px 0', borderTop: '1px solid #eee', marginTop: '4px' }
+            });
+
+            const indicators = [
+                { type: 'priority', icon: () => { const p = node.priority || 0; return p === 0 ? '☆' : '★'.repeat(p); }, title: '優先度', active: () => (node.priority || 0) > 0 },
+                { type: 'when', icon: () => '🕐', title: '期限', active: () => { const w = node.details?.when; return w && w.repeatType !== 'none'; } },
+                { type: 'what', icon: () => '📝', title: '内容', active: () => !!node.details?.what },
+                { type: 'who', icon: () => '👤', title: '担当', active: () => !!node.details?.who },
+                { type: 'where', icon: () => '📍', title: '場所', active: () => !!node.details?.where }
+            ];
+
+            indicators.forEach(ind => {
+                const isActive = ind.active();
+                createEl('span', {
+                    class: 'context-indicator-btn',
+                    text: ind.icon(),
+                    attrs: { title: ind.title },
+                    style: { cursor: 'pointer', fontSize: '14px', padding: '2px 4px', borderRadius: '4px', transition: 'background 0.15s,opacity 0.15s', opacity: isActive ? '1' : '0.35', color: isActive ? '#333' : '' },
+                    on: {
+                        click: (e) => { e.stopPropagation(); menu.remove(); openDetailEditor(node, ind.type); },
+                        mouseenter: (e) => e.target.style.background = '#f0f0f0',
+                        mouseleave: (e) => e.target.style.background = 'transparent'
+                    },
+                    parent: toolbar
+                });
+            });
+            menu.appendChild(toolbar);
+        }
+
         function showCanvasContextMenu(x, y, clickEvent) {
             const menu = createContextMenu(x, y);
 
@@ -8642,39 +8676,6 @@ function getNodeEdgePoint(node, targetNode) {
             const targetNode = clickEvent?.target?.closest('.node, .timeline-node, .timeline-undated-node');
             const targetChildNode = clickEvent?.target?.closest('.node .node-tasks .node');
 
-            // Helper: add indicator toolbar to context menu (horizontal icons)
-            function addIndicatorToolbar(node) {
-                if (!node) return;
-                const toolbar = createEl('div', {
-                    class: 'context-indicator-toolbar',
-                    style: { display: 'flex', gap: '6px', alignItems: 'center', padding: '4px 0', borderTop: '1px solid #eee', marginTop: '4px' }
-                });
-
-                const indicators = [
-                    { type: 'priority', icon: () => { const p = node.priority || 0; return p === 0 ? '☆' : '★'.repeat(p); }, title: '優先度', active: () => (node.priority || 0) > 0 },
-                    { type: 'when', icon: () => '🕐', title: '期限', active: () => { const w = node.details?.when; return w && w.repeatType !== 'none'; } },
-                    { type: 'what', icon: () => '📝', title: '内容', active: () => !!node.details?.what },
-                    { type: 'who', icon: () => '👤', title: '担当', active: () => !!node.details?.who },
-                    { type: 'where', icon: () => '📍', title: '場所', active: () => !!node.details?.where }
-                ];
-
-                indicators.forEach(ind => {
-                    const isActive = ind.active();
-                    createEl('span', {
-                        class: 'context-indicator-btn',
-                        text: ind.icon(),
-                        attrs: { title: ind.title },
-                        style: { cursor: 'pointer', fontSize: '14px', padding: '2px 4px', borderRadius: '4px', transition: 'background 0.15s,opacity 0.15s', opacity: isActive ? '1' : '0.35', color: isActive ? '#333' : '' },
-                        on: {
-                            click: (e) => { e.stopPropagation(); menu.remove(); openDetailEditor(node, ind.type); },
-                            mouseenter: (e) => e.target.style.background = '#f0f0f0',
-                            mouseleave: (e) => e.target.style.background = 'transparent'
-                        },
-                        parent: toolbar
-                    });
-                });
-                menu.appendChild(toolbar);
-            }
 
             if (targetChildNode) {
                 // Child node context menu
