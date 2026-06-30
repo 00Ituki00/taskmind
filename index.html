@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.2.6">
+    <meta name="version" content="v1.2.7">
     <title>TaskMind</title>
     <style>
         * {
@@ -4906,6 +4906,79 @@ function getNodeEdgePoint(node, targetNode) {
             return null;
         }
 
+        function createCompletionCheckbox(node, size) {
+            const px = size + 'px';
+            return createEl(size <= 14 ? 'span' : 'div', {
+                class: 'node-color',
+                text: node.completed ? '✓' : '',
+                style: {
+                    width: px, height: px, borderRadius: '3px',
+                    backgroundColor: getNodeDisplayColor(node), cursor: 'pointer',
+                    alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, color: 'white', fontSize: (size <= 14 ? '11px' : '12px'), fontWeight: 'bold'
+                },
+                on: {
+                    mousedown: (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.button === 2) return;
+                        const wasCompleted = node.completed;
+                        node.completed = !node.completed;
+                        node.completedAt = node.completed ? new Date().toISOString() : null;
+                        if (node.completed) {
+                            saveChildPosition(node);
+                            updateWhenOnComplete(node);
+                        } else if (wasCompleted) {
+                            undoWhenComplete(node);
+                            restoreChildPosition(node);
+                        }
+                        renderNodes();
+                    },
+                    contextmenu: (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showColorPicker(e, node);
+                    }
+                }
+            });
+        }
+
+        function createNodeTitle(node) {
+            const title = createEl('span', {
+                class: 'node-title' + (node.completed ? ' completed' : ''),
+                text: node.title
+            });
+            if (!node.completed) {
+                const p = node.priority || 0;
+                if (p >= 4) title.style.fontWeight = '700';
+                else if (p >= 3) title.style.fontWeight = '600';
+                else if (p >= 2) title.style.fontWeight = '500';
+            }
+            return title;
+        }
+
+        function attachNodeEvents(el, node, options = {}) {
+            const { stopPropagation = false, includeDragHandlers = false } = options;
+            
+            el.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showCanvasContextMenu(e.clientX, e.clientY, e);
+            });
+            
+            el.addEventListener('mousedown', (e) => {
+                if (stopPropagation) e.stopPropagation();
+                handleNodeMouseDown(e, node);
+            });
+            
+            el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
+            
+            if (includeDragHandlers) {
+                el.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, el, node));
+                el.addEventListener('mouseleave', () => handleNodeMouseLeave(el, node));
+            }
+        }
+
         function createResizeHandles(node, el, nodesEl) {
                 // Show/hide resize handles on node hover
                 el.addEventListener('mouseenter', () => {
@@ -5048,80 +5121,13 @@ function getNodeEdgePoint(node, targetNode) {
             state.hiddenNodeIds = hiddenNodeIds;
 
             // Helper: Create completion checkbox (shared between child and parent nodes)
-            function createCompletionCheckbox(node, size) {
-                const px = size + 'px';
-                return createEl(size <= 14 ? 'span' : 'div', {
-                    class: 'node-color',
-                    text: node.completed ? '✓' : '',
-                    style: {
-                        width: px, height: px, borderRadius: '3px',
-                        backgroundColor: getNodeDisplayColor(node), cursor: 'pointer',
-                        alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, color: 'white', fontSize: (size <= 14 ? '11px' : '12px'), fontWeight: 'bold'
-                    },
-                    on: {
-                        mousedown: (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (e.button === 2) return;
-                            const wasCompleted = node.completed;
-                            node.completed = !node.completed;
-                            node.completedAt = node.completed ? new Date().toISOString() : null;
-                            if (node.completed) {
-                                saveChildPosition(node);
-                                updateWhenOnComplete(node);
-                            } else if (wasCompleted) {
-                                undoWhenComplete(node);
-                                restoreChildPosition(node);
-                            }
-                            renderNodes();
-                        },
-                        contextmenu: (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            showColorPicker(e, node);
-                        }
-                    }
-                });
-            }
+            // MOVED TO OUTER SCOPE - see createCompletionCheckbox above
 
             // Helper: Create node title element with priority-based font weight
-            function createNodeTitle(node) {
-                const title = createEl('span', {
-                    class: 'node-title' + (node.completed ? ' completed' : ''),
-                    text: node.title
-                });
-                if (!node.completed) {
-                    const p = node.priority || 0;
-                    if (p >= 4) title.style.fontWeight = '700';
-                    else if (p >= 3) title.style.fontWeight = '600';
-                    else if (p >= 2) title.style.fontWeight = '500';
-                }
-                return title;
-            }
+            // MOVED TO OUTER SCOPE - see createNodeTitle above
 
             // Helper: Attach common node events (mousedown, touchstart, contextmenu)
-            function attachNodeEvents(el, node, options = {}) {
-                const { stopPropagation = false, includeDragHandlers = false } = options;
-                
-                el.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    showCanvasContextMenu(e.clientX, e.clientY, e);
-                });
-                
-                el.addEventListener('mousedown', (e) => {
-                    if (stopPropagation) e.stopPropagation();
-                    handleNodeMouseDown(e, node);
-                });
-                
-                el.addEventListener('touchstart', (e) => handleNodeTouchStart(e, node), { passive: false });
-                
-                if (includeDragHandlers) {
-                    el.addEventListener('mouseenter', (e) => handleNodeMouseEnter(e, el, node));
-                    el.addEventListener('mouseleave', () => handleNodeMouseLeave(el, node));
-                }
-            }
+            // MOVED TO OUTER SCOPE - see attachNodeEvents above
 
             // Helper: Apply priority-based border styling
             function applyPriorityBorder(el, node, displayColor) {
