@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.8">
+    <meta name="version" content="v1.3.9">
     <title>TaskMind</title>
     <style>
         * {
@@ -5135,6 +5135,40 @@ function getNodeEdgePoint(node, targetNode) {
             return hiddenNodeIds;
         }
 
+        // Helper: Create link icon element
+        function createLinkIcon(node, parentEl) {
+            const link = node.details?.link?.trim();
+            if (!link) return null;
+            const linkIcon = createEl('span', {
+                text: '🔗',
+                title: 'Open link: ' + link,
+                style: {
+                    marginLeft: '2px', fontSize: '11px', textDecoration: 'none',
+                    cursor: 'pointer', flexShrink: 0, opacity: '0.7', transition: 'opacity 0.15s'
+                },
+                on: {
+                    mouseenter: () => linkIcon.style.opacity = '1',
+                    mouseleave: () => {
+                        linkIcon.style.opacity = '0.7';
+                        linkIcon.dataset.linkPending = '';
+                    },
+                    mousedown: (e) => {
+                        e.stopPropagation();
+                        linkIcon.dataset.linkPending = 'true';
+                    },
+                    mouseup: (e) => {
+                        e.stopPropagation();
+                        if (linkIcon.dataset.linkPending === 'true') {
+                            window.open(link, '_blank', 'noopener,noreferrer');
+                        }
+                        linkIcon.dataset.linkPending = '';
+                    }
+                },
+                parent: parentEl
+            });
+            return linkIcon;
+        }
+
         function renderNodes() {
             if (window._workerDebug) {
                 window._workerDebug.lastRenderTime = new Date().toISOString();
@@ -5178,39 +5212,6 @@ function getNodeEdgePoint(node, targetNode) {
             // MOVED TO OUTER SCOPE - see attachNodeEvents above
 
 
-            // Helper: Create link icon element
-            function createLinkIcon(node, parentEl) {
-                const link = node.details?.link?.trim();
-                if (!link) return null;
-                const linkIcon = createEl('span', {
-                    text: '🔗',
-                    title: 'Open link: ' + link,
-                    style: {
-                        marginLeft: '2px', fontSize: '11px', textDecoration: 'none',
-                        cursor: 'pointer', flexShrink: 0, opacity: '0.7', transition: 'opacity 0.15s'
-                    },
-                    on: {
-                        mouseenter: () => linkIcon.style.opacity = '1',
-                        mouseleave: () => {
-                            linkIcon.style.opacity = '0.7';
-                            linkIcon.dataset.linkPending = '';
-                        },
-                        mousedown: (e) => {
-                            e.stopPropagation();
-                            linkIcon.dataset.linkPending = 'true';
-                        },
-                        mouseup: (e) => {
-                            e.stopPropagation();
-                            if (linkIcon.dataset.linkPending === 'true') {
-                                window.open(link, '_blank', 'noopener,noreferrer');
-                            }
-                            linkIcon.dataset.linkPending = '';
-                        }
-                    },
-                    parent: parentEl
-                });
-                return linkIcon;
-            }
 
             // Helper: Create expand/collapse button
             function createExpandBtn(node, isChild) {
