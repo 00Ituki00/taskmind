@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.32">
+    <meta name="version" content="v1.3.33">
     <title>TaskMind</title>
     <style>
         * {
@@ -5373,6 +5373,8 @@ function getNodeEdgePoint(node, targetNode) {
 
         function renderNodes() {
             if (!prepareRenderNodes()) return;
+
+            const tooltipCtrl = getOrCreateTooltipController();
 
             // Helper: Create completion checkbox (shared between child and parent nodes)
             // MOVED TO OUTER SCOPE - see createCompletionCheckbox above
