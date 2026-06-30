@@ -6311,6 +6311,37 @@ function getNodeEdgePoint(node, targetNode) {
             return node;
         }
 
+        function getHiddenNodeIds(connections) {
+            const hiddenNodeIds = new Set();
+            connections.forEach(conn => {
+                if (conn.collapsed) {
+                    const hideDescendants = (nodeId) => {
+                        hiddenNodeIds.add(nodeId);
+                        connections
+                            .filter(c => c.from === nodeId)
+                            .forEach(c => hideDescendants(c.to));
+                    };
+                    hideDescendants(conn.to);
+                }
+            });
+            return hiddenNodeIds;
+        }
+
+        function getConnectionEdgePoints(fromNode, toNode) {
+            let fromEdge, toEdge;
+            if (fromNode.parentId === null) {
+                fromEdge = getNodeEdgePoint(fromNode, toNode);
+            } else {
+                fromEdge = getNodeConnectionSidePoint(fromNode, toNode, true);
+            }
+            if (toNode.parentId === null) {
+                toEdge = getNodeEdgePoint(toNode, fromNode);
+            } else {
+                toEdge = getNodeConnectionSidePoint(toNode, fromNode, false);
+            }
+            return { fromEdge, toEdge };
+        }
+
         function renderConnections(filterConnIds = null) {
             // If filterConnIds is provided, only remove and re-render those connections
             // Otherwise, clear all connections (default behavior)
@@ -6327,18 +6358,7 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             // Collect all nodes that are hidden due to parent connection collapse (cascade)
-            const hiddenNodeIds = new Set();
-            state.connections.forEach(conn => {
-                if (conn.collapsed) {
-                    const hideDescendants = (nodeId) => {
-                        hiddenNodeIds.add(nodeId);
-                        state.connections
-                            .filter(c => c.from === nodeId)
-                            .forEach(c => hideDescendants(c.to));
-                    };
-                    hideDescendants(conn.to);
-                }
-            });
+            const hiddenNodeIds = getHiddenNodeIds(state.connections);
 
             state.connections.forEach(conn => {
                 // If filterConnIds is provided, only render matching connections (incremental update)
@@ -6366,17 +6386,7 @@ function getNodeEdgePoint(node, targetNode) {
                 if (rawToNode.parentId === rawFromNode.id || rawFromNode.parentId === rawToNode.id) return;
 
                 // Calculate edge points: root nodes use center, child nodes use left/right side
-                let fromEdge, toEdge;
-                if (fromNode.parentId === null) {
-                    fromEdge = getNodeEdgePoint(fromNode, toNode);
-                } else {
-                    fromEdge = getNodeConnectionSidePoint(fromNode, toNode, true);
-                }
-                if (toNode.parentId === null) {
-                    toEdge = getNodeEdgePoint(toNode, fromNode);
-                } else {
-                    toEdge = getNodeConnectionSidePoint(toNode, fromNode, false);
-                }
+                const { fromEdge, toEdge } = getConnectionEdgePoints(fromNode, toNode);
 
                 const x1 = fromEdge.x;
                 const y1 = fromEdge.y;
