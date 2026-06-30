@@ -5385,6 +5385,7 @@ function getNodeEdgePoint(node, targetNode) {
                 childEl.style.borderRadius = '12px';
 
                 const childCheckbox = createCompletionCheckbox(child, 14);
+                if (!childCheckbox) { console.error('createCompletionCheckbox returned null for child', child.id); return; }
                 childCheckbox.style.marginRight = '4px';
 
                 const childTitle = createNodeTitle(child);
@@ -5411,7 +5412,7 @@ function getNodeEdgePoint(node, targetNode) {
                 childEl.appendChild(childIndicators);
 
                 childEl.appendChild(expandBtn);
-                childEl.appendChild(badge);
+                if (badge) childEl.appendChild(badge);
 
                 // When progress bar for child nodes
                 const childWhenProgress = createWhenProgressBar(child);
