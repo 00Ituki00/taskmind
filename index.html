@@ -2652,7 +2652,7 @@
             renderConnections();
         }
 
-        function createTooltipController(tooltipEl) {
+        function _createTooltipController(tooltipEl) {
             let timer = null;
             let visible = false;
             
@@ -5526,7 +5526,7 @@ function getNodeEdgePoint(node, targetNode) {
                     parent: document.body
                 });
             }
-            return createTooltipController(tooltipEl);
+            return _createTooltipController(tooltipEl);
         }
 
         function createChildrenContainer(node, parentEl, hiddenNodeIds) {
@@ -5619,7 +5619,7 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Hover tooltip for child nodes — reuses global singleton
                 const childTooltipEl = document.querySelector('.node-hover-tooltip-global');
-                const childTooltipCtrl = createTooltipController(childTooltipEl);
+                const childTooltipCtrl = _createTooltipController(childTooltipEl);
                 
                 // Header-equivalent hover area: checkbox + title + indicators (not nested children)
                 const childHeaderTargets = [childCheckbox, childTitle, childIndicators, expandBtn, badge].filter(Boolean);
@@ -6578,7 +6578,7 @@ function getNodeEdgePoint(node, targetNode) {
             let timelineTooltipTimer = null;
             let timelineTooltipVisible = false;
 
-            const timelineTooltipCtrl = createTooltipController(timelineTooltipEl);
+            const timelineTooltipCtrl = _createTooltipController(timelineTooltipEl);
 
 
             header.addEventListener('mouseenter', () => {
