@@ -5711,6 +5711,43 @@ function getNodeEdgePoint(node, targetNode) {
             return { displayColor, bgColor, lightBg, borderRgba };
         }
 
+        function calculateTimelineNodeLayout(nodes, viewStart, dayWidth) {
+            const rowHeight = 28;
+            const rows = [];
+            
+            // Sort by start date
+            const sorted = [...nodes].sort((a, b) => {
+                const da = getNodeTimelineStartDate(a);
+                const db = getNodeTimelineStartDate(b);
+                return new Date(da) - new Date(db);
+            });
+            
+            return sorted.map(node => {
+                const startDate = getNodeTimelineStartDate(node);
+                const endDate = getNodeTimelineEndDate(node, startDate);
+
+                const startX = ((new Date(startDate) - viewStart) / (1000 * 60 * 60 * 24)) * dayWidth;
+                const duration = endDate ? Math.max(0.5, (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) : 1;
+                const nodeWidth = Math.max(60, duration * dayWidth - 4);
+                const nodeEndX = startX + nodeWidth + 4;
+
+                let rowIndex = 0;
+                for (; rowIndex < rows.length; rowIndex++) {
+                    if (rows[rowIndex] <= startX + 2) {
+                        break;
+                    }
+                }
+
+                if (rowIndex >= rows.length) {
+                    rows.push(nodeEndX);
+                } else {
+                    rows[rowIndex] = nodeEndX;
+                }
+
+                return { node, startX, rowIndex, nodeWidth };
+            });
+        }
+
         function renderTimeline() {
             const timeline = state.timeline;
             const dayWidth = timeline.dayWidth;
@@ -5861,41 +5898,10 @@ function getNodeEdgePoint(node, targetNode) {
             if (datedNodes.length === 0) {
                 createEl('div', { class: 'timeline-empty-lane', text: 'ノードがありません', parent: laneEl });
             } else {
-                // Sort by start date
-                datedNodes.sort((a, b) => {
-                    const da = getNodeTimelineStartDate(a);
-                    const db = getNodeTimelineStartDate(b);
-                    return new Date(da) - new Date(db);
-                });
-
-                // Layout nodes with overlap detection - stack vertically when overlapping
-                const rowHeight = 28; // Compact row height
-                const rows = []; // Each row tracks the endX of the last placed node
-
-                datedNodes.forEach(node => {
-                    const startDate = getNodeTimelineStartDate(node);
-                    const endDate = getNodeTimelineEndDate(node, startDate);
-
-                    const startX = ((new Date(startDate) - viewStart) / (1000 * 60 * 60 * 24)) * dayWidth;
-                    const duration = endDate ? Math.max(0.5, (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) : 1;
-                    const nodeWidth = Math.max(60, duration * dayWidth - 4);
-                    const nodeEndX = startX + nodeWidth + 4;
-
-                    // Find a row where this node doesn't overlap
-                    let rowIndex = 0;
-                    for (; rowIndex < rows.length; rowIndex++) {
-                        if (rows[rowIndex] <= startX + 2) {
-                            break; // Found non-overlapping row
-                        }
-                    }
-
-                    // Place in found row or create new row
-                    if (rowIndex >= rows.length) {
-                        rows.push(nodeEndX);
-                    } else {
-                        rows[rowIndex] = nodeEndX;
-                    }
-
+                const rowHeight = 28;
+                const layout = calculateTimelineNodeLayout(datedNodes, viewStart, dayWidth);
+                
+                layout.forEach(({ node, startX, rowIndex, nodeWidth }) => {
                     const styles = getTimelineNodeStyles(node);
 
                     const nodeEl = createEl('div', {
