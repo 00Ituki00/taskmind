@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.17">
+    <meta name="version" content="v1.3.18">
     <title>TaskMind</title>
     <style>
         * {
@@ -8765,6 +8765,53 @@ function getNodeEdgePoint(node, targetNode) {
             }
         }
 
+        function buildChildNodeMenuItems(items, childNode, childId, childTitleEl, menu, x, y, isMultiSelect) {
+            items.push({ text: 'タイトル編集', icon: '✏️', disabled: isMultiSelect, action: () => {
+                console.log('Child title edit clicked', childTitleEl, childNode);
+                menu.remove();
+                try {
+                    enableTitleEdit(childTitleEl, childNode);
+                } catch (err) {
+                    console.error('Error in enableTitleEdit:', err);
+                }
+            }});
+            items.push({ text: 'ノードタイプ変更', icon: '📌', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                showTypePicker({ clientX: x, clientY: y }, childNode);
+            }});
+            items.push({ text: 'カラー変更', icon: '🎨', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                showColorPicker({ clientX: x, clientY: y }, childNode);
+            }});
+            items.push({ text: '接続作成', icon: '🔗', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                showConnectionTypeSelectorAtStart(childId, x, y);
+            }});
+            items.push({ text: '子ノードを削除', icon: '🗑️', class: 'delete', disabled: isMultiSelect, action: () => {
+                if (confirm('この子ノードを削除しますか?')) {
+                    const parent = state.nodes.find(n => n.id === childNode.parentId);
+                    if (parent) {
+                        parent.children = parent.children.filter(c => c !== childId);
+                        if (parent.children.length === 0) {
+                            parent.expanded = false;
+                        }
+                    }
+                    state.nodes = state.nodes.filter(n => n.id !== childId);
+                    state.connections = state.connections.filter(c => c.from !== childId && c.to !== childId);
+                    renderAll();
+                }
+            }});
+            items.push({ text: '親ノードに統合', icon: '⏏️', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                mergeChildToParent(childId);
+            }});
+            items.push({ text: '詳細情報を編集', icon: '📋', disabled: isMultiSelect, action: () => {
+                menu.remove();
+                openBulkDetailEditor(childNode);
+            }});
+            addIndicatorToolbar(childNode);
+        }
+
         function showCanvasContextMenu(x, y, clickEvent) {
             const menu = createContextMenu(x, y);
 
@@ -8782,51 +8829,8 @@ function getNodeEdgePoint(node, targetNode) {
                 const childNode = state.nodes.find(n => n.id === childId);
                 const childTitleEl = targetChildNode.querySelector('.node-title');
 
-                    if (childNode && childTitleEl) {
-                    items.push({ text: 'タイトル編集', icon: '✏️', disabled: isMultiSelect, action: () => {
-                        console.log('Child title edit clicked', childTitleEl, childNode);
-                        menu.remove();
-                        try {
-                            enableTitleEdit(childTitleEl, childNode);
-                        } catch (err) {
-                            console.error('Error in enableTitleEdit:', err);
-                        }
-                    }});
-                    items.push({ text: 'ノードタイプ変更', icon: '📌', disabled: isMultiSelect, action: () => {
-                        menu.remove();
-                        showTypePicker({ clientX: x, clientY: y }, childNode);
-                    }});
-                    items.push({ text: 'カラー変更', icon: '🎨', disabled: isMultiSelect, action: () => {
-                        menu.remove();
-                        showColorPicker({ clientX: x, clientY: y }, childNode);
-                    }});
-                    items.push({ text: '接続作成', icon: '🔗', disabled: isMultiSelect, action: () => {
-                        menu.remove();
-                        showConnectionTypeSelectorAtStart(childId, x, y);
-                    }});
-                    items.push({ text: '子ノードを削除', icon: '🗑️', class: 'delete', disabled: isMultiSelect, action: () => {
-                        if (confirm('この子ノードを削除しますか?')) {
-                            const parent = state.nodes.find(n => n.id === childNode.parentId);
-                            if (parent) {
-                                parent.children = parent.children.filter(c => c !== childId);
-                                if (parent.children.length === 0) {
-                                    parent.expanded = false;
-                                }
-                            }
-                            state.nodes = state.nodes.filter(n => n.id !== childId);
-                            state.connections = state.connections.filter(c => c.from !== childId && c.to !== childId);
-                            renderAll();
-                        }
-                    }});
-                    items.push({ text: '親ノードに統合', icon: '⏏️', disabled: isMultiSelect, action: () => {
-                        menu.remove();
-                        mergeChildToParent(childId);
-                    }});
-                    items.push({ text: '詳細情報を編集', icon: '📋', disabled: isMultiSelect, action: () => {
-                        menu.remove();
-                        openBulkDetailEditor(childNode);
-                    }});
-                    addIndicatorToolbar(childNode);
+                if (childNode && childTitleEl) {
+                    buildChildNodeMenuItems(items, childNode, childId, childTitleEl, menu, x, y, isMultiSelect);
                 }
             } else if (targetNode) {
                 const nodeId = parseInt(targetNode.dataset.id);
