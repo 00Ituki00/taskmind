@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.0">
+    <meta name="version" content="v1.3.1">
     <title>TaskMind</title>
     <style>
         * {
@@ -6477,6 +6477,16 @@ function getNodeEdgePoint(node, targetNode) {
             return { fromEdge, toEdge };
         }
 
+        // Node dimension helper with defaults
+        function getNodeDimensions(node) {
+            return {
+                width: node.width || 200,
+                height: node.height || 50,
+                halfWidth: (node.width || 200) / 2,
+                halfHeight: (node.height || 50) / 2
+            };
+        }
+
         function calculateBezierConnection(fromNode, toNode, fromEdge, toEdge) {
             const x1 = fromEdge.x, y1 = fromEdge.y;
             const x2 = toEdge.x, y2 = toEdge.y;
@@ -6492,10 +6502,13 @@ function getNodeEdgePoint(node, targetNode) {
                 toAbsX = abs.x; toAbsY = abs.y;
             }
 
-            const fromCx = fromAbsX + (fromNode.width || 200) / 2;
-            const fromCy = fromAbsY + (fromNode.height || 50) / 2;
-            const toCx = toAbsX + (toNode.width || 200) / 2;
-            const toCy = toAbsY + (toNode.height || 50) / 2;
+            const fromD = getNodeDimensions(fromNode);
+            const toD = getNodeDimensions(toNode);
+
+            const fromCx = fromAbsX + fromD.halfWidth;
+            const fromCy = fromAbsY + fromD.halfHeight;
+            const toCx = toAbsX + toD.halfWidth;
+            const toCy = toAbsY + toD.halfHeight;
 
             const dx = toCx - fromCx;
             const dy = toCy - fromCy;
