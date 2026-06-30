@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.9">
+    <meta name="version" content="v1.3.10">
     <title>TaskMind</title>
     <style>
         * {
@@ -6449,7 +6449,7 @@ function getNodeEdgePoint(node, targetNode) {
             }
             // Parent is expanded but may itself be hidden by an ancestor collapse
             const visibleParent = getVisibleEndpoint(parent);
-            if (visibleParent.id !== parent.id) {
+            if (visibleParent && visibleParent.id !== parent.id) {
                 return visibleParent;
             }
             return node;
@@ -6472,6 +6472,7 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function getConnectionEdgePoints(fromNode, toNode) {
+            if (!fromNode || !toNode) return null;
             let fromEdge, toEdge;
             if (fromNode.parentId === null) {
                 fromEdge = getNodeEdgePoint(fromNode, toNode);
