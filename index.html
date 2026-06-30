@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.2.1">
+    <meta name="version" content="v1.2.2">
     <title>TaskMind</title>
     <style>
         * {
@@ -3351,7 +3351,11 @@ function getNodeEdgePoint(node, targetNode) {
 
             const cleanup = () => {
                 if (input.parentNode) {
-                    input.parentNode.removeChild(input);
+                    try {
+                        input.parentNode.removeChild(input);
+                    } catch (e) {
+                        // Already removed, ignore
+                    }
                 }
                 document.removeEventListener('mousedown', onDocMouseDown);
             };
