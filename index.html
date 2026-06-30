@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.2.2">
+    <meta name="version" content="v1.2.3">
     <title>TaskMind</title>
     <style>
         * {
@@ -5499,8 +5499,8 @@ function getNodeEdgePoint(node, targetNode) {
                 const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
                 if (!domEl) return;
 
-                const nw = domEl.offsetWidth;
-                const actualH = domEl.offsetHeight;
+                const nw = node.width || 200;
+                const actualH = node.height || 50;
 
                 document.querySelectorAll(`.resize-handle[data-node-id="${node.id}"]`).forEach(handle => {
                     const pos = handle.dataset.pos;
@@ -6750,6 +6750,9 @@ function getNodeEdgePoint(node, targetNode) {
                             e.stopPropagation();
                             e.preventDefault();
 
+                            // Cache container rect to avoid repeated forced reflow
+                            const containerRect = container.getBoundingClientRect();
+
                             // Collect all hidden descendant nodes with their ABSOLUTE offsets from indicator
                             const hiddenDescendants = [];
 
@@ -6788,8 +6791,8 @@ function getNodeEdgePoint(node, targetNode) {
 
                             state.dragIndicator = {
                                 conn: conn,
-                                indOffsetX: (e.clientX - container.getBoundingClientRect().left - state.panX) / state.scale - indX,
-                                indOffsetY: (e.clientY - container.getBoundingClientRect().top - state.panY) / state.scale - indY,
+                                indOffsetX: (e.clientX - containerRect.left - state.panX) / state.scale - indX,
+                                indOffsetY: (e.clientY - containerRect.top - state.panY) / state.scale - indY,
                                 hiddenDescendants: hiddenDescendants,
                                 currentIndX: indX,
                                 currentIndY: indY
@@ -7529,6 +7532,13 @@ function getNodeEdgePoint(node, targetNode) {
         }, { passive: false });
 
         window.addEventListener('mousemove', (e) => {
+            // Cache container rect to avoid repeated forced reflow during drag
+            let containerRect = state._cachedContainerRect;
+            if (!containerRect) {
+                containerRect = container.getBoundingClientRect();
+                state._cachedContainerRect = containerRect;
+            }
+
             // Update pending connection line
             if (state.connectingFrom || state.draggingConn) {
                 updatePendingConnection(e.clientX, e.clientY);
@@ -7536,7 +7546,6 @@ function getNodeEdgePoint(node, targetNode) {
 
             // Drag collapsed indicator to move hidden node and all descendants
             if (state.dragIndicator) {
-                const containerRect = container.getBoundingClientRect();
                 const newIndX = (e.clientX - containerRect.left - state.panX) / state.scale - state.dragIndicator.indOffsetX;
                 const newIndY = (e.clientY - containerRect.top - state.panY) / state.scale - state.dragIndicator.indOffsetY;
 
