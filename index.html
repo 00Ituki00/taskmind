@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.12">
+    <meta name="version" content="v1.3.13">
     <title>TaskMind</title>
     <style>
         * {
@@ -5169,7 +5169,7 @@ function getNodeEdgePoint(node, targetNode) {
             return linkIcon;
         }
 
-        function renderNodes() {
+        function prepareRenderNodes() {
             if (window._workerDebug) {
                 window._workerDebug.lastRenderTime = new Date().toISOString();
                 window._workerDebug.renderCount++;
@@ -5188,7 +5188,7 @@ function getNodeEdgePoint(node, targetNode) {
             // Timeline layout mode
             if (state.layoutMode === 'timeline') {
                 renderTimeline();
-                return;
+                return false;
             }
 
             // Restore free layout pan position when switching back from timeline
@@ -5201,6 +5201,11 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             state.hiddenNodeIds = getHiddenNodeIds();
+            return true;
+        }
+
+        function renderNodes() {
+            if (!prepareRenderNodes()) return;
 
             // Helper: Create completion checkbox (shared between child and parent nodes)
             // MOVED TO OUTER SCOPE - see createCompletionCheckbox above
