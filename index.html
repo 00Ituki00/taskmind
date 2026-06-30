@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.2.8">
+    <meta name="version" content="v1.2.7">
     <title>TaskMind</title>
     <style>
         * {
@@ -6526,223 +6526,6 @@ function getNodeEdgePoint(node, targetNode) {
             return { conn, rawFromNode, rawToNode, fromNode, toNode };
         }
 
-        // ===== Connection SVG Element Helpers =====
-
-        function createConnectionGradient(conn, x1, y1, x2, y2, fromColor, toColor) {
-            const svg = document.getElementById('connections');
-            let defs = svg.querySelector('defs');
-            if (!defs) {
-                defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-                svg.prepend(defs);
-            }
-            const gradId = `conn-grad-${conn.from}-${conn.to}`;
-            const existingGrad = document.getElementById(gradId);
-            if (existingGrad) existingGrad.remove();
-            const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-            gradient.setAttribute('id', gradId);
-            gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
-            gradient.setAttribute('x1', x1);
-            gradient.setAttribute('y1', y1);
-            gradient.setAttribute('x2', x2);
-            gradient.setAttribute('y2', y2);
-            const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-            stop1.setAttribute('offset', '0%');
-            stop1.setAttribute('stop-color', fromColor);
-            const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-            stop2.setAttribute('offset', '100%');
-            stop2.setAttribute('stop-color', toColor);
-            gradient.appendChild(stop1);
-            gradient.appendChild(stop2);
-            defs.appendChild(gradient);
-            return gradId;
-        }
-
-        function createConnectionPath(pathD, gradId, conn) {
-            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            group.classList.add('conn-group');
-            group.setAttribute('data-from', conn.from);
-            group.setAttribute('data-to', conn.to);
-
-            const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            hitPath.setAttribute('d', pathD);
-            hitPath.setAttribute('fill', 'none');
-            hitPath.setAttribute('stroke', 'rgba(0,0,0,0)');
-            hitPath.setAttribute('stroke-width', '10');
-            hitPath.setAttribute('pointer-events', 'all');
-            hitPath.style.pointerEvents = 'all';
-            hitPath.style.cursor = 'pointer';
-
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', pathD);
-            path.setAttribute('class', 'connection-line');
-            path.setAttribute('stroke', `url(#${gradId})`);
-            path.setAttribute('pointer-events', 'none');
-            path.style.pointerEvents = 'none';
-
-            group.appendChild(hitPath);
-            group.appendChild(path);
-            return { group, hitPath, path };
-        }
-
-        function createConnectionEndpoints(group, x1, y1, x2, y2, fromColor, toColor) {
-            const fromDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            fromDot.setAttribute('cx', x1);
-            fromDot.setAttribute('cy', y1);
-            fromDot.setAttribute('r', '7');
-            fromDot.style.fill = '#fff';
-            fromDot.style.stroke = fromColor;
-            fromDot.style.strokeWidth = '1.5';
-            fromDot.setAttribute('pointer-events', 'none');
-            fromDot.classList.add('conn-endpoint');
-            group.appendChild(fromDot);
-
-            const toDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            toDot.setAttribute('cx', x2);
-            toDot.setAttribute('cy', y2);
-            toDot.setAttribute('r', '7');
-            toDot.style.fill = '#fff';
-            toDot.style.stroke = toColor;
-            toDot.style.strokeWidth = '1.5';
-            toDot.setAttribute('pointer-events', 'none');
-            toDot.classList.add('conn-endpoint');
-            group.appendChild(toDot);
-        }
-
-        function createCollapsedIndicator(group, conn, indX, indY, toColor) {
-            const indicator = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            indicator.setAttribute('cx', indX);
-            indicator.setAttribute('cy', indY);
-            indicator.setAttribute('r', '12');
-            indicator.setAttribute('fill', '#fff');
-            indicator.setAttribute('stroke', toColor);
-            indicator.setAttribute('stroke-width', '2');
-            indicator.setAttribute('class', 'collapse-indicator');
-            indicator.style.cursor = 'pointer';
-            indicator.style.pointerEvents = 'all';
-
-            const plus = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            plus.setAttribute('x', indX);
-            plus.setAttribute('y', indY + 4);
-            plus.setAttribute('text-anchor', 'middle');
-            plus.setAttribute('font-size', '14');
-            plus.setAttribute('fill', toColor);
-            plus.setAttribute('class', 'collapse-plus');
-            plus.style.pointerEvents = 'all';
-            plus.style.cursor = 'pointer';
-            plus.textContent = '+';
-
-            group.appendChild(indicator);
-            group.appendChild(plus);
-            return { indicator, plus };
-        }
-
-        function createConnectionLabel(group, conn, x1, y1, cx1, cy1, cx2, cy2, x2, y2) {
-            if (!conn.label && !conn.type && !conn.customType) return;
-            const labelText = conn.customType || conn.label || '';
-            if (!labelText) return;
-
-            let labelColor = '#555';
-            let icon = '';
-            if (conn.customType) {
-                const customType = state.customConnectionTypes.find(ct => ct.label === conn.customType);
-                if (customType) {
-                    labelColor = customType.color;
-                    icon = customType.icon || '';
-                } else {
-                    const hash = conn.customType.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-                    const fallbackColors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e91e63','#34495e'];
-                    labelColor = fallbackColors[hash % fallbackColors.length];
-                }
-            }
-
-            const bezierMid = getBezierPoint(0.5, {x: x1, y: y1}, {x: cx1, y: cy1}, {x: cx2, y: cy2}, {x: x2, y: y2});
-
-            const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-            fo.setAttribute('x', bezierMid.x - 50);
-            fo.setAttribute('y', bezierMid.y - 15);
-            fo.setAttribute('width', '100');
-            fo.setAttribute('height', '30');
-            fo.style.pointerEvents = 'none';
-
-            const div = createEl('div', {
-                style: {
-                    display: 'inline-block', padding: '2px 8px', borderRadius: '4px',
-                    fontSize: '11px', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
-                    color: labelColor, border: `1.5px solid ${labelColor}`,
-                    background: 'rgba(255,255,255,0.95)', textAlign: 'center', whiteSpace: 'nowrap',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)'
-                },
-                text: (icon ? icon + ' ' : '') + labelText,
-                on: {
-                    dblclick: (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        showConnectionTypeSelectorForEdit(conn, e.clientX, e.clientY);
-                    }
-                }
-            });
-
-            fo.appendChild(div);
-            group.appendChild(fo);
-        }
-
-        function createConnectionDragPoints(group, conn, x1, y1, x2, y2, fromColor, toColor, collapsed) {
-            // From point hit area + visible dot
-            const fromHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            fromHitArea.setAttribute('cx', x1);
-            fromHitArea.setAttribute('cy', y1);
-            fromHitArea.setAttribute('r', '24');
-            fromHitArea.setAttribute('fill', 'rgba(0,0,0,0.01)');
-            fromHitArea.style.cursor = 'pointer';
-            fromHitArea.style.pointerEvents = 'all';
-            fromHitArea.addEventListener('mousedown', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                state.draggingConn = conn;
-                state.draggingConn.isSource = true;
-                fromPoint.classList.add('dragging');
-            });
-            group.appendChild(fromHitArea);
-
-            const fromPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            fromPoint.setAttribute('class', 'conn-point');
-            fromPoint.setAttribute('cx', x1);
-            fromPoint.setAttribute('cy', y1);
-            fromPoint.setAttribute('r', '6');
-            fromPoint.style.fill = fromColor;
-            fromPoint.setAttribute('pointer-events', 'none');
-            group.appendChild(fromPoint);
-
-            // To point (hidden when collapsed)
-            if (!collapsed) {
-                const toHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                toHitArea.setAttribute('cx', x2);
-                toHitArea.setAttribute('cy', y2);
-                toHitArea.setAttribute('r', '24');
-                toHitArea.setAttribute('fill', 'rgba(0,0,0,0.01)');
-                toHitArea.style.cursor = 'pointer';
-                toHitArea.style.pointerEvents = 'all';
-                toHitArea.addEventListener('mousedown', (e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    state.draggingConn = conn;
-                    state.draggingConn.isSource = false;
-                    toPoint.classList.add('dragging');
-                });
-                group.appendChild(toHitArea);
-
-                const toPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                toPoint.setAttribute('class', 'conn-point');
-                toPoint.setAttribute('cx', x2);
-                toPoint.setAttribute('cy', y2);
-                toPoint.setAttribute('r', '6');
-                toPoint.style.fill = toColor;
-                toPoint.setAttribute('pointer-events', 'none');
-                group.appendChild(toPoint);
-            }
-        }
-
         function renderConnections(filterConnIds = null) {
             // Build a cache of node DOM rects to avoid repeated forced reflow
             state._nodeRectCache = {};
@@ -6798,10 +6581,60 @@ function getNodeEdgePoint(node, targetNode) {
                 const toColor = toNode.color || '#999';
 
                 // Create SVG gradient for this connection
-                const gradId = createConnectionGradient(conn, x1, y1, x2, y2, fromColor, toColor);
+                const svg = document.getElementById('connections');
+                let defs = svg.querySelector('defs');
+                if (!defs) {
+                    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                    svg.prepend(defs);
+                }
+                const gradId = `conn-grad-${conn.from}-${conn.to}`;
+                // Remove existing gradient if any (to update colors)
+                const existingGrad = document.getElementById(gradId);
+                if (existingGrad) existingGrad.remove();
+                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+                gradient.setAttribute('id', gradId);
+                gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+                gradient.setAttribute('x1', x1);
+                gradient.setAttribute('y1', y1);
+                gradient.setAttribute('x2', x2);
+                gradient.setAttribute('y2', y2);
+                const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop1.setAttribute('offset', '0%');
+                stop1.setAttribute('stop-color', fromColor);
+                const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop2.setAttribute('offset', '100%');
+                stop2.setAttribute('stop-color', toColor);
+                gradient.appendChild(stop1);
+                gradient.appendChild(stop2);
+                defs.appendChild(gradient);
 
-                // Create path group with hit area and visible line
-                const { group, hitPath, path } = createConnectionPath(pathD, gradId, conn);
+                // Group for hover management
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.classList.add('conn-group');
+                group.setAttribute('data-from', conn.from);
+                group.setAttribute('data-to', conn.to);
+
+                // Invisible wider path for easier hit testing (reduced from 20 to 10)
+                const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                hitPath.setAttribute('d', pathD);
+                hitPath.setAttribute('fill', 'none');
+                hitPath.setAttribute('stroke', 'rgba(0,0,0,0)');
+                hitPath.setAttribute('stroke-width', '10');
+                hitPath.setAttribute('pointer-events', 'all');
+                hitPath.style.pointerEvents = 'all';
+                hitPath.style.cursor = 'pointer';
+
+                // Connection type colors (for label decoration only, not line color)
+                const typeColors = {};
+
+                // Use original gradient for line color (unified)
+                const lineStroke = `url(#${gradId})`;
+
+                // Visible line with gradient or type color
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathD);
+                path.setAttribute('class', 'connection-line');
+                path.setAttribute('stroke', lineStroke);
                 path.setAttribute('pointer-events', 'none');
                 path.style.pointerEvents = 'none';
 
@@ -6863,9 +6696,11 @@ function getNodeEdgePoint(node, targetNode) {
                 if (conn.collapsed) {
                     let indX, indY;
                     if (state.dragIndicator && state.dragIndicator.conn === conn) {
+                        // Use drag position for smooth mouse tracking
                         indX = state.dragIndicator.currentIndX;
                         indY = state.dragIndicator.currentIndY;
                     } else if (conn.indX !== undefined && conn.indY !== undefined) {
+                        // Use saved indicator position from previous drag
                         indX = conn.indX;
                         indY = conn.indY;
                     } else {
@@ -6878,10 +6713,33 @@ function getNodeEdgePoint(node, targetNode) {
                     path.setAttribute('stroke-dasharray', '5,3');
                 }
 
-                // Endpoint dots
-                createConnectionEndpoints(group, x1, y1, x2, y2, fromColor, toColor);
+                group.appendChild(hitPath);
+                group.appendChild(path);
 
-                // Collapsed indicator at mid-point
+                // Endpoint dots colored by each node's color box
+                const fromDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromDot.setAttribute('cx', x1);
+                fromDot.setAttribute('cy', y1);
+                fromDot.setAttribute('r', '7');
+                fromDot.style.fill = '#fff';
+                fromDot.style.stroke = fromColor;
+                fromDot.style.strokeWidth = '1.5';
+                fromDot.setAttribute('pointer-events', 'none');
+                fromDot.classList.add('conn-endpoint');
+                group.appendChild(fromDot);
+
+                const toDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                toDot.setAttribute('cx', x2);
+                toDot.setAttribute('cy', y2);
+                toDot.setAttribute('r', '7');
+                toDot.style.fill = '#fff';
+                toDot.style.stroke = toColor;
+                toDot.style.strokeWidth = '1.5';
+                toDot.setAttribute('pointer-events', 'none');
+                toDot.classList.add('conn-endpoint');
+                group.appendChild(toDot);
+
+                // Collapsed indicator at mid-point (where label would be)
                 let indX, indY;
                 if (conn.collapsed) {
                     if (state.dragIndicator && state.dragIndicator.conn === conn) {
@@ -7030,13 +6888,107 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 // Label with decoration
-                createConnectionLabel(group, conn, x1, y1, cx1, cy1, cx2, cy2, x2, y2);
+                if ((conn.label || conn.type || conn.customType) && !conn.collapsed) {
+                    const typeLabels = {}; // プリセット廃止: カスタムタイプのみ使用
+                    const typeColors = {};
+                    const labelText = conn.customType || conn.label || '';
+                    let labelColor = '#555';
+                    let icon = '';
+                    // カスタム接続線の色とアイコン設定
+                    if (conn.customType) {
+                        const customType = state.customConnectionTypes.find(ct => ct.label === conn.customType);
+                        if (customType) {
+                            labelColor = customType.color;
+                            icon = customType.icon || '';
+                        } else {
+                            // 未登録カスタムタイプは既存の接続線の色から推定（ハッシュベース）
+                            const hash = conn.customType.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+                            const fallbackColors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e91e63','#34495e'];
+                            labelColor = fallbackColors[hash % fallbackColors.length];
+                        }
+                    }
 
-                // Connection drag points
-                createConnectionDragPoints(group, conn, x1, y1, x2, y2, fromColor, toColor, conn.collapsed);
+                    if (labelText) {
+                        const bezierMid = getBezierPoint(0.5, {x: x1, y: y1}, {x: cx1, y: cy1}, {x: cx2, y: cy2}, {x: x2, y: y2});
 
-                connectionsSvg.appendChild(group);
-            });
+                        const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+                        fo.setAttribute('x', bezierMid.x - 50);
+                        fo.setAttribute('y', bezierMid.y - 15);
+                        fo.setAttribute('width', '100');
+                        fo.setAttribute('height', '30');
+                        fo.style.pointerEvents = 'none';
+
+                        const div = createEl('div', {
+                            style: {
+                                display: 'inline-block', padding: '2px 8px', borderRadius: '4px',
+                                fontSize: '11px', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+                                color: labelColor, border: `1.5px solid ${labelColor}`,
+                                background: 'rgba(255,255,255,0.95)', textAlign: 'center', whiteSpace: 'nowrap',
+                                boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)'
+                            },
+                            text: (icon ? icon + ' ' : '') + labelText,
+                            on: {
+                                dblclick: (e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    showConnectionTypeSelectorForEdit(conn, e.clientX, e.clientY);
+                                }
+                            }
+                        });
+
+                        fo.appendChild(div);
+                        group.appendChild(fo);
+                    }
+                }
+
+                // Connection point on "from" node (draggable to change source)
+                // Hit area: larger invisible circle for easier grabbing
+                const fromHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromHitArea.setAttribute('cx', x1);
+                fromHitArea.setAttribute('cy', y1);
+                fromHitArea.setAttribute('r', '24');
+                fromHitArea.setAttribute('fill', 'rgba(0,0,0,0.01)');
+                fromHitArea.style.cursor = 'pointer';
+                fromHitArea.style.pointerEvents = 'all';
+                fromHitArea.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    state.draggingConn = conn;
+                    state.draggingConn.isSource = true;
+                    fromPoint.classList.add('dragging');
+                });
+                group.appendChild(fromHitArea);
+
+                const fromPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                fromPoint.setAttribute('class', 'conn-point');
+                fromPoint.setAttribute('cx', x1);
+                fromPoint.setAttribute('cy', y1);
+                fromPoint.setAttribute('r', '6');
+                fromPoint.style.fill = fromColor;
+                fromPoint.setAttribute('pointer-events', 'none');
+                group.appendChild(fromPoint);
+
+                // Connection point on "to" node (draggable to change destination) - hidden when collapsed
+                if (!conn.collapsed) {
+                    // Hit area: larger invisible circle for easier grabbing
+                    const toHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    toHitArea.setAttribute('cx', x2);
+                    toHitArea.setAttribute('cy', y2);
+                    toHitArea.setAttribute('r', '24');
+                    toHitArea.setAttribute('fill', 'rgba(0,0,0,0.01)');
+                    toHitArea.style.cursor = 'pointer';
+                    toHitArea.style.pointerEvents = 'all';
+                    toHitArea.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        state.draggingConn = conn;
+                        state.draggingConn.isSource = false;
+                        toPoint.classList.add('dragging');
+                    });
+                    group.appendChild(toHitArea);
+
+                    const toPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     toPoint.setAttribute('class', 'conn-point');
                     toPoint.setAttribute('cx', x2);
                     toPoint.setAttribute('cy', y2);
