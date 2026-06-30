@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.35">
+    <meta name="version" content="v1.3.36">
     <title>TaskMind</title>
     <style>
         * {
@@ -5403,6 +5403,17 @@ function getNodeEdgePoint(node, targetNode) {
             });
         }
 
+        function createTaskBadge(node, parentEl) {
+            const count = node.children ? node.children.length : 0;
+            if (count === 0) return null;
+            return createEl('span', {
+                class: 'task-count',
+                text: String(count),
+                style: { fontSize: '11px', color: '#999', marginLeft: '4px', flexShrink: 0 },
+                parent: parentEl
+            });
+        }
+
         function renderNodes() {
             if (!prepareRenderNodes()) return;
 
@@ -5416,19 +5427,6 @@ function getNodeEdgePoint(node, targetNode) {
 
             // Helper: Attach common node events (mousedown, touchstart, contextmenu)
             // MOVED TO OUTER SCOPE - see attachNodeEvents above
-
-            // Helper: Create task count badge
-            function createTaskBadge(node, parentEl) {
-                const children = state.nodes.filter(n => n.parentId === node.id);
-                const completedChildren = children.filter(n => n.completed).length;
-                const totalChildren = children.length;
-                return createEl('span', {
-                    text: totalChildren > 0 ? '(' + completedChildren + '/' + totalChildren + ')' : '',
-                    attrs: { 'data-badge': 'true' },
-                    style: { fontSize: '11px', color: '#999', marginLeft: '4px', flexShrink: 0 },
-                    parent: parentEl
-                });
-            }
 
             // Helper: Create completed label
             function createCompletedLabel(node, parentEl, options = {}) {
