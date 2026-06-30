@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.3.11">
+    <meta name="version" content="v1.3.12">
     <title>TaskMind</title>
     <style>
         * {
@@ -8680,6 +8680,29 @@ function getNodeEdgePoint(node, targetNode) {
             }});
         }
 
+        function buildConnectionMenuItems(items, targetConnGroup, menu, x, y) {
+            const connFrom = parseInt(targetConnGroup.getAttribute('data-from'));
+            const connTo = parseInt(targetConnGroup.getAttribute('data-to'));
+            const conn = state.connections.find(c => c.from === connFrom && c.to === connTo);
+            const fromNode = state.nodes.find(n => n.id === connFrom);
+            const toNode = state.nodes.find(n => n.id === connTo);
+
+            if (conn && fromNode && toNode) {
+                items.push({ text: conn.collapsed ? '接続を展開' : '接続を折りたたむ', icon: '📂', action: () => {
+                    conn.collapsed = !conn.collapsed;
+                    if (conn.collapsed && !conn.originalToPos) {
+                        conn.originalToPos = { x: toNode.x, y: toNode.y };
+                    }
+                    renderAll();
+                }});
+                items.push({ text: '接続を削除', icon: '🗑️', class: 'delete', action: () => {
+                    if (confirm('この接続を削除しますか?')) {
+                        deleteConnection(connFrom, connTo);
+                    }
+                }});
+            }
+        }
+
         function showCanvasContextMenu(x, y, clickEvent) {
             const menu = createContextMenu(x, y);
 
@@ -8830,26 +8853,7 @@ function getNodeEdgePoint(node, targetNode) {
                 // Check for connection line click
                 const targetConnGroup = clickEvent?.target?.closest('.conn-group');
                 if (targetConnGroup) {
-                    const connFrom = parseInt(targetConnGroup.getAttribute('data-from'));
-                    const connTo = parseInt(targetConnGroup.getAttribute('data-to'));
-                    const conn = state.connections.find(c => c.from === connFrom && c.to === connTo);
-                    const fromNode = state.nodes.find(n => n.id === connFrom);
-                    const toNode = state.nodes.find(n => n.id === connTo);
-
-                    if (conn && fromNode && toNode) {
-                        items.push({ text: conn.collapsed ? '接続を展開' : '接続を折りたたむ', icon: '📂', action: () => {
-                            conn.collapsed = !conn.collapsed;
-                            if (conn.collapsed && !conn.originalToPos) {
-                                conn.originalToPos = { x: toNode.x, y: toNode.y };
-                            }
-                            renderAll();
-                        }});
-                        items.push({ text: '接続を削除', icon: '🗑️', class: 'delete', action: () => {
-                            if (confirm('この接続を削除しますか?')) {
-                                deleteConnection(connFrom, connTo);
-                            }
-                        }});
-                    }
+                    buildConnectionMenuItems(items, targetConnGroup, menu, x, y);
                 }
 
                 // Canvas items
