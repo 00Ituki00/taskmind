@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.4.1">
+    <meta name="version" content="v1.4.2">
     <title>TaskMind</title>
     <style>
         * {
@@ -519,12 +519,20 @@
             0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
             50% { box-shadow: 0 0 20px 4px rgba(231, 76, 60, 0.6); }
         }
-        @keyframes blink-progress {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(74, 144, 217, 0); }
-            50% { box-shadow: 0 0 10px 3px rgba(74, 144, 217, 0.35); }
+        @keyframes blink-glow-white {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+            50% { box-shadow: 0 0 10px 3px rgba(255,255,255,0.7); }
+        }
+        @keyframes blink-glow-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(231,76,60,0); }
+            50% { box-shadow: 0 0 10px 3px rgba(231,76,60,0.5); }
         }
         .node.started .when-progress-container {
-            animation: blink-progress 1s ease-in-out infinite;
+            animation: blink-glow-white 1s ease-in-out infinite;
+            border-radius: 4px;
+        }
+        .node.expired .when-progress-container {
+            animation: blink-glow-red 1s ease-in-out infinite;
             border-radius: 4px;
         }
         .node.expired {
