@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.4.5">
+    <meta name="version" content="v1.4.6">
     <title>TaskMind</title>
     <style>
         * {
@@ -2436,6 +2436,19 @@
 
         container.addEventListener('wheel', (e) => {
             e.preventDefault();
+
+            // Horizontal scroll (thumbwheel) → pan horizontally
+            if (Math.abs(e.deltaX) > 1) {
+                if (state.layoutMode === 'timeline') {
+                    const tc = document.querySelector('.timeline-container');
+                    if (tc) tc.scrollLeft += e.deltaX;
+                    return;
+                }
+                // Free layout: pan canvas horizontally
+                state.panX -= e.deltaX / state.scale;
+                updateTransform();
+                return;
+            }
 
             if (state.layoutMode === 'timeline') {
                 const delta = e.deltaY > 0 ? 0.9 : 1.1;
