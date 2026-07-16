@@ -4494,6 +4494,7 @@ function getNodeEdgePoint(node, targetNode) {
 
             dlTypeRelative.addEventListener('click', () => {
                 currentDeadlineType = 'relative';
+                deadlineDateInput.value = ''; // 絶対期限の値をクリア
                 updateDeadlineUI();
                 if (onChange) onChange(getValue());
             });
@@ -4533,7 +4534,7 @@ function getNodeEdgePoint(node, targetNode) {
             const defaultDl = new Date();
             defaultDl.setDate(defaultDl.getDate() + 1);
             defaultDl.setHours(18, 0, 0, 0);
-            deadlineDateInput.value = w.deadlineDate ? isoToLocalISO(w.deadlineDate) : toLocalISO(defaultDl);
+            deadlineDateInput.value = (w.deadlineDate && w.deadlineType === 'absolute') ? isoToLocalISO(w.deadlineDate) : '';
             absoluteRow.appendChild(deadlineDateInput);
             absoluteRow.appendChild(document.createTextNode(' まで'));
             deadlineSection.appendChild(absoluteRow);
@@ -4655,7 +4656,7 @@ function getNodeEdgePoint(node, targetNode) {
                     deadlineType: currentDeadlineType,
                     deadlineDays: parseInt(deadlineDays.value) || 0,
                     deadlineTime: deadlineTime.value || '18:00',
-                    deadlineDate: deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null,
+                    deadlineDate: currentDeadlineType === 'relative' ? null : (deadlineDateInput.value ? new Date(deadlineDateInput.value).toISOString() : null),
                     daysOfWeek: currentDaysOfWeek.slice(),
                     weekOfMonth: currentWeekOfMonth,
                     yearMonth: currentYearMonth,
