@@ -4764,7 +4764,7 @@ function getNodeEdgePoint(node, targetNode) {
 
             const now = new Date();
             const nextDate = hasNextDate ? new Date(w.nextDate) : null;
-            const baseForDeadline = nextDate || (w.baseDateTime ? new Date(w.baseDateTime) : new Date());
+            const baseForDeadline = (w.baseDateTime ? new Date(w.baseDateTime) : new Date());
 
             // Calculate deadline date
             let deadlineDate;
