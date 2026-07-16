@@ -4169,7 +4169,9 @@ function getNodeEdgePoint(node, targetNode) {
                             if (newWhen === null) { if (node.details) delete node.details.when; }
                             else {
                                 node.details.when = newWhen;
-                                if (didScheduleChange(oldWhen, newWhen) || !newWhen.nextDate) node.details.when.nextDate = calculateNextDate(node.details.when);
+                                // nextDateは既存の値を維持。過去のnextDateは完了時に次回へ進む。
+                                // 再計算はタイマー処理または完了時に行う。
+                                if (!newWhen.nextDate) node.details.when.nextDate = calculateNextDate(node.details.when);
                             }
                         }
                         modal.querySelectorAll('textarea[data-field-key], input[data-field-key]').forEach(ta => { node.details[ta.dataset.fieldKey] = ta.value; });
