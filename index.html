@@ -4764,7 +4764,8 @@ function getNodeEdgePoint(node, targetNode) {
 
             const now = new Date();
             const nextDate = hasNextDate ? new Date(w.nextDate) : null;
-            const baseForDeadline = (w.baseDateTime ? new Date(w.baseDateTime) : new Date());
+            const startDate = w.baseDateTime ? new Date(w.baseDateTime) : null;
+            const baseForDeadline = startDate || new Date();
 
             // Calculate deadline date
             let deadlineDate;
@@ -4794,7 +4795,7 @@ function getNodeEdgePoint(node, targetNode) {
                 const fmtHM = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
                 const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
 
-                if (now < nextDate) {
+                if (now < startDate) {
                     // Before start
                     const diffMs = nextDate - now;
                     const diffH = Math.floor(diffMs / 3600000);
@@ -4813,8 +4814,8 @@ function getNodeEdgePoint(node, targetNode) {
                     const diffH = Math.floor(diffMs / 3600000);
                     const diffM = Math.floor((diffMs % 3600000) / 60000);
                     const remain = diffH > 0 ? `${diffH}h${diffM}m` : `${diffM}m`;
-                    leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
-                    centerInfo.textContent = `残り ${remain}`;
+                    leftInfo.textContent = `残り ${remain}`;
+                    centerInfo.textContent = `開始 ${fmtHM(startDate)}`;
                     if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
                         rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
                     } else {
@@ -4822,7 +4823,7 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 } else {
                     // After deadline
-                    leftInfo.textContent = `開始 ${fmtHM(nextDate)}`;
+                    leftInfo.textContent = `開始 ${fmtHM(startDate)}`;
                     centerInfo.textContent = '期限切れ';
                     if (w.deadlineType === 'absolute' || w.deadlineDays > 0) {
                         rightInfo.textContent = `期限 ${fmtDate(deadlineDate)} ${fmtHM(deadlineDate)}`;
@@ -4840,11 +4841,11 @@ function getNodeEdgePoint(node, targetNode) {
 
                 // Time scale starts at 8:00 today
                 const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
-                const maxDist = Math.max(now - dayStart, nextDate - dayStart, deadlineDate - dayStart);
+                const maxDist = Math.max(now - dayStart, startDate - dayStart, deadlineDate - dayStart);
                 const scaleMs = Math.max(maxDist, 3600000) * 1.15; // at least 1h visible + 15% margin
 
                 // Positions relative to 8:00
-                const startPct = Math.min(100, Math.max(0, ((nextDate - dayStart) / scaleMs) * 100));
+                const startPct = Math.min(100, Math.max(0, ((startDate - dayStart) / scaleMs) * 100));
                 const deadlinePct = Math.min(100, Math.max(0, ((deadlineDate - dayStart) / scaleMs) * 100));
                 const nowPct = Math.min(100, Math.max(0, ((now - dayStart) / scaleMs) * 100));
 
@@ -4852,9 +4853,9 @@ function getNodeEdgePoint(node, targetNode) {
                 let activeColor = '#4caf50';
                 if (now >= deadlineDate) {
                     activeColor = '#f44336';
-                } else if (now >= nextDate) {
-                    const totalActiveMs = deadlineDate - nextDate;
-                    const elapsedMs = now - nextDate;
+                } else if (now >= startDate) {
+                    const totalActiveMs = deadlineDate - startDate;
+                    const elapsedMs = now - startDate;
                     const remainingPct = totalActiveMs > 0 ? 100 - (elapsedMs / totalActiveMs * 100) : 0;
                     if (remainingPct <= 20) activeColor = '#f44336';
                     else if (remainingPct <= 50) activeColor = '#ff9800';
@@ -4870,13 +4871,13 @@ function getNodeEdgePoint(node, targetNode) {
                 }
 
                 // 2. Active zone (start to deadline): colored bar
-                if (nextDate < deadlineDate) {
+                if (startDate < deadlineDate) {
                     const activeStart = startPct;
                     const activeEnd = Math.min(100, deadlinePct);
                     const activeWidth = activeEnd - activeStart;
                     if (activeWidth > 0) {
                         createEl('div', {
-                            style: { position: 'absolute', left: activeStart + '%', top: 0, height: '100%', width: activeWidth + '%', background: activeColor, opacity: now >= nextDate ? 1 : 0.3, transition: 'opacity 0.3s ease' },
+                            style: { position: 'absolute', left: activeStart + '%', top: 0, height: '100%', width: activeWidth + '%', background: activeColor, opacity: now >= startDate ? 1 : 0.3, transition: 'opacity 0.3s ease' },
                             parent: barTrack
                         });
                     }
