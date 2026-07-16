@@ -5056,11 +5056,22 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                     if (!found) return null;
                 } else {
-                    // 毎月 ◯日
+                    // 毎月 ◯日 - 無効日付を月末にクランプ（例：2月31日→2月28日/29日）
                     const targetDay = when.monthDay || 1;
-                    next.setDate(targetDay);
+
+                    function setMonthClamped(date, monthDelta, day) {
+                        const year = date.getFullYear();
+                        const month = date.getMonth() + monthDelta;
+                        const result = new Date(year, month + 1, 0);
+                        const lastDay = result.getDate();
+                        result.setDate(Math.min(day, lastDay));
+                        result.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                        return result;
+                    }
+
+                    next = setMonthClamped(next, 0, targetDay);
                     while (next <= now) {
-                        next.setMonth(next.getMonth() + 1);
+                        next = setMonthClamped(next, 1, targetDay);
                     }
                 }
             } else if (repeatType === 'yearly') {
@@ -5109,12 +5120,21 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                     if (!found) return null;
                 } else {
-                    // 毎年 ◯月◯日
+                    // 毎年 ◯月◯日 - 無効日付を月末にクランプ（例：2月29日→2月28日/29日）
                     const targetMonth = (when.yearMonth || 1) - 1;
                     const targetDay = when.yearDay || 1;
-                    next.setMonth(targetMonth, targetDay);
+
+                    function setYearMonthClamped(year, month, day, hours, minutes) {
+                        const result = new Date(year, month + 1, 0);
+                        const lastDay = result.getDate();
+                        result.setDate(Math.min(day, lastDay));
+                        result.setHours(hours, minutes, 0, 0);
+                        return result;
+                    }
+
+                    next = setYearMonthClamped(next.getFullYear(), targetMonth, targetDay, hours, minutes);
                     while (next <= now) {
-                        next.setFullYear(next.getFullYear() + 1);
+                        next = setYearMonthClamped(next.getFullYear() + 1, targetMonth, targetDay, hours, minutes);
                     }
                 }
             }
