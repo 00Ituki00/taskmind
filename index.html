@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.5.1">
+    <meta name="version" content="v1.5.2">
     <title>TaskMind</title>
     <style>
         * {
@@ -7543,7 +7543,15 @@ function getNodeEdgePoint(node, targetNode) {
             }
 
             if (e.ctrlKey || e.metaKey) {
-                toggleNodeSelection(node.id, true);
+                // クイック接続線作成：CTRL+左クリックで方向あり・ラベルなしの接続を開始
+                state.connectingFrom = node.id;
+                state.pendingConnectionType = '';
+                state.pendingConnectionCustomType = '';
+                state.pendingNoArrow = false;
+                setMode('connect');
+                modeIndicator.textContent = '接続モード: 終了ノードを選択';
+                modeIndicator.classList.add('active');
+                updatePendingConnection(e.clientX, e.clientY);
                 return;
             }
 
