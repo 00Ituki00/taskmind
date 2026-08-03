@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v1.5.3">
+    <meta name="version" content="v1.5.4">
     <title>TaskMind</title>
     <style>
         * {
@@ -4764,7 +4764,8 @@ function getNodeEdgePoint(node, targetNode) {
 
             const now = new Date();
             const nextDate = hasNextDate ? new Date(w.nextDate) : null;
-            const startDate = w.baseDateTime ? new Date(w.baseDateTime) : null;
+            // baseDateTime未設定の旧データはnextDateへフォールバック（描画クラッシュ防止）
+            const startDate = w.baseDateTime ? new Date(w.baseDateTime) : nextDate;
             const baseForDeadline = startDate || new Date();
 
             // Calculate deadline date
