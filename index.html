@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.1.1">
+    <meta name="version" content="v2.1.2">
     <title>TaskMind</title>
     <style>
         * {
@@ -9734,10 +9734,18 @@ function getNodeEdgePoint(node, targetNode) {
         });
         document.getElementById('btn-undo').addEventListener('click', () => undo());
         document.getElementById('btn-redo').addEventListener('click', () => redo());
+        // 保存ボタン（saveInProgressは二重保存防止。宣言が無いとReferenceErrorでボタンが死ぬ）
+        let saveInProgress = false;
         document.getElementById('btn-save').addEventListener('click', () => {
             if (saveInProgress) return;
             saveInProgress = true;
-            saveToFile(true).finally(() => { saveInProgress = false; });
+            Promise.resolve()
+                .then(() => saveToFile(true))
+                .catch(err => {
+                    console.error('Save failed:', err);
+                    showToast('保存に失敗しました: ' + (err && err.message ? err.message : err));
+                })
+                .finally(() => { saveInProgress = false; });
         });
         document.getElementById('btn-load').addEventListener('click', () => {
             if ('showOpenFilePicker' in window) {
