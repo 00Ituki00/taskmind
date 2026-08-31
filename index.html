@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.0.0">
+    <meta name="version" content="v2.1.0">
     <title>TaskMind</title>
     <style>
         * {
@@ -302,6 +302,7 @@
             transition: box-shadow 0.2s;
             user-select: none;
             overflow: visible;
+            touch-action: none; /* スマホでノード掴み時にブラウザのスクロールへジェスチャーを奪われないようにする */
         }
 
         .node:hover {
@@ -7608,8 +7609,12 @@ function getNodeEdgePoint(node, targetNode) {
         let isLongPress = false;
 
         function handleNodeTouchStart(e, node) {
-            if (e.target.closest('.node-title') || e.target.closest('.add-task') ||
-                e.target.closest('input[type="checkbox"]') || e.target.closest('.node-color')) return;
+            // ボタン類の上ではドラッグを開始しない（タイトル上でもドラッグ可能にするため .node-title は除外しない）
+            if (e.target.closest('.add-task') ||
+                e.target.closest('input[type="checkbox"]') || e.target.closest('.node-color') ||
+                e.target.closest('.task-delete-btn') || e.target.closest('.expand-btn') ||
+                e.target.closest('.resize-handle') || e.target.closest('.hamburger') ||
+                e.target.closest('.node-indicators') || e.target.closest('.indicator-group')) return;
 
             e.stopPropagation();
             e.preventDefault();
@@ -7636,6 +7641,17 @@ function getNodeEdgePoint(node, targetNode) {
                 toggleNodeSelection(node.id, true);
             }, 500);
 
+            // タップ判定用（ドラッグにならなかった場合はタップとして処理）
+            state.touchTapInfo = {
+                nodeId: node.id,
+                startX: touch.clientX,
+                startY: touch.clientY,
+                targetIsTitle: !!e.target.closest('.node-title')
+            };
+            // ロングプレス解除の移動距離計算用
+            state.lastMouseX = touch.clientX;
+            state.lastMouseY = touch.clientY;
+
             state.selectedNodeId = node.id;
             state.dragNode = node;
             // Calculate absolute position for drag offset
@@ -7660,6 +7676,26 @@ function getNodeEdgePoint(node, targetNode) {
             }
             state.dragOffsetX = (touch.clientX - state.panX) / state.scale - nodeAbsX;
             state.dragOffsetY = (touch.clientY - state.panY) / state.scale - nodeAbsY;
+
+            // ドラッグ状態をマウス操作と共通化（閾値・ドロップ判定・完了処理を共有するため）
+            state.dragStartX = nodeAbsX;
+            state.dragStartY = nodeAbsY;
+            state.dragStartMouseX = touch.clientX;
+            state.dragStartMouseY = touch.clientY;
+            state.isDragging = false;
+            state.pendingExtract = false;
+            state.dropTarget = null;
+            state.reorderTarget = null;
+
+            // 複数選択中のノードを掴んだ場合は同じ親の選択ノードをまとめてドラッグ対象に
+            if (state.selectedNodeIds.length > 0 && state.selectedNodeIds.includes(node.id)) {
+                state.dragSelectedNodes = state.selectedNodeIds
+                    .map(id => state.nodes.find(n => n.id === id))
+                    .filter(n => n && n.id !== node.id && n.parentId === node.parentId);
+            } else {
+                state.dragSelectedNodes = null;
+            }
+
             renderNodes();
         }
 
@@ -7851,6 +7887,422 @@ function getNodeEdgePoint(node, targetNode) {
                 state.lastPinchScale = state.scale;
             }
         }, { passive: false });
+
+        // ==================== ドラッグ共通処理（マウス・タッチ共用） ====================
+        // ドラッグ中の移動処理: 閾値判定・位置更新・ドロップ先検出・描画更新
+        function handleNodeDragMove(clientX, clientY) {
+            // Check drag threshold before starting actual drag
+            if (state.dragNode && !state.isDragging) {
+                const dx = Math.abs(clientX - state.dragStartMouseX);
+                const dy = Math.abs(clientY - state.dragStartMouseY);
+                if (dx > 5 || dy > 5) {
+                    state.isDragging = true;
+                    _draggedConnIds = buildDraggedConnIds();
+                    nodesEl.style.cursor = 'grabbing';
+                    renderNodes();
+                }
+            }
+
+            if (state.dragNode && state.isDragging) {
+                const tooltip = document.getElementById('drag-tooltip');
+                if (tooltip) {
+                    tooltip.style.left = (clientX + 15) + 'px';
+                    tooltip.style.top = (clientY - 30) + 'px';
+                }
+                const newX = (clientX - state.panX) / state.scale - state.dragOffsetX;
+                const newY = (clientY - state.panY) / state.scale - state.dragOffsetY;
+
+                // Calculate old absolute position
+                let oldAbsX = state.dragNode.x;
+                let oldAbsY = state.dragNode.y;
+                if (state.dragNode.parentId !== null) {
+                    const absPos = getNodeAbsolutePosition(state.dragNode);
+                    oldAbsX = absPos.x;
+                    oldAbsY = absPos.y;
+                }
+
+                const dx = newX - oldAbsX;
+                const dy = newY - oldAbsY;
+
+                // Update position - for child nodes, update relative to parent but use absolute for display
+                if (state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        const parentAbsPos = getNodeAbsolutePosition(parent);
+                        state.dragNode.x = newX - parentAbsPos.x;
+                        state.dragNode.y = newY - parentAbsPos.y;
+                        state.dragNode.absX = newX;
+                        state.dragNode.absY = newY;
+                    }
+                } else {
+                    state.dragNode.x = newX;
+                    state.dragNode.y = newY;
+                }
+
+                // Move all selected root nodes together
+                if (state.selectedNodeIds.length > 1) {
+                    state.selectedNodeIds.forEach(id => {
+                        if (id !== state.dragNode.id) {
+                            const n = state.nodes.find(node => node.id === id);
+                            if (n && n.parentId === null) {
+                                n.x += dx;
+                                n.y += dy;
+                            }
+                        }
+                    });
+                }
+
+                // Move selected child nodes with same parent together
+                if (state.dragSelectedNodes && state.dragSelectedNodes.length > 0) {
+                    state.dragSelectedNodes.forEach(n => {
+                        if (n.parentId !== null) {
+                            n.x += dx;
+                            n.y += dy;
+                        }
+                    });
+                }
+
+                // Update collapsed connection destinations' positions when dragging source
+                if (state.dragNode) {
+                    const movedNodes = new Set();
+                    const moveCascade = (fromId, dx, dy) => {
+                        state.connections.forEach(conn => {
+                            if (conn.from === fromId && conn.collapsed) {
+                                const toNode = state.nodes.find(n => n.id === conn.to);
+                                if (toNode && !movedNodes.has(toNode.id)) {
+                                    movedNodes.add(toNode.id);
+                                    toNode.x += dx;
+                                    toNode.y += dy;
+                                    if (conn.originalToPos) {
+                                        conn.originalToPos.x += dx;
+                                        conn.originalToPos.y += dy;
+                                    }
+                                    // Recursively move descendants
+                                    moveCascade(toNode.id, dx, dy);
+                                }
+                            }
+                        });
+                    };
+                    moveCascade(state.dragNode.id, dx, dy);
+                }
+
+                // Unified drag detection: purely visual, based on DOM header position
+                // Throttled to 60fps to avoid excessive DOM queries during fast movement
+                const now = performance.now();
+                const isMultiDrag = state.dragSelectedNodes && state.dragSelectedNodes.length > 0;
+                if (state.dragNode && (!state.selectedNodeIds.includes(state.dragNode.id) || isMultiDrag) && now - _lastDropCheckTime >= DRAG_THROTTLE_MS) {
+                    _lastDropCheckTime = now;
+                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                    const mx = (clientX - canvasRect.left - state.panX) / state.scale;
+                    const my = (clientY - canvasRect.top - state.panY) / state.scale;
+                    let candidates = [];
+
+                    for (const node of state.nodes) {
+                        if (node.id === state.dragNode.id) continue;
+                        if (state.selectedNodeIds.includes(node.id)) continue;
+                        if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
+                        // Skip descendants of dragNode to prevent circular nesting
+                        let isDescendant = false;
+                        let current = node;
+                        while (current && current.parentId !== null) {
+                            if (current.parentId === state.dragNode.id) {
+                                isDescendant = true;
+                                break;
+                            }
+                            current = state.nodes.find(n => n.id === current.parentId);
+                        }
+                        if (isDescendant) continue;
+
+                        // Get bounds from DOM - parent nodes use header, child nodes use full div.node
+                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                        if (!domEl) continue;
+                        let rect;
+                        if (node.parentId === null) {
+                            // Root nodes: use header for hit test to avoid child node overlap
+                            const headerEl = domEl.querySelector('.node-header') || domEl.querySelector('.node-title');
+                            rect = headerEl ? headerEl.getBoundingClientRect() : domEl.getBoundingClientRect();
+                        } else {
+                            // Child nodes: use full div.node (no .node-header class)
+                            rect = domEl.getBoundingClientRect();
+                        }
+                        const nx = (rect.left - canvasRect.left - state.panX) / state.scale;
+                        const ny = (rect.top - canvasRect.top - state.panY) / state.scale;
+                        const nw = rect.width / state.scale;
+                        const nh = rect.height / state.scale;
+
+                        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+                            const centerX = nx + nw / 2;
+                            const centerY = ny + nh / 2;
+                            const dist = Math.hypot(mx - centerX, my - centerY);
+                            candidates.push({ node, dist });
+                        }
+                    }
+
+                    // Pick closest candidate
+                    let targetNode = null;
+                    let minDist = Infinity;
+                    for (const c of candidates) {
+                        if (c.dist < minDist) {
+                            minDist = c.dist;
+                            targetNode = c.node;
+                        }
+                    }
+
+                    // Clear all indicators
+                    document.querySelectorAll('.node').forEach(el => {
+                        el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
+                    });
+
+                    if (targetNode) {
+                        const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
+                        let headerEl, fullRect;
+                        if (targetNode.parentId === null) {
+                            // Root nodes: use header for zone detection
+                            headerEl = targetDomEl ? (targetDomEl.querySelector('.node-header') || targetDomEl.querySelector('.node-title')) : null;
+                            fullRect = headerEl ? headerEl.getBoundingClientRect() : (targetDomEl ? targetDomEl.getBoundingClientRect() : null);
+                        } else {
+                            // Child nodes: use full div.node
+                            fullRect = targetDomEl ? targetDomEl.getBoundingClientRect() : null;
+                        }
+                        let tTop, tBottom;
+                        if (fullRect) {
+                            tTop = (fullRect.top - canvasRect.top - state.panY) / state.scale;
+                            tBottom = (fullRect.bottom - canvasRect.top - state.panY) / state.scale;
+                        } else {
+                            tTop = targetNode.y;
+                            tBottom = targetNode.y + (targetNode.height || 50);
+                        }
+                        const thirdH = (tBottom - tTop) / 3;
+
+                        if (my < tTop + thirdH) {
+                            // Top zone → insert before this node
+                            state.reorderTarget = { siblingId: targetNode.id, insertBefore: true, siblingParentId: targetNode.parentId };
+                            state.dropTarget = null;
+                            state.pendingExtract = false;
+                            showInsertGuide(targetNode.id, 'before');
+                            if (tooltip) { tooltip.textContent = '▲'; tooltip.classList.add('show'); }
+                        } else if (my > tBottom - thirdH) {
+                            // Bottom zone → insert after this node
+                            state.reorderTarget = { siblingId: targetNode.id, insertBefore: false, siblingParentId: targetNode.parentId };
+                            state.dropTarget = null;
+                            state.pendingExtract = false;
+                            showInsertGuide(targetNode.id, 'after');
+                            if (tooltip) { tooltip.textContent = '▼'; tooltip.classList.add('show'); }
+                        } else {
+                            // Middle zone → nest into this node
+                            state.dropTarget = targetNode;
+                            state.reorderTarget = null;
+                            state.pendingExtract = false;
+                            hideInsertGuides();
+                            if (targetDomEl) targetDomEl.classList.add('nest-target');
+                            if (tooltip) { tooltip.textContent = '▶'; tooltip.classList.add('show'); }
+                        }
+                    } else {
+                        state.dropTarget = null;
+                        state.reorderTarget = null;
+                        hideInsertGuides();
+                        if (state.dragNode.parentId !== null) {
+                            state.pendingExtract = true;
+                            if (tooltip) { tooltip.textContent = '⏎'; tooltip.classList.add('show'); }
+                        } else {
+                            state.pendingExtract = false;
+                            if (tooltip) tooltip.classList.remove('show');
+                        }
+                    }
+                }
+
+                throttledDragUpdate();
+                scheduleDragRender();
+            }
+        }
+
+        // ドラッグ完了処理: nest/reorder/extract の確定とスナップショット保存。戻り値は「実際にドラッグされたか」
+        function finalizeNodeDrag() {
+            if (!state.dragNode) return false;
+
+            const CLICK_THRESHOLD = 5;
+            let currentAbsX = state.dragNode.x;
+            let currentAbsY = state.dragNode.y;
+            if (state.dragNode.parentId !== null) {
+                // Use DOM position for child nodes (consistent with drag start)
+                const domEl = document.querySelector(`.node[data-id="${state.dragNode.id}"]`);
+                if (domEl) {
+                    const rect = domEl.getBoundingClientRect();
+                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+                    currentAbsX = (rect.left - canvasRect.left - state.panX) / state.scale;
+                    currentAbsY = (rect.top - canvasRect.top - state.panY) / state.scale;
+                } else {
+                    const absPos = getNodeAbsolutePosition(state.dragNode);
+                    currentAbsX = absPos.x;
+                    currentAbsY = absPos.y;
+                }
+            }
+            const wasDragged = Math.hypot(currentAbsX - state.dragStartX, currentAbsY - state.dragStartY) > CLICK_THRESHOLD;
+
+            // Unified drop handling - determined by visual detection during drag
+            let didAction = false;
+
+            if (wasDragged) {
+                const nodesToProcess = [state.dragNode, ...(state.dragSelectedNodes || [])];
+
+                // 1. Nest into dropTarget (middle zone drop)
+                if (state.dropTarget && !state.reorderTarget) {
+                    const parent = state.dropTarget;
+                    let nestCount = 0;
+
+                    nodesToProcess.forEach(child => {
+                        // Prevent circular nesting
+                        let current = parent;
+                        let isCircular = false;
+                        while (current) {
+                            if (current.id === child.id) {
+                                isCircular = true;
+                                break;
+                            }
+                            current = state.nodes.find(n => n.id === current.parentId);
+                        }
+
+                        if (!isCircular && child.id !== parent.id) {
+                            // Remove from old parent
+                            if (child.parentId !== null) {
+                                const oldParent = state.nodes.find(n => n.id === child.parentId);
+                                if (oldParent) {
+                                    oldParent.children = oldParent.children.filter(id => id !== child.id);
+                                    const absPos = getNodeAbsolutePosition(child);
+                                    child.x = absPos.x;
+                                    child.y = absPos.y;
+                                }
+                            }
+                            child.parentId = parent.id;
+                            if (!parent.children) parent.children = [];
+                            parent.children.push(child.id);
+                            child.x = 20;
+                            child.y = (parent.height || 50) + 10;
+                            child.width = Math.max(160, (parent.width || 200) - 40);
+                            nestCount++;
+                        }
+                    });
+
+                    if (nestCount > 0) {
+                        parent.expanded = true;
+                        didAction = true;
+                        showToast(`${nestCount}個のノードをタスクとして追加しました`);
+                    }
+                }
+                // 2. Reorder: insert before/after target node
+                else if (state.reorderTarget && !state.dropTarget) {
+                    const targetNode = state.nodes.find(n => n.id === state.reorderTarget.siblingId);
+                    const targetParentId = state.reorderTarget.siblingParentId;
+
+                    if (targetNode) {
+                        // Remove all nodes from old parent
+                        nodesToProcess.forEach(node => {
+                            if (node.parentId !== null) {
+                                const oldParent = state.nodes.find(n => n.id === node.parentId);
+                                if (oldParent && oldParent.children) {
+                                    oldParent.children = oldParent.children.filter(id => id !== node.id);
+                                    if (oldParent.children.length === 0) oldParent.expanded = false;
+                                }
+                            }
+                        });
+
+                        if (targetParentId === null) {
+                            // Target is root - make all nodes root too
+                            nodesToProcess.forEach((node, i) => {
+                                const absPos = getNodeAbsolutePosition(node);
+                                node.x = absPos.x;
+                                node.y = absPos.y;
+                                node.parentId = null;
+                                node.width = calculateNodeWidth(node.title, !!node.details?.link);
+                            });
+
+                            // Position near target
+                            let tx = targetNode.x, ty = targetNode.y;
+                            if (targetNode.parentId !== null) {
+                                const tAbs = getNodeAbsolutePosition(targetNode);
+                                tx = tAbs.x; ty = tAbs.y;
+                            }
+                            state.dragNode.x = tx;
+                            state.dragNode.y = ty + (targetNode.height || 50) + 20;
+
+                            didAction = true;
+                            showToast(`${nodesToProcess.length}個のノードを移動しました`);
+                        } else {
+                            // Target has parent - add all nodes to that parent
+                            const newParent = state.nodes.find(n => n.id === targetParentId);
+                            if (newParent) {
+                                const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
+                                let insertIndex;
+                                if (toIndex !== -1) {
+                                    insertIndex = state.reorderTarget.insertBefore ? toIndex : toIndex + 1;
+                                } else {
+                                    insertIndex = newParent.children.length;
+                                }
+
+                                nodesToProcess.forEach((node, i) => {
+                                    node.parentId = targetParentId;
+                                    newParent.children.splice(insertIndex + i, 0, node.id);
+
+                                    const parentAbsPos = getNodeAbsolutePosition(newParent);
+                                    const absPos = getNodeAbsolutePosition(node);
+                                    node.x = absPos.x - parentAbsPos.x;
+                                    node.y = absPos.y - parentAbsPos.y;
+                                    node.width = Math.max(160, (newParent.width || 200) - 40);
+                                });
+
+                                didAction = true;
+                                showToast(`${nodesToProcess.length}個のノードの順序を変更しました`);
+                            }
+                        }
+                    }
+                }
+                // 3. No target but dragged nodes had parent → extract to root
+                else if (!didAction && state.dragNode.parentId !== null) {
+                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
+                    if (parent) {
+                        nodesToProcess.forEach(node => {
+                            const absPos = getNodeAbsolutePosition(node);
+                            node.x = absPos.x;
+                            node.y = absPos.y;
+                            node.parentId = null;
+                            node.width = calculateNodeWidth(node.title, !!node.details?.link);
+                        });
+
+                        if (parent.children) {
+                            const nodeIds = new Set(nodesToProcess.map(n => n.id));
+                            parent.children = parent.children.filter(id => !nodeIds.has(id));
+                            if (parent.children.length === 0) parent.expanded = false;
+                        }
+
+                        didAction = true;
+                        showToast(`${nodesToProcess.length}個のノードを取り出しました`);
+                    }
+                }
+            }
+
+            state.dropTarget = null;
+            state.reorderTarget = null;
+            state.pendingExtract = false;
+            // Clear reorder indicators (all nodes including root)
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
+            });
+            hideInsertGuides();
+
+            state.dragNode = null;
+            state.isDragging = false;
+            const tooltip = document.getElementById('drag-tooltip');
+            if (tooltip) tooltip.classList.remove('show');
+            renderAll();
+
+            if (didAction || wasDragged) {
+                saveSnapshot();
+            }
+
+            state.dragSelectedNodes = null;
+            return wasDragged;
+        }
+
 
         window.addEventListener('mousemove', (e) => {
             // Cache container rect to avoid repeated forced reflow during drag
@@ -8073,230 +8525,8 @@ function getNodeEdgePoint(node, targetNode) {
 
             // Child drag is now started directly on mousedown - no candidate needed (unified drag)
 
-            // Check drag threshold before starting actual drag
-            if (state.dragNode && !state.isDragging) {
-                const dx = Math.abs(e.clientX - state.dragStartMouseX);
-                const dy = Math.abs(e.clientY - state.dragStartMouseY);
-                if (dx > 5 || dy > 5) {
-                    state.isDragging = true;
-                    _draggedConnIds = buildDraggedConnIds();
-                    nodesEl.style.cursor = 'grabbing';
-                    renderNodes();
-                }
-            }
-
-            if (state.dragNode && state.isDragging) {
-                const tooltip = document.getElementById('drag-tooltip');
-                if (tooltip) {
-                    tooltip.style.left = (e.clientX + 15) + 'px';
-                    tooltip.style.top = (e.clientY - 30) + 'px';
-                }
-                const newX = (e.clientX - state.panX) / state.scale - state.dragOffsetX;
-                const newY = (e.clientY - state.panY) / state.scale - state.dragOffsetY;
-
-                // Calculate old absolute position
-                let oldAbsX = state.dragNode.x;
-                let oldAbsY = state.dragNode.y;
-                if (state.dragNode.parentId !== null) {
-                    const absPos = getNodeAbsolutePosition(state.dragNode);
-                    oldAbsX = absPos.x;
-                    oldAbsY = absPos.y;
-                }
-
-                const dx = newX - oldAbsX;
-                const dy = newY - oldAbsY;
-
-                // Update position - for child nodes, update relative to parent but use absolute for display
-                if (state.dragNode.parentId !== null) {
-                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                    if (parent) {
-                        const parentAbsPos = getNodeAbsolutePosition(parent);
-                        state.dragNode.x = newX - parentAbsPos.x;
-                        state.dragNode.y = newY - parentAbsPos.y;
-                        state.dragNode.absX = newX;
-                        state.dragNode.absY = newY;
-                    }
-                } else {
-                    state.dragNode.x = newX;
-                    state.dragNode.y = newY;
-                }
-
-                // Move all selected root nodes together
-                if (state.selectedNodeIds.length > 1) {
-                    state.selectedNodeIds.forEach(id => {
-                        if (id !== state.dragNode.id) {
-                            const n = state.nodes.find(node => node.id === id);
-                            if (n && n.parentId === null) {
-                                n.x += dx;
-                                n.y += dy;
-                            }
-                        }
-                    });
-                }
-
-                // Move selected child nodes with same parent together
-                if (state.dragSelectedNodes && state.dragSelectedNodes.length > 0) {
-                    state.dragSelectedNodes.forEach(n => {
-                        if (n.parentId !== null) {
-                            n.x += dx;
-                            n.y += dy;
-                        }
-                    });
-                }
-
-                // Update collapsed connection destinations' positions when dragging source
-                if (state.dragNode) {
-                    const movedNodes = new Set();
-                    const moveCascade = (fromId, dx, dy) => {
-                        state.connections.forEach(conn => {
-                            if (conn.from === fromId && conn.collapsed) {
-                                const toNode = state.nodes.find(n => n.id === conn.to);
-                                if (toNode && !movedNodes.has(toNode.id)) {
-                                    movedNodes.add(toNode.id);
-                                    toNode.x += dx;
-                                    toNode.y += dy;
-                                    if (conn.originalToPos) {
-                                        conn.originalToPos.x += dx;
-                                        conn.originalToPos.y += dy;
-                                    }
-                                    // Recursively move descendants
-                                    moveCascade(toNode.id, dx, dy);
-                                }
-                            }
-                        });
-                    };
-                    moveCascade(state.dragNode.id, dx, dy);
-                }
-
-                // Unified drag detection: purely visual, based on DOM header position
-                // No special handling for parent/child/sibling - all nodes are treated equally
-                // Throttled to 60fps to avoid excessive DOM queries during fast mouse movement
-                const now = performance.now();
-                const isMultiDrag = state.dragSelectedNodes && state.dragSelectedNodes.length > 0;
-                if (state.dragNode && (!state.selectedNodeIds.includes(state.dragNode.id) || isMultiDrag) && now - _lastDropCheckTime >= DRAG_THROTTLE_MS) {
-                    _lastDropCheckTime = now;
-                    const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
-                    const mx = (e.clientX - canvasRect.left - state.panX) / state.scale;
-                    const my = (e.clientY - canvasRect.top - state.panY) / state.scale;
-                    let candidates = [];
-
-                    for (const node of state.nodes) {
-                        if (node.id === state.dragNode.id) continue;
-                        if (state.selectedNodeIds.includes(node.id)) continue;
-                        if (state.hiddenNodeIds && state.hiddenNodeIds.has(node.id)) continue;
-                        // Skip descendants of dragNode to prevent circular nesting
-                        let isDescendant = false;
-                        let current = node;
-                        while (current && current.parentId !== null) {
-                            if (current.parentId === state.dragNode.id) {
-                                isDescendant = true;
-                                break;
-                            }
-                            current = state.nodes.find(n => n.id === current.parentId);
-                        }
-                        if (isDescendant) continue;
-
-                        // Get bounds from DOM - parent nodes use header, child nodes use full div.node
-                        const domEl = document.querySelector(`.node[data-id="${node.id}"]`);
-                        if (!domEl) continue;
-                        let rect;
-                        if (node.parentId === null) {
-                            // Root nodes: use header for hit test to avoid child node overlap
-                            const headerEl = domEl.querySelector('.node-header') || domEl.querySelector('.node-title');
-                            rect = headerEl ? headerEl.getBoundingClientRect() : domEl.getBoundingClientRect();
-                        } else {
-                            // Child nodes: use full div.node (no .node-header class)
-                            rect = domEl.getBoundingClientRect();
-                        }
-                        const nx = (rect.left - canvasRect.left - state.panX) / state.scale;
-                        const ny = (rect.top - canvasRect.top - state.panY) / state.scale;
-                        const nw = rect.width / state.scale;
-                        const nh = rect.height / state.scale;
-
-                        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
-                            const centerX = nx + nw / 2;
-                            const centerY = ny + nh / 2;
-                            const dist = Math.hypot(mx - centerX, my - centerY);
-                            candidates.push({ node, dist });
-                        }
-                    }
-
-                    // Pick closest candidate
-                    let targetNode = null;
-                    let minDist = Infinity;
-                    for (const c of candidates) {
-                        if (c.dist < minDist) {
-                            minDist = c.dist;
-                            targetNode = c.node;
-                        }
-                    }
-
-                    // Clear all indicators
-                    document.querySelectorAll('.node').forEach(el => {
-                        el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
-                    });
-
-                    if (targetNode) {
-                        const targetDomEl = document.querySelector(`.node[data-id="${targetNode.id}"]`);
-                        let headerEl, fullRect;
-                        if (targetNode.parentId === null) {
-                            // Root nodes: use header for zone detection
-                            headerEl = targetDomEl ? (targetDomEl.querySelector('.node-header') || targetDomEl.querySelector('.node-title')) : null;
-                            fullRect = headerEl ? headerEl.getBoundingClientRect() : (targetDomEl ? targetDomEl.getBoundingClientRect() : null);
-                        } else {
-                            // Child nodes: use full div.node
-                            fullRect = targetDomEl ? targetDomEl.getBoundingClientRect() : null;
-                        }
-                        let tTop, tBottom;
-                        if (fullRect) {
-                            tTop = (fullRect.top - canvasRect.top - state.panY) / state.scale;
-                            tBottom = (fullRect.bottom - canvasRect.top - state.panY) / state.scale;
-                        } else {
-                            tTop = targetNode.y;
-                            tBottom = targetNode.y + (targetNode.height || 50);
-                        }
-                        const thirdH = (tBottom - tTop) / 3;
-
-                        if (my < tTop + thirdH) {
-                            // Top zone → insert before this node
-                            state.reorderTarget = { siblingId: targetNode.id, insertBefore: true, siblingParentId: targetNode.parentId };
-                            state.dropTarget = null;
-                            state.pendingExtract = false;
-                            showInsertGuide(targetNode.id, 'before');
-                            if (tooltip) { tooltip.textContent = '▲'; tooltip.classList.add('show'); }
-                        } else if (my > tBottom - thirdH) {
-                            // Bottom zone → insert after this node
-                            state.reorderTarget = { siblingId: targetNode.id, insertBefore: false, siblingParentId: targetNode.parentId };
-                            state.dropTarget = null;
-                            state.pendingExtract = false;
-                            showInsertGuide(targetNode.id, 'after');
-                            if (tooltip) { tooltip.textContent = '▼'; tooltip.classList.add('show'); }
-                        } else {
-                            // Middle zone → nest into this node
-                            state.dropTarget = targetNode;
-                            state.reorderTarget = null;
-                            state.pendingExtract = false;
-                            hideInsertGuides();
-                            if (targetDomEl) targetDomEl.classList.add('nest-target');
-                            if (tooltip) { tooltip.textContent = '▶'; tooltip.classList.add('show'); }
-                        }
-                    } else {
-                        state.dropTarget = null;
-                        state.reorderTarget = null;
-                        hideInsertGuides();
-                        if (state.dragNode.parentId !== null) {
-                            state.pendingExtract = true;
-                            if (tooltip) { tooltip.textContent = '⏎'; tooltip.classList.add('show'); }
-                        } else {
-                            state.pendingExtract = false;
-                            if (tooltip) tooltip.classList.remove('show');
-                        }
-                    }
-                }
-
-                throttledDragUpdate();
-                scheduleDragRender();
-            }
+            // ドラッグ処理（マウス・タッチ共通関数に委譲）
+            handleNodeDragMove(e.clientX, e.clientY);
         });
 
         window.addEventListener('touchmove', (e) => {
@@ -8321,14 +8551,14 @@ function getNodeEdgePoint(node, targetNode) {
                 setZoom(scale);
             }
 
-            // Child drag for touch is now started directly on touchstart - no candidate needed (unified drag)
-
+            // ノードドラッグ（マウスと共通処理に委譲）
             if (state.dragNode && e.touches.length === 1) {
+                e.preventDefault();
                 const touch = e.touches[0];
 
                 // Cancel long press if moved
-                if (longPressTimer) {
-                    const moveDist = Math.hypot(touch.clientX - state.lastMouseX, touch.clientY - state.lastMouseY);
+                if (longPressTimer && state.touchTapInfo) {
+                    const moveDist = Math.hypot(touch.clientX - state.touchTapInfo.startX, touch.clientY - state.touchTapInfo.startY);
                     if (moveDist > 10) {
                         clearTimeout(longPressTimer);
                         longPressTimer = null;
@@ -8336,50 +8566,7 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 }
 
-                const newX = (touch.clientX - state.panX) / state.scale - state.dragOffsetX;
-                const newY = (touch.clientY - state.panY) / state.scale - state.dragOffsetY;
-
-                // Calculate old absolute position
-                let oldAbsX = state.dragNode.x;
-                let oldAbsY = state.dragNode.y;
-                if (state.dragNode.parentId !== null) {
-                    const absPos = getNodeAbsolutePosition(state.dragNode);
-                    oldAbsX = absPos.x;
-                    oldAbsY = absPos.y;
-                }
-
-                const dx = newX - oldAbsX;
-                const dy = newY - oldAbsY;
-
-                // Update position (relative if child, absolute if parent)
-                if (state.dragNode.parentId !== null) {
-                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                    if (parent) {
-                        const parentAbsPos = getNodeAbsolutePosition(parent);
-                        state.dragNode.x = newX - parentAbsPos.x;
-                        state.dragNode.y = newY - parentAbsPos.y;
-                        state.dragNode.absX = newX;
-                        state.dragNode.absY = newY;
-                    }
-                } else {
-                    state.dragNode.x = newX;
-                    state.dragNode.y = newY;
-                }
-
-                if (state.selectedNodeIds.length > 1) {
-                    state.selectedNodeIds.forEach(id => {
-                        if (id !== state.dragNode.id) {
-                            const n = state.nodes.find(node => node.id === id);
-                            if (n && n.parentId === null) {
-                                n.x += dx;
-                                n.y += dy;
-                            }
-                        }
-                    });
-                }
-
-                renderAll();
-                renderGroups();
+                handleNodeDragMove(touch.clientX, touch.clientY);
             }
 
             // Connection drag on mobile
@@ -8483,194 +8670,8 @@ function getNodeEdgePoint(node, targetNode) {
                 state.dragIndicator = null;
             }
 
-            // Calculate whether node was actually dragged (vs just clicked)
-            const CLICK_THRESHOLD = 5;
-            let wasDragged = false;
-            if (state.dragNode) {
-                let currentAbsX = state.dragNode.x;
-                let currentAbsY = state.dragNode.y;
-                if (state.dragNode.parentId !== null) {
-                    // Use DOM position for child nodes (consistent with drag start)
-                    const domEl = document.querySelector(`.node[data-id="${state.dragNode.id}"]`);
-                    if (domEl) {
-                        const rect = domEl.getBoundingClientRect();
-                        const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
-                        currentAbsX = (rect.left - canvasRect.left - state.panX) / state.scale;
-                        currentAbsY = (rect.top - canvasRect.top - state.panY) / state.scale;
-                    } else {
-                        const absPos = getNodeAbsolutePosition(state.dragNode);
-                        currentAbsX = absPos.x;
-                        currentAbsY = absPos.y;
-                    }
-                }
-                wasDragged = Math.hypot(currentAbsX - state.dragStartX, currentAbsY - state.dragStartY) > CLICK_THRESHOLD;
-            }
-
-            // Unified drop handling - determined by mousemove visual detection
-            let didAction = false;
-
-            if (wasDragged && state.dragNode) {
-                const nodesToProcess = [state.dragNode, ...(state.dragSelectedNodes || [])];
-
-                // 1. Nest into dropTarget (middle zone drop)
-                if (state.dropTarget && !state.reorderTarget) {
-                    const parent = state.dropTarget;
-                    let nestCount = 0;
-
-                    nodesToProcess.forEach(child => {
-                        // Prevent circular nesting
-                        let current = parent;
-                        let isCircular = false;
-                        while (current) {
-                            if (current.id === child.id) {
-                                isCircular = true;
-                                break;
-                            }
-                            current = state.nodes.find(n => n.id === current.parentId);
-                        }
-
-                        if (!isCircular && child.id !== parent.id) {
-                            // Remove from old parent
-                            if (child.parentId !== null) {
-                                const oldParent = state.nodes.find(n => n.id === child.parentId);
-                                if (oldParent) {
-                                    oldParent.children = oldParent.children.filter(id => id !== child.id);
-                                    const absPos = getNodeAbsolutePosition(child);
-                                    child.x = absPos.x;
-                                    child.y = absPos.y;
-                                }
-                            }
-                            child.parentId = parent.id;
-                            if (!parent.children) parent.children = [];
-                            parent.children.push(child.id);
-                            child.x = 20;
-                            child.y = (parent.height || 50) + 10;
-                            child.width = Math.max(160, (parent.width || 200) - 40);
-                            nestCount++;
-                        }
-                    });
-
-                    if (nestCount > 0) {
-                        parent.expanded = true;
-                        didAction = true;
-                        showToast(`${nestCount}個のノードをタスクとして追加しました`);
-                    }
-                }
-                // 2. Reorder: insert before/after target node
-                else if (state.reorderTarget && !state.dropTarget) {
-                    const targetNode = state.nodes.find(n => n.id === state.reorderTarget.siblingId);
-                    const targetParentId = state.reorderTarget.siblingParentId;
-
-                    if (targetNode) {
-                        // Remove all nodes from old parent
-                        nodesToProcess.forEach(node => {
-                            if (node.parentId !== null) {
-                                const oldParent = state.nodes.find(n => n.id === node.parentId);
-                                if (oldParent && oldParent.children) {
-                                    oldParent.children = oldParent.children.filter(id => id !== node.id);
-                                    if (oldParent.children.length === 0) oldParent.expanded = false;
-                                }
-                            }
-                        });
-
-                        if (targetParentId === null) {
-                            // Target is root - make all nodes root too
-                            nodesToProcess.forEach((node, i) => {
-                                const absPos = getNodeAbsolutePosition(node);
-                                node.x = absPos.x;
-                                node.y = absPos.y;
-                                node.parentId = null;
-                                node.width = calculateNodeWidth(node.title, !!node.details?.link);
-                            });
-
-                            // Position near target
-                            let tx = targetNode.x, ty = targetNode.y;
-                            if (targetNode.parentId !== null) {
-                                const tAbs = getNodeAbsolutePosition(targetNode);
-                                tx = tAbs.x; ty = tAbs.y;
-                            }
-                            state.dragNode.x = tx;
-                            state.dragNode.y = ty + (targetNode.height || 50) + 20;
-
-                            didAction = true;
-                            showToast(`${nodesToProcess.length}個のノードを移動しました`);
-                        } else {
-                            // Target has parent - add all nodes to that parent
-                            const newParent = state.nodes.find(n => n.id === targetParentId);
-                            if (newParent) {
-                                const toIndex = newParent.children.indexOf(state.reorderTarget.siblingId);
-                                let insertIndex;
-                                if (toIndex !== -1) {
-                                    insertIndex = state.reorderTarget.insertBefore ? toIndex : toIndex + 1;
-                                } else {
-                                    insertIndex = newParent.children.length;
-                                }
-
-                                nodesToProcess.forEach((node, i) => {
-                                    node.parentId = targetParentId;
-                                    newParent.children.splice(insertIndex + i, 0, node.id);
-
-                                    const parentAbsPos = getNodeAbsolutePosition(newParent);
-                                    const absPos = getNodeAbsolutePosition(node);
-                                    node.x = absPos.x - parentAbsPos.x;
-                                    node.y = absPos.y - parentAbsPos.y;
-                                    node.width = Math.max(160, (newParent.width || 200) - 40);
-                                });
-
-                                didAction = true;
-                                showToast(`${nodesToProcess.length}個のノードの順序を変更しました`);
-                            }
-                        }
-                    }
-                }
-                // 3. No target but dragged nodes had parent → extract to root
-                else if (!didAction && state.dragNode.parentId !== null) {
-                    const parent = state.nodes.find(n => n.id === state.dragNode.parentId);
-                    if (parent) {
-                        nodesToProcess.forEach(node => {
-                            const absPos = getNodeAbsolutePosition(node);
-                            node.x = absPos.x;
-                            node.y = absPos.y;
-                            node.parentId = null;
-                            node.width = calculateNodeWidth(node.title, !!node.details?.link);
-                        });
-
-                        if (parent.children) {
-                            const nodeIds = new Set(nodesToProcess.map(n => n.id));
-                            parent.children = parent.children.filter(id => !nodeIds.has(id));
-                            if (parent.children.length === 0) parent.expanded = false;
-                        }
-
-                        didAction = true;
-                        showToast(`${nodesToProcess.length}個のノードを取り出しました`);
-                    }
-                }
-            }
-
-            state.dropTarget = null;
-            state.reorderTarget = null;
-            state.pendingExtract = false;            // Clear reorder indicators (all nodes including root)
-            document.querySelectorAll('.node').forEach(el => {
-                el.classList.remove('reorder-before', 'reorder-after', 'nest-target');
-            });
-            hideInsertGuides();
-            state.reorderTarget = null;
-
-            state.dragNode = null;
-            state.pendingExtract = false;
-            const tooltip = document.getElementById('drag-tooltip');
-            if (tooltip) tooltip.classList.remove('show');
-            renderAll();
-
-            if (didAction) {
-                saveSnapshot();
-            } else if (wasDragged) {
-                // 単純な位置移動も記録
-                saveSnapshot();
-            }
-
-            // Clear drag tooltip
-            state.pendingExtract = false;
+            // ドラッグ完了処理（マウス・タッチ共通関数に委譲）
+            finalizeNodeDrag();
 
             // End resize
             if (state.resizingNode) {
@@ -8695,7 +8696,7 @@ function getNodeEdgePoint(node, targetNode) {
             state.dragSelectedNodes = null;
         });
 
-        window.addEventListener('touchend', (e) => {
+        function handleTouchEnd(e) {
             state.isPanning = false;
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
@@ -8777,12 +8778,32 @@ function getNodeEdgePoint(node, targetNode) {
             const tempLine = document.getElementById('pending-connection');
             if (tempLine) tempLine.remove();
 
-            state.dragNode = null;
+            // ノードドラッグの確定（マウスと共通処理）
+            const wasDragged = finalizeNodeDrag();
             _draggedConnIds = null;
-            state.dragSelectedNodes = null;
 
-            // Clear drag tooltip for touch
-        });
+            // タップ（ドラッグ無し）でタイトルを触った場合はタイトル編集を開始
+            if (!wasDragged && state.touchTapInfo && state.touchTapInfo.targetIsTitle && !isLongPress) {
+                const tapInfo = state.touchTapInfo;
+                const tapNode = state.nodes.find(n => n.id === tapInfo.nodeId);
+                if (tapNode) {
+                    const domEl = document.querySelector(`.node[data-id="${tapNode.id}"]`);
+                    const titleEl = domEl ? domEl.querySelector('.node-title') : null;
+                    if (titleEl) {
+                        try {
+                            enableTitleEdit(titleEl, tapNode);
+                        } catch (err) {
+                            console.error('Error in enableTitleEdit:', err);
+                        }
+                    }
+                }
+            }
+            state.touchTapInfo = null;
+            isLongPress = false;
+        }
+
+        window.addEventListener('touchend', handleTouchEnd);
+        window.addEventListener('touchcancel', handleTouchEnd);
 
         function getPinchDistance(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
