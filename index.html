@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.1.0">
+    <meta name="version" content="v2.1.1">
     <title>TaskMind</title>
     <style>
         * {
@@ -318,6 +318,13 @@
             outline: 3px solid #4a90d9;
             outline-offset: 3px;
             box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.2);
+        }
+
+        /* タッチドラッグ中（DOM再生成を避けてtransformで移動） */
+        .node.touch-dragging {
+            z-index: 3000 !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25) !important;
+            opacity: 0.95;
         }
 
         .node-header {
@@ -7638,7 +7645,11 @@ function getNodeEdgePoint(node, targetNode) {
             isLongPress = false;
             longPressTimer = setTimeout(() => {
                 isLongPress = true;
-                toggleNodeSelection(node.id, true);
+                // タッチジェスチャー継続のためrenderNodesを避け、直接選択状態を更新
+                if (!state.selectedNodeIds.includes(node.id)) state.selectedNodeIds.push(node.id);
+                state.selectedNodeId = node.id;
+                const lpEl = document.querySelector(`.node[data-id="${node.id}"]`);
+                if (lpEl) lpEl.classList.add('selected');
             }, 500);
 
             // タップ判定用（ドラッグにならなかった場合はタップとして処理）
@@ -7696,7 +7707,10 @@ function getNodeEdgePoint(node, targetNode) {
                 state.dragSelectedNodes = null;
             }
 
-            renderNodes();
+            // タッチ中にDOM再生成するとブラウザがジェスチャーをキャンセルするため、
+            // renderNodesは呼ばず既存要素に直接クラスを付与する
+            const touchedEl = document.querySelector(`.node[data-id="${node.id}"]`);
+            if (touchedEl) touchedEl.classList.add('selected');
         }
 
         container.addEventListener('mousedown', (e) => {
@@ -7890,7 +7904,7 @@ function getNodeEdgePoint(node, targetNode) {
 
         // ==================== ドラッグ共通処理（マウス・タッチ共用） ====================
         // ドラッグ中の移動処理: 閾値判定・位置更新・ドロップ先検出・描画更新
-        function handleNodeDragMove(clientX, clientY) {
+        function handleNodeDragMove(clientX, clientY, isTouch = false) {
             // Check drag threshold before starting actual drag
             if (state.dragNode && !state.isDragging) {
                 const dx = Math.abs(clientX - state.dragStartMouseX);
@@ -7899,7 +7913,13 @@ function getNodeEdgePoint(node, targetNode) {
                     state.isDragging = true;
                     _draggedConnIds = buildDraggedConnIds();
                     nodesEl.style.cursor = 'grabbing';
-                    renderNodes();
+                    if (isTouch) {
+                        // タッチ中のDOM再生成はジェスチャーをキャンセルさせるため避ける
+                        const dragEl = document.querySelector(`.node[data-id="${state.dragNode.id}"]`);
+                        if (dragEl) dragEl.classList.add('touch-dragging');
+                    } else {
+                        renderNodes();
+                    }
                 }
             }
 
@@ -8111,7 +8131,22 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 }
 
-                throttledDragUpdate();
+                if (isTouch) {
+                    // タッチ中はtransformで視覚移動（DOM再生成を避けてジェスチャーを継続）
+                    const dxPx = (clientX - state.dragStartMouseX) / state.scale;
+                    const dyPx = (clientY - state.dragStartMouseY) / state.scale;
+                    const dragEl = document.querySelector(`.node[data-id="${state.dragNode.id}"]`);
+                    if (dragEl) dragEl.style.transform = `translate(${dxPx}px, ${dyPx}px)`;
+                    if (state.selectedNodeIds.length > 1) {
+                        state.selectedNodeIds.forEach(id => {
+                            if (id === state.dragNode.id) return;
+                            const selEl = document.querySelector(`.node[data-id="${id}"]`);
+                            if (selEl) selEl.style.transform = `translate(${dxPx}px, ${dyPx}px)`;
+                        });
+                    }
+                } else {
+                    throttledDragUpdate();
+                }
                 scheduleDragRender();
             }
         }
@@ -8566,7 +8601,7 @@ function getNodeEdgePoint(node, targetNode) {
                     }
                 }
 
-                handleNodeDragMove(touch.clientX, touch.clientY);
+                handleNodeDragMove(touch.clientX, touch.clientY, true);
             }
 
             // Connection drag on mobile
