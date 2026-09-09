@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.1.2">
+    <meta name="version" content="v2.1.3">
     <title>TaskMind</title>
     <style>
         * {
@@ -2203,7 +2203,10 @@
             if (opts.html) el.innerHTML = opts.html;
             if (opts.text) el.textContent = opts.text;
             if (opts.style) Object.assign(el.style, opts.style);
-            if (opts.attrs) Object.entries(opts.attrs).forEach(([k, v]) => el.setAttribute(k, v));
+            if (opts.attrs) Object.entries(opts.attrs).forEach(([k, v]) => {
+                if (v === false || v === null || v === undefined) return; // HTML boolean attrs: false must NOT create selected="false" (truthy in HTML)
+                el.setAttribute(k, v === true ? k : v);
+            });
             if (opts.on) Object.entries(opts.on).forEach(([k, fn]) => el.addEventListener(k, fn));
             if (opts.parent) opts.parent.appendChild(el);
             return el;
