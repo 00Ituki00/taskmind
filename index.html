@@ -1962,6 +1962,7 @@
         <button class="tool-btn" id="btn-autoload" title="自動読み込み">🔄</button>
         <button class="tool-btn" id="btn-save" title="上書き保存 (Ctrl+S)">💾</button>
         <button class="tool-btn" id="btn-load" title="読込">📂</button>
+        <button class="tool-btn" id="btn-drive" title="Google Drive から読込">☁️</button>
         <div style="display:inline-flex; flex-direction:column; margin-left:8px; vertical-align:middle;">
             <span id="file-info" style="font-size:12px; color:#888; line-height:1.4;"></span>
             <span id="file-path" style="font-size:11px; color:#aaa; line-height:1.4; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
@@ -9904,6 +9905,14 @@ function getNodeEdgePoint(node, targetNode) {
                 loadFromFile();
             } else {
                 fileInput.click();
+            }
+        });
+        document.getElementById('btn-drive').addEventListener('click', async () => {
+            try {
+                await driveLoad();
+            } catch (e) {
+                console.error('Drive load failed:', e);
+                showToast('Drive 読込エラー: ' + (e && e.message ? e.message : e));
             }
         });
         document.getElementById('btn-recalc').addEventListener('click', () => {
