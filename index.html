@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.1.3">
+    <meta name="version" content="v2.1.4">
     <title>TaskMind</title>
+    <!-- Google Identity Services for Drive API -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
             margin: 0;
@@ -2128,6 +2130,9 @@
             lastFileHandle: null,
             lastFileName: null,
             lastFilePath: null,
+            // Google Drive integration (v2.1.4)
+            driveFileId: null,
+            saveDestination: 'local', // 'local' | 'drive'
             hideCompleted: false,
             layoutMode: 'free',  // 'free' | 'timeline'
             timeline: {
@@ -9432,6 +9437,150 @@ function getNodeEdgePoint(node, targetNode) {
             }
         });
 
+        // ==================== Google Drive Integration (v2.1.4) ====================
+        // Minimal Drive integration: uses GIS token; CLIENT_ID must be configured in Google Cloud.
+        // Drive save/load is best-effort; local storage remains the authoritative backup.
+        const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+        function initGoogleDrive() {
+            if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+                console.warn('[Drive] GIS not loaded yet');
+                return;
+            }
+            // Token client: requires CLIENT_ID configured externally.
+            // Placeholder client ID; the user must set their own CLIENT_ID in code/config.
+            window.driveTokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
+                scope: DRIVE_SCOPE,
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        window.driveAccessToken = tokenResponse.access_token;
+                        console.log('[Drive] Token acquired');
+                    } else {
+                        console.warn('[Drive] Token request did not return access_token');
+                        window.driveAccessToken = null;
+                    }
+                }
+            });
+            console.log('[Drive] initGoogleDrive called (CLIENT_ID must be set by user)');
+        }
+
+        async function driveSave(overwrite = false) {
+            if (!window.driveAccessToken) {
+                showToast('Drive: 認証が必要です（CLIENT_ID の設定とログインが必要）');
+                return Promise.reject(new Error('Drive: no access token'));
+            }
+            const payload = buildSavePayload();
+            const json = JSON.stringify(payload, null, 2);
+            const filename = state.lastFileName || `taskmind-${new Date().toISOString().slice(0,10)}.json`;
+            // Minimal multipart upload to Drive; update existing file via driveFileId when available.
+            const boundary = '-------taskmind_boundary';
+            const delimiter = '\r\n--' + boundary + '\r\n';
+            const closeDelimiter = '\r\n--' + boundary + '--';
+            const metadataPart = JSON.stringify({ name: filename, mimeType: 'application/json', parents: ['root'] }) + (state.driveFileId ? '' : '');
+            // For simplicity: upload new file (resumable not implemented in minimal version).
+            const metadataBody = delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify({ name: filename, mimeType: 'application/json' }) + delimiter + 'Content-Type: application/json\r\n\r\n' + json + closeDelimiter;
+            try {
+                const url = state.driveFileId
+                    ? `https://www.googleapis.com/upload/drive/v3/files/${state.driveFileId}?uploadType=multipart`
+                    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+                const response = await fetch(url, {
+                    method: state.driveFileId ? 'PATCH' : 'POST',
+                    headers: { Authorization: 'Bearer ' + window.driveAccessToken, 'Content-Type': 'multipart/related; boundary=' + boundary },
+                    body: metadataBody
+                });
+                const result = await response.json();
+                if (result.id) {
+                    state.driveFileId = result.id;
+                    state.saveDestination = 'drive';
+                    showToast('Drive保存完了: ' + (result.name || filename));
+                    console.log('[Drive] Saved file id:', result.id);
+                } else {
+                    showToast('Drive保存失敗: レスポンスにファイルIDが含まれていません');
+                }
+                return result;
+            } catch (err) {
+                showToast('Drive保存失敗: ' + (err && err.message ? err.message : String(err)));
+                console.error('[Drive] Save error:', err);
+                throw err;
+            }
+        }
+
+        async function driveLoad() {
+            if (!window.driveAccessToken) {
+                showToast('Drive: 認証が必要です');
+                return Promise.reject(new Error('Drive: no access token'));
+            }
+            try {
+                // List files named taskmind*.json; in minimal version, pick the first match.
+                const listUrl = 'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent("name contains 'taskmind' and mimeType='application/json' and 'me' in owners") + '&fields=files(id,name,modifiedTime)';
+                const listResp = await fetch(listUrl, { headers: { Authorization: 'Bearer ' + window.driveAccessToken } });
+                const listData = await listResp.json();
+                const files = (listData.files || []);
+                if (!files.length) {
+                    showToast('Drive: ファイルが見つかりません（taskmind*.json で検索）');
+                    return Promise.reject(new Error('Drive: no files found'));
+                }
+                const file = files[0]; // minimal: pick first match
+                const downloadUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
+                const downloadResp = await fetch(downloadUrl, { headers: { Authorization: 'Bearer ' + window.driveAccessToken } });
+                const data = await downloadResp.json();
+                applyLoadedData(data);
+                state.lastFileName = file.name;
+                state.lastFilePath = file.name + ' (Drive)';
+                state.driveFileId = file.id;
+                state.saveDestination = 'drive';
+                showToast('Drive読込完了: ' + file.name);
+                console.log('[Drive] Loaded file id:', file.id);
+                return data;
+            } catch (err) {
+                showToast('Drive読込失敗: ' + (err && err.message ? err.message : String(err)));
+                console.error('[Drive] Load error:', err);
+                throw err;
+            }
+        }
+
+        function buildSavePayload() {
+            return {
+                version: 3, // bumped for Drive tracking; backward-compatible fields preserved
+                nodes: state.nodes,
+                connections: state.connections,
+                nextId: state.nextId,
+                customConnectionTypes: state.customConnectionTypes,
+                lastFileName: state.lastFileName,
+                lastFilePath: state.lastFilePath,
+                driveFileId: state.driveFileId,
+                saveDestination: state.saveDestination
+            };
+        }
+
+        function applyLoadedData(data) {
+            // Unified restore path used by file, autosave, and Drive.
+            state.nodes = (data.nodes || []).map(n => {
+                const node = { ...n, completed: n.completed ?? false };
+                if (typeof node.priority !== 'number') node.priority = 0;
+                if (!node.type) node.type = 'task';
+                if (!node.details || typeof node.details !== 'object') {
+                    node.details = { when: { cycle: '', startDate: '', deadline: '' }, what: '', who: '', where: '', link: '' };
+                }
+                if (!node.children) node.children = [];
+                return node;
+            });
+            state.connections = (data.connections || []).map(c => ({
+                ...c,
+                collapsed: c.collapsed ?? false,
+                originalToPos: c.originalToPos ?? null
+            }));
+            state.nextId = data.nextId || 1;
+            state.customConnectionTypes = data.customConnectionTypes || [];
+            state.lastFileName = data.lastFileName || null;
+            state.lastFilePath = data.lastFilePath || data.lastFileName || null;
+            state.driveFileId = data.driveFileId || state.driveFileId || null;
+            state.saveDestination = data.saveDestination || state.saveDestination || 'local';
+        }
+
+        // ==================== End Google Drive Integration ====================
+
         // ==================== FileHandle Persistence (IndexedDB) ====================
         const DB_NAME = 'taskmind';
         const DB_STORE = 'fileHandles';
@@ -10317,6 +10466,9 @@ function getNodeEdgePoint(node, targetNode) {
         } else {
             initDemoData();
         }
+        
+        // Initialize Google Drive integration (v2.1.4)
+        initGoogleDrive();
         
         // fetch Last-Modified header to show file update time and commit id
         (function updateFileInfo() {

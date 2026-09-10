@@ -66,8 +66,8 @@ python -m http.server 8080
 
 ### 保存・読込
 
-- **保存** - 💾ボタン または Ctrl+S（JSONファイルとしてダウンロード）
-- **読込** - 📂ボタン（JSONファイルを選択）
+- **保存** - 💾ボタン または Ctrl+S（JSONファイルとしてダウンロード、または File System Access API による上書き保存）。v2.1.4 から Google Drive 連携（initGoogleDrive()）を追加。CLIENT_ID はコード内で設定が必要（現在 YOUR_GOOGLE_CLIENT_ID のプレースホルダー）。Drive 保存時も localStorage（	askmind_autosave）によるローカルバックアップを維持。
+- **読込** - 📂ボタン（JSONファイルを選択、または File System Access API による読み込み）。driveLoad() は認証後に Drive 上の 	askmind*.json を読み込み可能（最小実装）。
 
 ### ショートカットキー
 
