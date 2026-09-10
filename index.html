@@ -9522,7 +9522,26 @@ function getNodeEdgePoint(node, targetNode) {
                     showToast('Drive: ファイルが見つかりません（taskmind*.json で検索）');
                     return Promise.reject(new Error('Drive: no files found'));
                 }
-                const file = files[0]; // minimal: pick first match
+                // ファイル選択ダイアログ（複数あれば番号選択、1つなら確認）
+                let selectedFile;
+                if (files.length === 1) {
+                    selectedFile = files[0];
+                    const ok = confirm('Drive で見つかったファイルを読み込みますか？\n\n' + selectedFile.name + '\n（最終更新: ' + selectedFile.modifiedTime + '）');
+                    if (!ok) {
+                        showToast('Drive読込をキャンセルしました');
+                        return Promise.reject(new Error('Drive: user cancelled'));
+                    }
+                } else {
+                    const fileListText = files.map((f, i) => (i + 1) + '. ' + f.name + ' （更新: ' + f.modifiedTime + '）').join('\n');
+                    const input = prompt('Drive で見つかったファイルを選択してください（番号を入力）:\n\n' + fileListText + '\n\n1 から ' + files.length + ' までの番号を入力してください');
+                    const idx = parseInt(input, 10);
+                    if (!input || isNaN(idx) || idx < 1 || idx > files.length) {
+                        showToast('Drive読込をキャンセルしました（無効な選択）');
+                        return Promise.reject(new Error('Drive: invalid selection'));
+                    }
+                    selectedFile = files[idx - 1];
+                }
+                const file = selectedFile; // 選択されたファイルを使用
                 const downloadUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
                 const downloadResp = await fetch(downloadUrl, { headers: { Authorization: 'Bearer ' + window.driveAccessToken } });
                 const data = await downloadResp.json();
