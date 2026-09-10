@@ -7,6 +7,8 @@
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google Picker for Drive file selection -->
+    <script src="https://apis.google.com/js/picker.js" async defer></script>
     <style>
         * {
             margin: 0;
@@ -9512,52 +9514,53 @@ function getNodeEdgePoint(node, targetNode) {
                 showToast('Drive: 認証が必要です');
                 return Promise.reject(new Error('Drive: no access token'));
             }
-            try {
-                // List files named taskmind*.json; in minimal version, pick the first match.
-                const listUrl = 'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent("name contains 'taskmind' and mimeType='application/json' and 'me' in owners") + '&fields=files(id,name,modifiedTime)';
-                const listResp = await fetch(listUrl, { headers: { Authorization: 'Bearer ' + window.driveAccessToken } });
-                const listData = await listResp.json();
-                const files = (listData.files || []);
-                if (!files.length) {
-                    showToast('Drive: ファイルが見つかりません（taskmind*.json で検索）');
-                    return Promise.reject(new Error('Drive: no files found'));
-                }
-                // ファイル選択ダイアログ（複数あれば番号選択、1つなら確認）
-                let selectedFile;
-                if (files.length === 1) {
-                    selectedFile = files[0];
-                    const ok = confirm('Drive で見つかったファイルを読み込みますか？\n\n' + selectedFile.name + '\n（最終更新: ' + selectedFile.modifiedTime + '）');
-                    if (!ok) {
-                        showToast('Drive読込をキャンセルしました');
-                        return Promise.reject(new Error('Drive: user cancelled'));
-                    }
-                } else {
-                    const fileListText = files.map((f, i) => (i + 1) + '. ' + f.name + ' （更新: ' + f.modifiedTime + '）').join('\n');
-                    const input = prompt('Drive で見つかったファイルを選択してください（番号を入力）:\n\n' + fileListText + '\n\n1 から ' + files.length + ' までの番号を入力してください');
-                    const idx = parseInt(input, 10);
-                    if (!input || isNaN(idx) || idx < 1 || idx > files.length) {
-                        showToast('Drive読込をキャンセルしました（無効な選択）');
-                        return Promise.reject(new Error('Drive: invalid selection'));
-                    }
-                    selectedFile = files[idx - 1];
-                }
-                const file = selectedFile; // 選択されたファイルを使用
-                const downloadUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
-                const downloadResp = await fetch(downloadUrl, { headers: { Authorization: 'Bearer ' + window.driveAccessToken } });
-                const data = await downloadResp.json();
-                applyLoadedData(data);
-                state.lastFileName = file.name;
-                state.lastFilePath = file.name + ' (Drive)';
-                state.driveFileId = file.id;
-                state.saveDestination = 'drive';
-                showToast('Drive読込完了: ' + file.name);
-                console.log('[Drive] Loaded file id:', file.id);
-                return data;
-            } catch (err) {
-                showToast('Drive読込失敗: ' + (err && err.message ? err.message : String(err)));
-                console.error('[Drive] Load error:', err);
-                throw err;
+            // 標準の Google Picker ダイアログを表示
+            if (typeof google === 'undefined' || !google.picker) {
+                showToast('Drive Picker: API がまだ読み込まれていません。再試行してください');
+                return Promise.reject(new Error('Drive Picker: picker API not loaded'));
             }
+            return new Promise((resolve, reject) => {
+                const picker = new google.picker.PickerBuilder()
+                    .addView(google.picker.ViewId.DOCS)
+                    .addView(new google.picker.DocsView()
+                        .setIncludeFolders(false)
+                        .setMimeTypes('application/json')
+                        .setSelectFolderEnabled(false))
+                    .setOAuthToken(window.driveAccessToken)
+                    .setDeveloperKey('352721088879-8a3mnffhkqo8o44mr91sirlprkauv28l') // 既存 CLIENT_ID を Picker Developer Key として使用
+                    .setCallback((data) => {
+                        if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
+                            const doc = data[google.picker.Response.DOCUMENTS][0];
+                            const fileId = doc.id;
+                            const fileName = doc.name || doc.description || 'Drive ファイル';
+                            // 選択されたファイルをダウンロードして読み込み
+                            fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media', {
+                                headers: { Authorization: 'Bearer ' + window.driveAccessToken }
+                            })
+                            .then(r => r.json())
+                            .then(dataObj => {
+                                applyLoadedData(dataObj);
+                                state.lastFileName = fileName;
+                                state.lastFilePath = fileName + ' (Drive)';
+                                state.driveFileId = fileId;
+                                state.saveDestination = 'drive';
+                                showToast('Drive読込完了: ' + fileName);
+                                console.log('[Drive] Loaded file id:', fileId);
+                                resolve(dataObj);
+                            })
+                            .catch(err => {
+                                showToast('Drive読込失敗: ' + (err && err.message ? err.message : String(err)));
+                                console.error('[Drive] Load error:', err);
+                                reject(err);
+                            });
+                        } else if (data[google.picker.Response.ACTION] === google.picker.Action.CANCEL) {
+                            showToast('Drive読込をキャンセルしました');
+                            reject(new Error('Drive: user cancelled picker'));
+                        }
+                    })
+                    .build();
+                picker.setVisible(true);
+            });
         }
 
         function buildSavePayload() {
