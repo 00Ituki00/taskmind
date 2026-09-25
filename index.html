@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.2.5">
+    <meta name="version" content="v2.2.6">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1939,7 +1939,13 @@
             }
         }
         /* Groups (v2.2.0) */
+        /* v2.2.6: ボックス背景はノード背面(groups)、ヘッダー/ハンドルは最前面レイヤー(group-ui)で運用 */
         #groups {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+        #group-ui {
             position: absolute;
             inset: 0;
             pointer-events: none;
@@ -1948,6 +1954,11 @@
         #nodes {
             position: relative;
             z-index: 1;
+        }
+        .group-chrome {
+            position: absolute;
+            pointer-events: none;
+            box-sizing: border-box;
         }
         .group-box {
             position: absolute;
@@ -1976,7 +1987,7 @@
             box-sizing: border-box;
             pointer-events: auto;
         }
-        .group-box.collapsed .group-header {
+        .group-chrome.collapsed .group-header {
             border-bottom: none;
             border-radius: 8px;
             height: 100%;
@@ -2077,6 +2088,7 @@
             <div id="selection-box" class="selection-box" style="display:none;"></div>
             <div id="groups"></div>
             <div id="nodes"></div>
+            <div id="group-ui"></div>
         </div>
     </div>
 
@@ -2385,6 +2397,7 @@
         const canvas = document.getElementById('canvas');
         const nodesEl = document.getElementById('nodes');
         const groupsEl = document.getElementById('groups');
+        const groupUiEl = document.getElementById('group-ui');
         const connectionsSvg = document.getElementById('connections');
         const toastEl = document.getElementById('toast');
         const modeIndicator = document.getElementById('mode-indicator');
@@ -2941,7 +2954,7 @@
 
         let groupDragState = null;
 
-        function startGroupDrag(e, group, boxEl) {
+        function startGroupDrag(e, group, dragEls) {
             e.preventDefault();
             e.stopPropagation();
             if (e.button !== undefined && e.button !== 0) return;
@@ -2956,6 +2969,24 @@
                 // 親もメンバーの子は親のDOM内に描画されるため除外（二重移動防止）
                 return !(n.parentId !== null && memberIds.includes(n.parentId));
             });
+            const applyTransform = (dx, dy) => {
+                (dragEls || []).forEach(el => {
+                    if (el) el.style.transform = `translate(${dx}px, ${dy}px)`;
+                });
+                memberRootIds.forEach(id => {
+                    const el = document.querySelector(`.node[data-id="${id}"]`);
+                    if (el) el.style.transform = `translate(${dx}px, ${dy}px)`;
+                });
+            };
+            const clearTransform = () => {
+                (dragEls || []).forEach(el => {
+                    if (el) el.style.transform = '';
+                });
+                memberRootIds.forEach(id => {
+                    const el = document.querySelector(`.node[data-id="${id}"]`);
+                    if (el) el.style.transform = '';
+                });
+            };
             const onMove = (ev) => {
                 if (!groupDragState) return;
                 const dx = (ev.clientX - startClientX) / state.scale;
@@ -2964,20 +2995,12 @@
                 groupDragState.moved = true;
                 lastDx = dx;
                 lastDy = dy;
-                if (boxEl) boxEl.style.transform = `translate(${dx}px, ${dy}px)`;
-                memberRootIds.forEach(id => {
-                    const el = document.querySelector(`.node[data-id="${id}"]`);
-                    if (el) el.style.transform = `translate(${dx}px, ${dy}px)`;
-                });
+                applyTransform(dx, dy);
             };
             const onUp = () => {
                 window.removeEventListener('mousemove', onMove);
                 window.removeEventListener('mouseup', onUp);
-                if (boxEl) boxEl.style.transform = '';
-                memberRootIds.forEach(id => {
-                    const el = document.querySelector(`.node[data-id="${id}"]`);
-                    if (el) el.style.transform = '';
-                });
+                clearTransform();
                 if (groupDragState && groupDragState.moved) {
                     moveGroupBy(group, lastDx, lastDy);
                     saveSnapshot();
@@ -3062,7 +3085,18 @@
                         height: (g.collapsed ? 34 : bounds.height) + 'px'
                     }
                 });
-                const header = createEl('div', { class: 'group-header', parent: box });
+                groupsEl.appendChild(box);
+                // v2.2.6: ヘッダー/ハンドルは最前面レイヤー(group-ui)、ボックス背景はノード背面(groups)
+                const chrome = createEl('div', {
+                    class: 'group-chrome' + (g.collapsed ? ' collapsed' : ''),
+                    style: {
+                        left: bounds.x + 'px',
+                        top: bounds.y + 'px',
+                        width: bounds.width + 'px',
+                        height: (g.collapsed ? 34 : bounds.height) + 'px'
+                    }
+                });
+                const header = createEl('div', { class: 'group-header', parent: chrome });
                 createEl('button', {
                     class: 'group-toggle',
                     text: g.collapsed ? '▸' : '▾',
@@ -3098,9 +3132,10 @@
                     },
                     parent: header
                 });
-                header.addEventListener('mousedown', (ev) => startGroupDrag(ev, g, box));
-                createGroupResizeHandles(g, box);
-                groupsEl.appendChild(box);
+                header.addEventListener('mousedown', (ev) => startGroupDrag(ev, g, [box, chrome]));
+                header.addEventListener('dblclick', (ev) => { ev.stopPropagation(); toggleGroupCollapse(g.id); });
+                createGroupResizeHandles(g, chrome);
+                groupUiEl.appendChild(chrome);
             });
         }
         // ==================== End Groups ====================
