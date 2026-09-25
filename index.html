@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.2.0">
+    <meta name="version" content="v2.2.2">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2008,6 +2008,24 @@
         .group-ungroup:hover {
             color: #d32f2f;
         }
+        .group-resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border: 1.5px solid #4a90d9;
+            border-radius: 2px;
+            box-sizing: border-box;
+            z-index: 5;
+        }
+        .rh-nw { top: -5px; left: -5px; cursor: nwse-resize; }
+        .rh-n  { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+        .rh-ne { top: -5px; right: -5px; cursor: nesw-resize; }
+        .rh-e  { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
+        .rh-se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+        .rh-s  { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+        .rh-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+        .rh-w  { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
     </style>
 </head>
 <body>
@@ -2849,10 +2867,7 @@
         function toggleGroupCollapse(id) {
             const g = getGroupById(id);
             if (!g) return;
-            if (!g.collapsed) {
-                const b = computeGroupBounds(g);
-                if (b) g.width = b.width;
-            }
+            // v2.2.2: サイズは保存値をそのまま使用（自動調整しない）
             g.collapsed = !g.collapsed;
             saveSnapshot();
             renderAll();
@@ -2895,8 +2910,9 @@
             let targetArea = Infinity;
             (state.groups || []).forEach(g => {
                 if (g.collapsed) return;
-                const b = computeGroupBounds(g);
-                if (!b) return;
+                // v2.2.2: 保存された境界で判定（メンバー位置からの自動再計算はしない）
+                if (!g.width || !g.height) return;
+                const b = { x: g.x, y: g.y, width: g.width, height: g.height };
                 if (cx >= b.x && cx <= b.x + b.width && cy >= b.y && cy <= b.y + b.height) {
                     const area = b.width * b.height;
                     if (area < targetArea) { target = g; targetArea = area; }
@@ -2952,16 +2968,68 @@
             window.addEventListener('mouseup', onUp);
         }
 
+        function createGroupResizeHandles(group, box) {
+            if (group.collapsed) return;
+            const dirs = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+            dirs.forEach(dir => {
+                const h = createEl('div', { class: 'group-resize-handle rh-' + dir, parent: box });
+                h.addEventListener('mousedown', (e) => startGroupResize(e, group, dir));
+            });
+        }
+
+        function startGroupResize(e, group, dir) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.button !== undefined && e.button !== 0) return;
+            const startX = e.clientX, startY = e.clientY;
+            const orig = { x: group.x, y: group.y, w: group.width, h: group.height };
+            let rafPending = false;
+            const onMove = (ev) => {
+                const dx = (ev.clientX - startX) / state.scale;
+                const dy = (ev.clientY - startY) / state.scale;
+                if (dir.includes('e')) group.width = Math.max(140, orig.w + dx);
+                if (dir.includes('s')) group.height = Math.max(80, orig.h + dy);
+                if (dir.includes('w')) {
+                    const nw = Math.max(140, orig.w - dx);
+                    group.x = orig.x + (orig.w - nw);
+                    group.width = nw;
+                }
+                if (dir.includes('n')) {
+                    const nh = Math.max(80, orig.h - dy);
+                    group.y = orig.y + (orig.h - nh);
+                    group.height = nh;
+                }
+                if (!rafPending) {
+                    rafPending = true;
+                    requestAnimationFrame(() => {
+                        rafPending = false;
+                        renderAll();
+                    });
+                }
+            };
+            const onUp = () => {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+                saveSnapshot();
+            };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+        }
+
         function renderGroups() {
             groupsEl.innerHTML = '';
             if (state.layoutMode === 'timeline') return;
             (state.groups || []).forEach(g => {
+                // v2.2.2: サイズは保存値を使用。未設定（旧データ等）の場合のみ一度だけ自動計算
+                if (!g.width || !g.height) {
+                    const fb = computeGroupBounds(g);
+                    if (fb) { g.x = fb.x; g.y = fb.y; g.width = fb.width; g.height = fb.height; }
+                }
                 let bounds;
                 if (g.collapsed) {
                     bounds = { x: g.x, y: g.y, width: g.width || 220, height: 34 };
                 } else {
-                    bounds = computeGroupBounds(g) || { x: g.x, y: g.y, width: g.width, height: g.height };
-                    g.x = bounds.x; g.y = bounds.y; g.width = bounds.width; g.height = bounds.height;
+                    bounds = { x: g.x, y: g.y, width: g.width || 220, height: g.height || 120 };
                 }
                 const box = createEl('div', {
                     class: 'group-box' + (g.collapsed ? ' collapsed' : ''),
@@ -3011,6 +3079,7 @@
                     parent: header
                 });
                 header.addEventListener('mousedown', (ev) => startGroupDrag(ev, g));
+                createGroupResizeHandles(g, box);
                 groupsEl.appendChild(box);
             });
         }
