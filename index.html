@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.2.2">
+    <meta name="version" content="v2.2.3">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2934,34 +2934,48 @@
 
         let groupDragState = null;
 
-        function startGroupDrag(e, group) {
+        function startGroupDrag(e, group, boxEl) {
             e.preventDefault();
             e.stopPropagation();
             if (e.button !== undefined && e.button !== 0) return;
             groupDragState = { group: group, moved: false };
-            let lastX = e.clientX, lastY = e.clientY;
-            let rafPending = false;
+            const startClientX = e.clientX, startClientY = e.clientY;
+            let lastDx = 0, lastDy = 0;
+            // v2.2.3: ドラッグ中はCSS transformで視覚移動（renderAllによる全DOM再構築を避けて滑らかに）
+            const memberIds = group.nodeIds || [];
+            const memberRootIds = memberIds.filter(id => {
+                const n = state.nodes.find(x => x.id === id);
+                if (!n) return false;
+                // 親もメンバーの子は親のDOM内に描画されるため除外（二重移動防止）
+                return !(n.parentId !== null && memberIds.includes(n.parentId));
+            });
             const onMove = (ev) => {
                 if (!groupDragState) return;
-                const dx = (ev.clientX - lastX) / state.scale;
-                const dy = (ev.clientY - lastY) / state.scale;
-                lastX = ev.clientX;
-                lastY = ev.clientY;
-                if (dx === 0 && dy === 0) return;
+                const dx = (ev.clientX - startClientX) / state.scale;
+                const dy = (ev.clientY - startClientY) / state.scale;
+                if (!groupDragState.moved && Math.hypot(dx, dy) * state.scale < 3) return;
                 groupDragState.moved = true;
-                moveGroupBy(group, dx, dy);
-                if (!rafPending) {
-                    rafPending = true;
-                    requestAnimationFrame(() => {
-                        rafPending = false;
-                        renderAll();
-                    });
-                }
+                lastDx = dx;
+                lastDy = dy;
+                if (boxEl) boxEl.style.transform = `translate(${dx}px, ${dy}px)`;
+                memberRootIds.forEach(id => {
+                    const el = document.querySelector(`.node[data-id="${id}"]`);
+                    if (el) el.style.transform = `translate(${dx}px, ${dy}px)`;
+                });
             };
             const onUp = () => {
                 window.removeEventListener('mousemove', onMove);
                 window.removeEventListener('mouseup', onUp);
-                if (groupDragState && groupDragState.moved) saveSnapshot();
+                if (boxEl) boxEl.style.transform = '';
+                memberRootIds.forEach(id => {
+                    const el = document.querySelector(`.node[data-id="${id}"]`);
+                    if (el) el.style.transform = '';
+                });
+                if (groupDragState && groupDragState.moved) {
+                    moveGroupBy(group, lastDx, lastDy);
+                    saveSnapshot();
+                    renderAll();
+                }
                 groupDragState = null;
             };
             window.addEventListener('mousemove', onMove);
@@ -3078,7 +3092,7 @@
                     },
                     parent: header
                 });
-                header.addEventListener('mousedown', (ev) => startGroupDrag(ev, g));
+                header.addEventListener('mousedown', (ev) => startGroupDrag(ev, g, box));
                 createGroupResizeHandles(g, box);
                 groupsEl.appendChild(box);
             });
