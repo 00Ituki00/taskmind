@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.2.7">
+    <meta name="version" content="v2.2.8">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2248,6 +2248,7 @@
             // Groups (v2.2.0)
             groups: [],
             nextGroupId: 1,
+            selectedGroupId: null, // v2.2.8: 選択中グループ（リサイズハンドル表示用）
             hideCompleted: false,
             layoutMode: 'free',  // 'free' | 'timeline'
             timeline: {
@@ -2671,7 +2672,9 @@
         function clearSelection() {
             state.selectedNodeIds = [];
             state.selectedNodeId = null;
+            state.selectedGroupId = null;
             renderNodes();
+            renderGroups();
         }
 
         function toggleNodeSelection(nodeId, append = false) {
@@ -2687,7 +2690,9 @@
                 state.selectedNodeIds.push(nodeId);
                 state.selectedNodeId = nodeId;
             }
+            state.selectedGroupId = null;
             renderNodes();
+            renderGroups();
         }
 
                 function selectNode(nodeOrId, append = false) {
@@ -2870,6 +2875,7 @@
             const b = computeGroupBounds(g);
             if (b) { g.x = b.x; g.y = b.y; g.width = b.width; g.height = b.height; }
             state.groups.push(g);
+            state.selectedGroupId = g.id;
             saveSnapshot();
             renderAll();
             showToast('グループを作成しました: ' + g.name);
@@ -2879,6 +2885,7 @@
             const i = (state.groups || []).findIndex(g => g.id === id);
             if (i < 0) return;
             state.groups.splice(i, 1);
+            if (state.selectedGroupId === id) state.selectedGroupId = null;
             saveSnapshot();
             renderAll();
             showToast('グループを解除しました');
@@ -3003,7 +3010,14 @@
                 clearTransform();
                 if (groupDragState && groupDragState.moved) {
                     moveGroupBy(group, lastDx, lastDy);
+                    state.selectedGroupId = group.id;
                     saveSnapshot();
+                    renderAll();
+                } else {
+                    // v2.2.8: クリック（非ドラッグ）でグループを選択、ノード選択を解除
+                    state.selectedGroupId = group.id;
+                    state.selectedNodeIds = [];
+                    state.selectedNodeId = null;
                     renderAll();
                 }
                 groupDragState = null;
@@ -3014,6 +3028,8 @@
 
         function createGroupResizeHandles(group, box) {
             if (group.collapsed) return;
+            // v2.2.8: 選択中のグループのみハンドルを表示
+            if (state.selectedGroupId !== group.id) return;
             const dirs = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
             dirs.forEach(dir => {
                 const h = createEl('div', { class: 'group-resize-handle rh-' + dir, parent: box });
@@ -8194,6 +8210,12 @@ function getNodeEdgePoint(node, targetNode) {
                 e.target.closest('.group-box') ||
                 e.target.classList.contains('selection-box')) return;
 
+            // v2.2.8: キャンバスの空打ちでグループ選択を解除
+            if (state.selectedGroupId) {
+                state.selectedGroupId = null;
+                renderGroups();
+            }
+
             if (state.mode === 'node') {
                 const x = (e.clientX - state.panX) / state.scale;
                 const y = (e.clientY - state.panY) / state.scale;
@@ -10038,7 +10060,7 @@ function getNodeEdgePoint(node, targetNode) {
 
         function buildSavePayload() {
             return {
-                version: 3, // bumped for Drive tracking; backward-compatible fields preserved
+                version: 4, // v2.2.8: groups/nextGroupId added; backward-compatible fields preserved
                 nodes: state.nodes,
                 connections: state.connections,
                 nextId: state.nextId,
@@ -10142,15 +10164,8 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function saveToFile(overwrite = false) {
-            const data = {
-                version: 2,
-                nodes: state.nodes,
-                connections: state.connections,
-                nextId: state.nextId,
-                customConnectionTypes: state.customConnectionTypes,
-                lastFileName: state.lastFileName,
-                lastFilePath: state.lastFilePath
-            };
+            // v2.2.8: buildSavePayloadに統一（groups/nextGroupId/drive情報を含む）
+            const data = buildSavePayload();
             const json = JSON.stringify(data, null, 2);
             
             // Auto-save to localStorage for reload recovery
@@ -10305,6 +10320,9 @@ function getNodeEdgePoint(node, targetNode) {
                         state.connections = data.connections || [];
                         state.nextId = data.nextId || 1;
                         state.customConnectionTypes = data.customConnectionTypes || [];
+                        // v2.2.8: グループ情報を復元
+                        state.groups = data.groups || [];
+                        state.nextGroupId = data.nextGroupId || 1;
 
                         renderAll();
                         fitToView();
@@ -10962,6 +10980,9 @@ function getNodeEdgePoint(node, targetNode) {
                         }));
                         state.nextId = data.nextId || 1;
                         state.customConnectionTypes = data.customConnectionTypes || [];
+                        // v2.2.8: グループ情報を復元
+                        state.groups = data.groups || [];
+                        state.nextGroupId = data.nextGroupId || 1;
                         state.lastFileName = data.lastFileName || null;
                         state.lastFilePath = data.lastFilePath || data.lastFileName || null;
                         renderAll();
