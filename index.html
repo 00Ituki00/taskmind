@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.2.9">
+    <meta name="version" content="v2.3.0">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -8035,6 +8035,14 @@ function getNodeEdgePoint(node, targetNode) {
             state.dragStartX = nodeAbsX;
             state.dragStartY = nodeAbsY;
 
+            // v2.3.0: Shift+クリックは選択に追加（既存選択を維持して複数ドラッグへ）
+            if (e.shiftKey && state.mode !== 'connect' && !state.selectedNodeIds.includes(node.id)) {
+                state.selectedNodeIds.push(node.id);
+                state.selectedNodeId = node.id;
+                state.selectedGroupId = null;
+                renderNodes();
+            }
+
             // Multi-select drag: if node is already selected, keep selection and start drag
             if (!e.ctrlKey && !e.metaKey && state.mode !== 'connect' &&
                 state.selectedNodeIds.length > 0 && state.selectedNodeIds.includes(node.id)) {
@@ -8313,7 +8321,8 @@ function getNodeEdgePoint(node, targetNode) {
                 e.preventDefault();
             } else {
                 // Range selection start
-                if (!e.ctrlKey && !e.metaKey) {
+                // v2.3.0: Shift+ドラッグは既存選択に範囲選択を追加
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
                     clearSelection();
                 }
                 state.isSelecting = true;
