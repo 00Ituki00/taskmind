@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.3.3">
+    <meta name="version" content="v2.3.4">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1939,9 +1939,12 @@
             }
         }
         /* Groups (v2.2.0) */
-        /* v2.3.3: 描画順は グループ背景(0) → 接続線(1) → ノード(2) → グループUI(3) */
+        /* v2.3.4: 全レイヤーをキャンバス原点に絶対配置（inset:0）して座標系を一致させる */
+        /* 描画順: グループ背景(0) → 接続線(1) → ノード(2) → グループUI(3) */
         #connections {
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 0;
             z-index: 1;
         }
         #groups {
@@ -1957,8 +1960,13 @@
             z-index: 3;
         }
         #nodes {
-            position: relative;
+            position: absolute;
+            inset: 0;
             z-index: 2;
+            pointer-events: none;
+        }
+        #nodes > * {
+            pointer-events: auto;
         }
         .group-chrome {
             position: absolute;
