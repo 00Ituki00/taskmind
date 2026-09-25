@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.2.6">
+    <meta name="version" content="v2.2.7">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -3062,6 +3062,7 @@
 
         function renderGroups() {
             groupsEl.innerHTML = '';
+            groupUiEl.innerHTML = '';
             if (state.layoutMode === 'timeline') return;
             (state.groups || []).forEach(g => {
                 // v2.2.2: サイズは保存値を使用。未設定（旧データ等）の場合のみ一度だけ自動計算
@@ -3110,10 +3111,10 @@
                 createEl('span', {
                     class: 'group-title',
                     text: g.name,
-                    attrs: { title: 'ダブルクリックで名前変更' },
+                    attrs: { title: '右クリックで名前変更 / ダブルクリックで展開・格納' },
                     on: {
-                        // v2.2.5: mousedownのstopPropagationを除去（タイトル上からドラッグ開始を可能に）
-                        dblclick: (ev) => { ev.stopPropagation(); renameGroup(g.id); }
+                        // v2.2.7: 改名は右クリックに移行。ダブルクリックはバブルでヘッダーの展開/格納へ
+                        contextmenu: (ev) => { ev.preventDefault(); ev.stopPropagation(); renameGroup(g.id); }
                     },
                     parent: header
                 });
