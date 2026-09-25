@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.2.4">
+    <meta name="version" content="v2.2.5">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -3078,7 +3078,7 @@
                     text: g.name,
                     attrs: { title: 'ダブルクリックで名前変更' },
                     on: {
-                        mousedown: (ev) => ev.stopPropagation(),
+                        // v2.2.5: mousedownのstopPropagationを除去（タイトル上からドラッグ開始を可能に）
                         dblclick: (ev) => { ev.stopPropagation(); renameGroup(g.id); }
                     },
                     parent: header
@@ -3086,7 +3086,6 @@
                 createEl('span', {
                     class: 'group-count',
                     text: '(' + (g.nodeIds || []).length + ')',
-                    on: { mousedown: (ev) => ev.stopPropagation() },
                     parent: header
                 });
                 createEl('button', {
