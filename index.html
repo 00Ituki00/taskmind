@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.2.8">
+    <meta name="version" content="v2.2.9">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2960,11 +2960,14 @@
         }
 
         let groupDragState = null;
+        let _groupSelectTimer = null; // v2.2.9: クリック選択の再描画遅延用（dblclick検出のため）
 
         function startGroupDrag(e, group, dragEls) {
             e.preventDefault();
             e.stopPropagation();
             if (e.button !== undefined && e.button !== 0) return;
+            // v2.2.9: 1回目クリックで予約された再描画を取消（ヘッダー再生成によるdblclick消失を防ぐ）
+            if (_groupSelectTimer) { clearTimeout(_groupSelectTimer); _groupSelectTimer = null; }
             groupDragState = { group: group, moved: false };
             const startClientX = e.clientX, startClientY = e.clientY;
             let lastDx = 0, lastDy = 0;
@@ -3018,7 +3021,12 @@
                     state.selectedGroupId = group.id;
                     state.selectedNodeIds = [];
                     state.selectedNodeId = null;
-                    renderAll();
+                    // v2.2.9: 再描画を遅延（即renderAllするとヘッダーが再生成されdblclickが届かなくなる）
+                    if (_groupSelectTimer) clearTimeout(_groupSelectTimer);
+                    _groupSelectTimer = setTimeout(() => {
+                        _groupSelectTimer = null;
+                        renderAll();
+                    }, 250);
                 }
                 groupDragState = null;
             };
