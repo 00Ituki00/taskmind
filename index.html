@@ -2883,6 +2883,39 @@
             group.y += dy;
         }
 
+        // Groups (v2.2.0): ドロップ後の最終位置に基づきグループ所属を整理
+        // - 展開中グループの範囲内 → そのグループに加入（既存グループからは脱退）
+        // - どのグループにも含まれない → 所属グループから脱退（空グループは削除）
+        function reconcileGroupMembership(node) {
+            if (!node || state.layoutMode === 'timeline') return;
+            const abs = getNodeAbsolutePosition(node);
+            const cx = abs.x + (node.width || 200) / 2;
+            const cy = abs.y + (node.height || 100) / 2;
+            let target = null;
+            let targetArea = Infinity;
+            (state.groups || []).forEach(g => {
+                if (g.collapsed) return;
+                const b = computeGroupBounds(g);
+                if (!b) return;
+                if (cx >= b.x && cx <= b.x + b.width && cy >= b.y && cy <= b.y + b.height) {
+                    const area = b.width * b.height;
+                    if (area < targetArea) { target = g; targetArea = area; }
+                }
+            });
+            const current = getNodeGroup(node.id);
+            if (target) {
+                if (current !== target) {
+                    if (current) current.nodeIds = current.nodeIds.filter(id => id !== node.id);
+                    if (!target.nodeIds.includes(node.id)) target.nodeIds.push(node.id);
+                    showToast('グループ「' + target.name + '」に追加しました');
+                }
+            } else if (current) {
+                current.nodeIds = current.nodeIds.filter(id => id !== node.id);
+                showToast('グループ「' + current.name + '」から外れました');
+                if (!current.nodeIds.length) state.groups = state.groups.filter(g => g.id !== current.id);
+            }
+        }
+
         let groupDragState = null;
 
         function startGroupDrag(e, group) {
@@ -8063,6 +8096,7 @@ function getNodeEdgePoint(node, targetNode) {
                     newNode.x = 20;
                     newNode.y = 10;
                     parentNode.expanded = true;
+                    reconcileGroupMembership(newNode);
                 }
 
                 setMode('select');
@@ -8167,6 +8201,7 @@ function getNodeEdgePoint(node, targetNode) {
                         newNode.x = 20;
                         newNode.y = 10;
                         parentNode.expanded = true;
+                        reconcileGroupMembership(newNode);
                     }
 
                     setMode('select');
@@ -8629,6 +8664,13 @@ function getNodeEdgePoint(node, targetNode) {
                         didAction = true;
                         showToast(`${nodesToProcess.length}個のノードを取り出しました`);
                     }
+                }
+
+                // Groups (v2.2.0): reconcile group membership by final drop position
+                if (state.groups && state.groups.length) {
+                    nodesToProcess.forEach(n => {
+                        if (state.nodes.includes(n)) reconcileGroupMembership(n);
+                    });
                 }
             }
 
