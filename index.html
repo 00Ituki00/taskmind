@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.3.0">
+    <meta name="version" content="v2.3.1">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -8035,8 +8035,16 @@ function getNodeEdgePoint(node, targetNode) {
             state.dragStartX = nodeAbsX;
             state.dragStartY = nodeAbsY;
 
-            // v2.3.0: Shift+クリックは選択に追加（既存選択を維持して複数ドラッグへ）
-            if (e.shiftKey && state.mode !== 'connect' && !state.selectedNodeIds.includes(node.id)) {
+            // v2.3.1: Shift+クリックは選択のトグル。選択済みなら非選択にしてドラッグは開始しない
+            if (e.shiftKey && state.mode !== 'connect') {
+                if (state.selectedNodeIds.includes(node.id)) {
+                    state.selectedNodeIds = state.selectedNodeIds.filter(id => id !== node.id);
+                    if (state.selectedNodeId === node.id) {
+                        state.selectedNodeId = state.selectedNodeIds.length ? state.selectedNodeIds[state.selectedNodeIds.length - 1] : null;
+                    }
+                    renderNodes();
+                    return;
+                }
                 state.selectedNodeIds.push(node.id);
                 state.selectedNodeId = node.id;
                 state.selectedGroupId = null;
@@ -8277,7 +8285,8 @@ function getNodeEdgePoint(node, targetNode) {
                 return;
             }
 
-            if (state.mode === 'pan' || e.button === 1 || e.button === 2 || e.shiftKey) {
+            if (state.mode === 'pan' || e.button === 1 || e.button === 2) {
+                // v2.3.1: Shift+クリックのキャンバス掴み（パン）は廃止。Shift+ドラッグは範囲選択へ
                 // Skip canvas pan if in timeline mode and clicking inside timeline container
                 if (state.layoutMode === 'timeline' && e.target.closest('.timeline-container')) {
                     return;
@@ -8321,10 +8330,12 @@ function getNodeEdgePoint(node, targetNode) {
                 e.preventDefault();
             } else {
                 // Range selection start
-                // v2.3.0: Shift+ドラッグは既存選択に範囲選択を追加
-                if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                // v2.3.1: Shift/Ctrl+ドラッグは既存選択に範囲選択を追加（ベース選択を保存して合成）
+                const rangeAdditive = e.ctrlKey || e.metaKey || e.shiftKey;
+                if (!rangeAdditive) {
                     clearSelection();
                 }
+                state.selectionBaseIds = rangeAdditive ? state.selectedNodeIds.slice() : [];
                 state.isSelecting = true;
                 state.selectionStartX = (e.clientX - state.panX) / state.scale;
                 state.selectionStartY = (e.clientY - state.panY) / state.scale;
@@ -8995,7 +9006,7 @@ function getNodeEdgePoint(node, targetNode) {
                 const maxX = Math.max(state.selectionStartX, curX);
                 const maxY = Math.max(state.selectionStartY, curY);
 
-                state.selectedNodeIds = state.nodes.filter(n => {
+                const boxHitIds = state.nodes.filter(n => {
                     // Skip hidden nodes (collapsed descendants)
                     if (state.hiddenNodeIds && state.hiddenNodeIds.has(n.id)) return false;
                     let nx = n.x;
@@ -9010,6 +9021,10 @@ function getNodeEdgePoint(node, targetNode) {
                     const nh = domEl ? domEl.offsetHeight : (n.height || 50);
                     return nx < maxX && nx + nw > minX && ny < maxY && ny + nh > minY;
                 }).map(n => n.id);
+
+                // v2.3.1: 追加選択時はベース選択と合成（即上書きを廃止）
+                const baseIds = state.selectionBaseIds || [];
+                state.selectedNodeIds = baseIds.concat(boxHitIds.filter(id => !baseIds.includes(id)));
 
                 if (state.selectedNodeIds.length > 0) {
                     state.selectedNodeId = state.selectedNodeIds[state.selectedNodeIds.length - 1];
@@ -9179,6 +9194,7 @@ function getNodeEdgePoint(node, targetNode) {
             if (state.isSelecting) {
                 state.isSelecting = false;
                 document.getElementById('selection-box').style.display = 'none';
+                state.selectionBaseIds = null;
             }
 
             // ドラッグ中はpendingPriorityClickをクリア
@@ -9263,6 +9279,7 @@ function getNodeEdgePoint(node, targetNode) {
             if (state.isSelecting) {
                 state.isSelecting = false;
                 document.getElementById('selection-box').style.display = 'none';
+                state.selectionBaseIds = null;
             }
 
             // Finalize connection drag
