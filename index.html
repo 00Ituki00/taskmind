@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.3.1">
+    <meta name="version" content="v2.3.2">
     <title>TaskMind</title>
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2911,6 +2911,46 @@
             }
         }
 
+        // v2.3.2: グループ右クリックメニュー（タイトル編集/カラー変更/グループ解除）
+        function showGroupContextMenu(e, group) {
+            const menu = createPopup('context-menu', e.clientX, e.clientY, { minWidth: '150px', padding: '4px 0' });
+            menu.style.gap = '0';
+            const items = [
+                { label: 'タイトル編集', fn: () => renameGroup(group.id) },
+                { label: 'カラー変更', fn: () => showGroupColorPicker(e, group) },
+                { label: 'グループ解除', fn: () => ungroupGroup(group.id) }
+            ];
+            items.forEach(it => {
+                createEl('div', {
+                    class: 'context-menu-item',
+                    text: it.label,
+                    on: { click: () => { it.fn(); menu.remove(); } },
+                    parent: menu
+                });
+            });
+        }
+
+        function showGroupColorPicker(e, group) {
+            const picker = createPopup('color-picker', e.clientX, e.clientY, { flexDirection: 'row', gap: '6px', padding: '8px' });
+            picker.style.display = 'grid';
+            picker.style.gridTemplateColumns = 'repeat(4, 24px)';
+            state.colors.forEach(c => {
+                createEl('div', {
+                    class: 'color-option',
+                    style: { backgroundColor: c },
+                    on: {
+                        click: () => {
+                            group.color = c;
+                            renderAll();
+                            saveSnapshot();
+                            picker.remove();
+                        }
+                    },
+                    parent: picker
+                });
+            });
+        }
+
         function moveGroupBy(group, dx, dy) {
             const memberSet = new Set(group.nodeIds);
             group.nodeIds.forEach(id => {
@@ -3111,6 +3151,10 @@
                     }
                 });
                 groupsEl.appendChild(box);
+                // v2.3.2: グループカラー（未設定はデフォルト青）
+                const gc = g.color || '#4a90d9';
+                box.style.background = g.collapsed ? lightenColor(gc, 0.82) : lightenColor(gc, 0.9);
+                box.style.borderColor = gc;
                 // v2.2.6: ヘッダー/ハンドルは最前面レイヤー(group-ui)、ボックス背景はノード背面(groups)
                 const chrome = createEl('div', {
                     class: 'group-chrome' + (g.collapsed ? ' collapsed' : ''),
@@ -3121,7 +3165,11 @@
                         height: (g.collapsed ? 34 : bounds.height) + 'px'
                     }
                 });
-                const header = createEl('div', { class: 'group-header', parent: chrome });
+                const header = createEl('div', {
+                    class: 'group-header',
+                    parent: chrome,
+                    style: { background: lightenColor(gc, 0.6) }
+                });
                 createEl('button', {
                     class: 'group-toggle',
                     text: g.collapsed ? '▸' : '▾',
@@ -3135,10 +3183,10 @@
                 createEl('span', {
                     class: 'group-title',
                     text: g.name,
-                    attrs: { title: '右クリックで名前変更 / ダブルクリックで展開・格納' },
+                    attrs: { title: '右クリックでメニュー / ダブルクリックで展開・格納' },
                     on: {
-                        // v2.2.7: 改名は右クリックに移行。ダブルクリックはバブルでヘッダーの展開/格納へ
-                        contextmenu: (ev) => { ev.preventDefault(); ev.stopPropagation(); renameGroup(g.id); }
+                        // v2.3.2: 右クリックでグループメニュー（編集/カラー/解除）。ダブルクリックは展開/格納へ
+                        contextmenu: (ev) => { ev.preventDefault(); ev.stopPropagation(); showGroupContextMenu(ev, g); }
                     },
                     parent: header
                 });
