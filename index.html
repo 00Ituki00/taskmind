@@ -3,8 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.3.4">
+    <meta name="version" content="v2.3.5">
     <title>TaskMind</title>
+    <!-- App Icons（GitHub Pagesでも表示されるよう相対パス） -->
+    <link rel="icon" type="image/svg+xml" href="./icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png">
+    <link rel="shortcut icon" href="./favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <meta name="theme-color" content="#2f6fb5">
     <!-- Google Identity Services for Drive API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Google Picker for Drive file selection -->
@@ -11457,7 +11465,7 @@ function getNodeEdgePoint(node, targetNode) {
             const sendNative = () => {
                 if (!('Notification' in window)) return false;
                 const doSend = () => {
-                    const n = new Notification(title, { body: body, icon: '/favicon.ico' });
+                    const n = new Notification(title, { body: body, icon: './favicon-32.png' });
                     n.addEventListener('click', () => {
                         window.focus();
                         if (navigator.clearAppBadge) navigator.clearAppBadge();
