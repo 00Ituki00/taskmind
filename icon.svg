@@ -7,18 +7,18 @@
   </defs>
   <rect x="0" y="0" width="512" height="512" rx="113" ry="113" fill="url(#bg)"/>
   <g stroke="#ffffff" stroke-width="34" stroke-linecap="round">
-    <line x1="166" y1="166" x2="346" y2="166"/>
-    <line x1="166" y1="166" x2="256" y2="366"/>
-    <line x1="346" y1="166" x2="256" y2="366"/>
+    <line x1="166" y1="346" x2="346" y2="346"/>
+    <line x1="166" y1="346" x2="256" y2="146"/>
+    <line x1="346" y1="346" x2="256" y2="146"/>
   </g>
   <g fill="#ffffff">
-    <circle cx="166" cy="166" r="59"/>
-    <circle cx="346" cy="166" r="59"/>
-    <circle cx="256" cy="366" r="59"/>
+    <circle cx="166" cy="346" r="59"/>
+    <circle cx="346" cy="346" r="59"/>
+    <circle cx="256" cy="146" r="59"/>
   </g>
   <g fill="#5aa0e8">
-    <circle cx="166" cy="166" r="19"/>
-    <circle cx="346" cy="166" r="19"/>
-    <circle cx="256" cy="366" r="19"/>
+    <circle cx="166" cy="346" r="19"/>
+    <circle cx="346" cy="346" r="19"/>
+    <circle cx="256" cy="146" r="19"/>
   </g>
 </svg>
