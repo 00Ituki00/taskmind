@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.4.1">
+    <meta name="version" content="v2.4.2">
     <title>TaskMind</title>
     <!-- App Icons（GitHub Pagesでも表示されるよう相対パス） -->
     <link rel="icon" type="image/svg+xml" href="./icon.svg">
@@ -10164,6 +10164,12 @@ function getNodeEdgePoint(node, targetNode) {
                                 state.lastFilePath = fileName + ' (Drive)';
                                 state.driveFileId = fileId;
                                 state.saveDestination = 'drive';
+                                updateFileInfoDisplay();
+                                renderAll();
+                                fitToView();
+                                state.history = [];
+                                state.historyIndex = -1;
+                                saveSnapshot();
                                 showToast('Drive読込完了: ' + fileName);
                                 console.log('[Drive] Loaded file id:', fileId);
                                 resolve(dataObj);
