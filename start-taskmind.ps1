@@ -1,4 +1,4 @@
-# TaskMind ローカルサーバー起動スクリプト (PowerShell)
+﻿# TaskMind ローカルサーバー起動スクリプト (PowerShell)
 # 使用例: .\start-taskmind.ps1 または .\start-taskmind.bat (ダブルクリック可)
 # ポート 8080 で http://localhost:8080/ を公開する
 param(
