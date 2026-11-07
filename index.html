@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.4.2">
+    <meta name="version" content="v2.4.3">
     <title>TaskMind</title>
     <!-- App Icons（GitHub Pagesでも表示されるよう相対パス） -->
     <link rel="icon" type="image/svg+xml" href="./icon.svg">
@@ -10056,6 +10056,7 @@ function getNodeEdgePoint(node, targetNode) {
                     if (tokenResponse && tokenResponse.access_token) {
                         window.driveAccessToken = tokenResponse.access_token;
                         window.driveTokenExpiresAt = Date.now() + ((tokenResponse.expires_in || 3600) * 1000);
+                        try { sessionStorage.setItem('taskmind_drive_token', tokenResponse.access_token); } catch (e) {}
                         console.log('[Drive] Token acquired; expires in ' + tokenResponse.expires_in + 's');
                         // 認証完了後に保留中の Drive 処理を自動開始（保存優先）
                         if (window._drivePendingSave) {
@@ -10076,12 +10077,20 @@ function getNodeEdgePoint(node, targetNode) {
                         console.warn('[Drive] Token request failed:', tokenResponse);
                         window.driveAccessToken = null;
                         window.driveTokenExpiresAt = 0;
+                        try { sessionStorage.removeItem('taskmind_drive_token'); } catch (e) {}
                         const e = (tokenResponse && tokenResponse.error) ? tokenResponse.error : 'unknown error';
                         showToast('Drive 認証に失敗しました: ' + e);
                     }
                 }
             });
             console.log('[Drive] initGoogleDrive called');
+            try {
+                const saved = sessionStorage.getItem('taskmind_drive_token');
+                if (saved && !window.driveAccessToken) {
+                    window.driveAccessToken = saved;
+                    window.driveTokenClient.requestAccessToken({ prompt: '' });
+                }
+            } catch (e) {}
         }
 
         async function driveSave(overwrite = false) {
