@@ -1,0 +1,123 @@
+{
+  "version": 4,
+  "nodes": [
+    {
+      "id": 1,
+      "x": 120,
+      "y": 120,
+      "title": "共有ノート テスト",
+      "type": "project",
+      "color": "#64b5f6",
+      "completed": false,
+      "completedAt": null,
+      "createdAt": "2026-11-07T00:00:00.000Z",
+      "expanded": true,
+      "width": 260,
+      "height": 60,
+      "parentId": null,
+      "children": [2, 3],
+      "priority": 0,
+      "details": { "why": "共有運用の試し", "what": "親/子/接続/グループの基本確認", "who": "ユーザー / AI", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+    },
+    {
+      "id": 2,
+      "x": 30,
+      "y": 90,
+      "title": "決定: 共有ルール v1",
+      "type": "decision",
+      "color": "#81c784",
+      "completed": true,
+      "completedAt": "2026-11-07T00:00:00.000Z",
+      "expanded": false,
+      "width": 220,
+      "height": null,
+      "parentId": 1,
+      "children": [],
+      "priority": 0,
+      "details": { "why": "docs/shared-usage.md 準拠", "what": "色分け・接続ラベルを運用", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+    },
+    {
+      "id": 3,
+      "x": 30,
+      "y": 160,
+      "title": "課題: ページの色分け統一",
+      "type": "task",
+      "color": "#e57373",
+      "completed": false,
+      "completedAt": null,
+      "expanded": false,
+      "width": 240,
+      "height": null,
+      "parentId": 1,
+      "children": [],
+      "priority": 1,
+      "details": { "why": "", "what": "赤 = 要確認", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+    },
+    {
+      "id": 4,
+      "x": 520,
+      "y": 120,
+      "title": "メモ: AI からの共有",
+      "type": "memo",
+      "color": "#ffd54f",
+      "completed": false,
+      "completedAt": null,
+      "expanded": false,
+      "width": 240,
+      "height": null,
+      "parentId": null,
+      "children": [],
+      "priority": 0,
+      "details": { "why": "", "what": "AI 側からの共有はここに置く", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+    },
+    {
+      "id": 5,
+      "x": 520,
+      "y": 220,
+      "title": "タスク: 目次ページ作成",
+      "type": "task",
+      "color": "#fff176",
+      "completed": false,
+      "completedAt": null,
+      "expanded": false,
+      "width": 220,
+      "height": null,
+      "parentId": null,
+      "children": [],
+      "priority": 2,
+      "details": { "why": "", "what": "docs/index.md 索引", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+    }
+  ],
+  "connections": [
+    { "from": 1, "to": 2, "label": "含む", "collapsed": false, "originalToPos": null },
+    { "from": 1, "to": 3, "label": "含む", "collapsed": false, "originalToPos": null },
+    { "from": 3, "to": 5, "label": "連動", "collapsed": false, "originalToPos": null }
+  ],
+  "nextId": 6,
+  "customConnectionTypes": [
+    { "label": "なぜ？", "color": "#e74c3c", "icon": "🔍" },
+    { "label": "どうやって？", "color": "#3498db", "icon": "🔧" },
+    { "label": "しかし", "color": "#e67e22", "icon": "⚠️" },
+    { "label": "つまり", "color": "#2ecc71", "icon": "✅" },
+    { "label": "代わりに", "color": "#9b59b6", "icon": "🔀" },
+    { "label": "ただし", "color": "#f39c12", "icon": "❗" },
+    { "label": "だから", "color": "#e91e63", "icon": "➡️" }
+  ],
+  "lastFileName": "2026-11-07_shared-test.json",
+  "lastFilePath": "2026-11-07_shared-test.json",
+  "driveFileId": null,
+  "saveDestination": "local",
+  "groups": [
+    {
+      "id": "g1",
+      "name": "共有ルール群",
+      "collapsed": false,
+      "x": 100,
+      "y": 100,
+      "width": 360,
+      "height": 220,
+      "nodeIds": [1, 2, 3]
+    }
+  ],
+  "nextGroupId": 2
+}
