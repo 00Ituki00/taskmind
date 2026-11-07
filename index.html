@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.3.6">
+    <meta name="version" content="v2.3.7">
     <title>TaskMind</title>
     <!-- App Icons（GitHub Pagesでも表示されるよう相対パス） -->
     <link rel="icon" type="image/svg+xml" href="./icon.svg">
@@ -10048,27 +10048,38 @@ function getNodeEdgePoint(node, targetNode) {
                 console.warn('[Drive] GIS not loaded yet');
                 return;
             }
-            // Token client: requires CLIENT_ID configured externally.
-            // Placeholder client ID; the user must set their own CLIENT_ID in code/config.
+            // Token client (CLIENT_ID は Google Cloud Console で発行したアプリ用の値)
             window.driveTokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: '352721088879-8a3mnffhkqo8o44mr91sirlprkauv28l.apps.googleusercontent.com',
                 scope: DRIVE_SCOPE,
                 callback: (tokenResponse) => {
                     if (tokenResponse && tokenResponse.access_token) {
                         window.driveAccessToken = tokenResponse.access_token;
-                        console.log('[Drive] Token acquired');
+                        window.driveTokenExpiresAt = Date.now() + ((tokenResponse.expires_in || 3600) * 1000);
+                        console.log('[Drive] Token acquired; expires in ' + tokenResponse.expires_in + 's');
+                        // 認証完了後に保留中の Drive 読込を自動開始（初回クリックで認証→完了後すぐ Picker へ）
+                        if (window._drivePendingLoad) {
+                            window._drivePendingLoad = false;
+                            driveLoad().catch(err => {
+                                console.error('Drive load failed:', err);
+                                showToast('Drive 読込エラー: ' + (err && err.message ? err.message : err));
+                            });
+                        }
                     } else {
-                        console.warn('[Drive] Token request did not return access_token');
+                        console.warn('[Drive] Token request failed:', tokenResponse);
                         window.driveAccessToken = null;
+                        window.driveTokenExpiresAt = 0;
+                        const e = (tokenResponse && tokenResponse.error) ? tokenResponse.error : 'unknown error';
+                        showToast('Drive 認証に失敗しました: ' + e);
                     }
                 }
             });
-            console.log('[Drive] initGoogleDrive called (CLIENT_ID must be set by user)');
+            console.log('[Drive] initGoogleDrive called');
         }
 
         async function driveSave(overwrite = false) {
-            if (!window.driveAccessToken) {
-                showToast('Drive: 認証が必要です（CLIENT_ID の設定とログインが必要）');
+            if (!window.driveAccessToken || (window.driveTokenExpiresAt && Date.now() > window.driveTokenExpiresAt - 60000)) {
+                showToast('Drive: 認証が必要です、またはトークンの期限切れです');
                 return Promise.reject(new Error('Drive: no access token'));
             }
             const payload = buildSavePayload();
@@ -10096,6 +10107,10 @@ function getNodeEdgePoint(node, targetNode) {
                     state.saveDestination = 'drive';
                     showToast('Drive保存完了: ' + (result.name || filename));
                     console.log('[Drive] Saved file id:', result.id);
+                } else if (response.status === 401) {
+                    window.driveAccessToken = null;
+                    window.driveTokenExpiresAt = 0;
+                    showToast('Drive保存失敗: トークンの期限切れです。再認証してから再度お試しください');
                 } else {
                     showToast('Drive保存失敗: レスポンスにファイルIDが含まれていません');
                 }
@@ -10108,8 +10123,8 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         async function driveLoad() {
-            if (!window.driveAccessToken) {
-                showToast('Drive: 認証が必要です');
+            if (!window.driveAccessToken || (window.driveTokenExpiresAt && Date.now() > window.driveTokenExpiresAt - 60000)) {
+                showToast('Drive: 認証が必要です、またはトークンの期限切れです');
                 return Promise.reject(new Error('Drive: no access token'));
             }
             // 標準の Google Picker ダイアログを表示
@@ -10125,7 +10140,7 @@ function getNodeEdgePoint(node, targetNode) {
                         .setMimeTypes('application/json')
                         .setSelectFolderEnabled(false))
                     .setOAuthToken(window.driveAccessToken)
-                    .setDeveloperKey('352721088879-8a3mnffhkqo8o44mr91sirlprkauv28l') // 既存 CLIENT_ID を Picker Developer Key として使用
+                    .setDeveloperKey('AIzaSyC_DO8BNiLsDUyfBWa-PLF-0OlQ4gIuQGI') // Browser API Key（Picker用）
                     .setCallback((data) => {
                         if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
                             const doc = data[google.picker.Response.DOCUMENTS][0];
@@ -10540,6 +10555,7 @@ function getNodeEdgePoint(node, targetNode) {
                         initGoogleDrive();
                     }
                     if (window.driveTokenClient) {
+                        window._drivePendingLoad = true;
                         window.driveTokenClient.requestAccessToken({ prompt: 'consent' });
                         showToast('Drive 認証を開始しました（ポップアップを確認してください）');
                         return;
