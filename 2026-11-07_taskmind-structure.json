@@ -15,9 +15,24 @@
       "width": 260,
       "height": 60,
       "parentId": null,
-      "children": [2, 3, 4],
+      "children": [
+        2,
+        3,
+        4
+      ],
       "priority": 0,
-      "details": { "why": "共有ノートとして運用する", "what": "親/子/接続/グループの基本確認", "who": "ユーザー / AI", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+      "details": {
+        "why": "共有ノートとして運用する",
+        "what": "親/子/接続/グループの基本確認",
+        "who": "ユーザー / AI",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
     },
     {
       "id": 2,
@@ -34,7 +49,18 @@
       "parentId": 1,
       "children": [],
       "priority": 0,
-      "details": { "why": "docs/shared-usage.md 準拠", "what": "色分け・接続ラベルを運用", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+      "details": {
+        "why": "docs/shared-usage.md 準拠",
+        "what": "色分け・接続ラベルを運用",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
     },
     {
       "id": 3,
@@ -51,7 +77,18 @@
       "parentId": 1,
       "children": [],
       "priority": 1,
-      "details": { "why": "", "what": "赤 = 要確認", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+      "details": {
+        "why": "",
+        "what": "赤 = 要確認",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
     },
     {
       "id": 4,
@@ -69,12 +106,23 @@
       "parentId": 1,
       "children": [],
       "priority": 0,
-      "details": { "why": "共有テスト", "what": "AI 操作の確認", "who": "AI", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+      "details": {
+        "why": "共有テスト",
+        "what": "AI 操作の確認",
+        "who": "AI",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
     },
     {
       "id": 5,
-      "x": 560,
-      "y": 120,
+      "x": 620,
+      "y": 140,
       "title": "UI 構成",
       "type": "area",
       "color": "#ba68c8",
@@ -84,9 +132,24 @@
       "width": 260,
       "height": 60,
       "parentId": null,
-      "children": [6, 7, 8],
+      "children": [
+        6,
+        7,
+        8
+      ],
       "priority": 0,
-      "details": { "why": "", "what": "キャンバス / ノード / グループ", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+      "details": {
+        "why": "",
+        "what": "キャンバス / ノード / グループ",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
     },
     {
       "id": 6,
@@ -103,7 +166,19 @@
       "parentId": 5,
       "children": [],
       "priority": 0,
-      "details": { "why": "", "what": "描画・パン/ズーム", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } } },
+      "details": {
+        "why": "",
+        "what": "描画・パン/ズーム",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
+    },
     {
       "id": 7,
       "x": 30,
@@ -119,7 +194,19 @@
       "parentId": 5,
       "children": [],
       "priority": 0,
-      "details": { "why": "", "what": "ドラッグ / リサイズ / 選択", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } } },
+      "details": {
+        "why": "",
+        "what": "ドラッグ / リサイズ / 選択",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
+    },
     {
       "id": 8,
       "x": 30,
@@ -135,11 +222,23 @@
       "parentId": 5,
       "children": [],
       "priority": 0,
-      "details": { "why": "", "what": "縮小/展開・移動・カラー", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } } },
+      "details": {
+        "why": "",
+        "what": "縮小/展開・移動・カラー",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
+    },
     {
       "id": 9,
-      "x": 560,
-      "y": 280,
+      "x": 620,
+      "y": 380,
       "title": "保存 / 読込",
       "type": "area",
       "color": "#4db6ac",
@@ -149,9 +248,24 @@
       "width": 260,
       "height": 60,
       "parentId": null,
-      "children": [10, 11, 12],
+      "children": [
+        10,
+        11,
+        12
+      ],
       "priority": 0,
-      "details": { "why": "", "what": "ローカル / Drive / autosave", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+      "details": {
+        "why": "",
+        "what": "ローカル / Drive / autosave",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
     },
     {
       "id": 10,
@@ -168,7 +282,19 @@
       "parentId": 9,
       "children": [],
       "priority": 0,
-      "details": { "why": "", "what": "File System Access / download", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } } },
+      "details": {
+        "why": "",
+        "what": "File System Access / download",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
+    },
     {
       "id": 11,
       "x": 30,
@@ -184,7 +310,19 @@
       "parentId": 9,
       "children": [],
       "priority": 0,
-      "details": { "why": "", "what": "GIS / Picker / トークン", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } } },
+      "details": {
+        "why": "",
+        "what": "GIS / Picker / トークン",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
+    },
     {
       "id": 12,
       "x": 30,
@@ -200,11 +338,23 @@
       "parentId": 9,
       "children": [],
       "priority": 0,
-      "details": { "why": "", "what": "localStorage autosave", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } } },
+      "details": {
+        "why": "",
+        "what": "localStorage autosave",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
+    },
     {
       "id": 13,
-      "x": 120,
-      "y": 420,
+      "x": 140,
+      "y": 380,
       "title": "認証 / セッション",
       "type": "area",
       "color": "#ffd54f",
@@ -214,9 +364,23 @@
       "width": 260,
       "height": 60,
       "parentId": null,
-      "children": [14, 15],
+      "children": [
+        14,
+        15
+      ],
       "priority": 0,
-      "details": { "why": "", "what": "OAuth / トークン寿命管理", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } }
+      "details": {
+        "why": "",
+        "what": "OAuth / トークン寿命管理",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
     },
     {
       "id": 14,
@@ -233,7 +397,19 @@
       "parentId": 13,
       "children": [],
       "priority": 0,
-      "details": { "why": "", "what": "初回ポップアップ", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } } },
+      "details": {
+        "why": "",
+        "what": "初回ポップアップ",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
+    },
     {
       "id": 15,
       "x": 30,
@@ -249,33 +425,157 @@
       "parentId": 13,
       "children": [],
       "priority": 0,
-      "details": { "why": "", "what": "セッション中再認証（pending フラグ）", "who": "", "where": "", "link": "", "when": { "cycle": "", "startDate": "", "deadline": "" } } }
+      "details": {
+        "why": "",
+        "what": "セッション中再認証（pending フラグ）",
+        "who": "",
+        "where": "",
+        "link": "",
+        "when": {
+          "cycle": "",
+          "startDate": "",
+          "deadline": ""
+        }
+      }
+    }
   ],
   "connections": [
-    { "from": 1, "to": 2, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 1, "to": 3, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 1, "to": 4, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 5, "to": 6, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 5, "to": 7, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 5, "to": 8, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 9, "to": 10, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 9, "to": 11, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 9, "to": 12, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 13, "to": 14, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 13, "to": 15, "label": "含む", "collapsed": false, "originalToPos": null },
-    { "from": 1, "to": 5, "label": "連動", "collapsed": false, "originalToPos": null },
-    { "from": 1, "to": 9, "label": "連動", "collapsed": false, "originalToPos": null },
-    { "from": 1, "to": 13, "label": "連動", "collapsed": false, "originalToPos": null }
+    {
+      "from": 1,
+      "to": 2,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 1,
+      "to": 3,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 1,
+      "to": 4,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 5,
+      "to": 6,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 5,
+      "to": 7,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 5,
+      "to": 8,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 9,
+      "to": 10,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 9,
+      "to": 11,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 9,
+      "to": 12,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 13,
+      "to": 14,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 13,
+      "to": 15,
+      "label": "含む",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 1,
+      "to": 5,
+      "label": "連動",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 1,
+      "to": 9,
+      "label": "連動",
+      "collapsed": false,
+      "originalToPos": null
+    },
+    {
+      "from": 1,
+      "to": 13,
+      "label": "連動",
+      "collapsed": false,
+      "originalToPos": null
+    }
   ],
   "nextId": 16,
   "customConnectionTypes": [
-    { "label": "なぜ？", "color": "#e74c3c", "icon": "🔍" },
-    { "label": "どうやって？", "color": "#3498db", "icon": "🔧" },
-    { "label": "しかし", "color": "#e67e22", "icon": "⚠️" },
-    { "label": "つまり", "color": "#2ecc71", "icon": "✅" },
-    { "label": "代わりに", "color": "#9b59b6", "icon": "🔀" },
-    { "label": "ただし", "color": "#f39c12", "icon": "❗" },
-    { "label": "だから", "color": "#e91e63", "icon": "➡️" }
+    {
+      "label": "なぜ？",
+      "color": "#e74c3c",
+      "icon": "🔍"
+    },
+    {
+      "label": "どうやって？",
+      "color": "#3498db",
+      "icon": "🔧"
+    },
+    {
+      "label": "しかし",
+      "color": "#e67e22",
+      "icon": "⚠️"
+    },
+    {
+      "label": "つまり",
+      "color": "#2ecc71",
+      "icon": "✅"
+    },
+    {
+      "label": "代わりに",
+      "color": "#9b59b6",
+      "icon": "🔀"
+    },
+    {
+      "label": "ただし",
+      "color": "#f39c12",
+      "icon": "❗"
+    },
+    {
+      "label": "だから",
+      "color": "#e91e63",
+      "icon": "➡️"
+    }
   ],
   "lastFileName": "2026-11-07_taskmind-structure.json",
   "lastFilePath": "2026-11-07_taskmind-structure.json",
@@ -287,33 +587,51 @@
       "name": "運用",
       "color": "#64b5f6",
       "collapsed": false,
-      "x": 100,
-      "y": 100,
-      "width": 420,
-      "height": 320,
-      "nodeIds": [1, 2, 3, 4]
+      "x": 90,
+      "y": 90,
+      "width": 560,
+      "height": 360,
+      "nodeIds": [
+        1,
+        2,
+        3,
+        4
+      ]
     },
     {
       "id": "g2",
       "name": "UI 構成",
       "color": "#ba68c8",
       "collapsed": false,
-      "x": 540,
-      "y": 100,
-      "width": 320,
-      "height": 320,
-      "nodeIds": [5, 6, 7, 8]
+      "x": 580,
+      "y": 90,
+      "width": 440,
+      "height": 360,
+      "nodeIds": [
+        5,
+        6,
+        7,
+        8
+      ]
     },
     {
       "id": "g3",
       "name": "保存/認証",
       "color": "#4db6ac",
       "collapsed": false,
-      "x": 100,
-      "y": 420,
-      "width": 500,
-      "height": 320,
-      "nodeIds": [9, 10, 11, 12, 13, 14, 15]
+      "x": 90,
+      "y": 360,
+      "width": 980,
+      "height": 360,
+      "nodeIds": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
     }
   ],
   "nextGroupId": 4
