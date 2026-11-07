@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.3.8">
+    <meta name="version" content="v2.3.9">
     <title>TaskMind</title>
     <!-- App Icons（GitHub Pagesでも表示されるよう相対パス） -->
     <link rel="icon" type="image/svg+xml" href="./icon.svg">
@@ -10057,12 +10057,19 @@ function getNodeEdgePoint(node, targetNode) {
                         window.driveAccessToken = tokenResponse.access_token;
                         window.driveTokenExpiresAt = Date.now() + ((tokenResponse.expires_in || 3600) * 1000);
                         console.log('[Drive] Token acquired; expires in ' + tokenResponse.expires_in + 's');
-                        // 認証完了後に保留中の Drive 読込を自動開始（初回クリックで認証→完了後すぐ Picker へ）
+                        // 認証完了後に保留中の Drive 処理を自動開始（読込 / 新規保存と優先）
                         if (window._drivePendingLoad) {
                             window._drivePendingLoad = false;
                             driveLoad().catch(err => {
                                 console.error('Drive load failed:', err);
                                 showToast('Drive 読込エラー: ' + (err && err.message ? err.message : err));
+                            });
+                        } else if (window._drivePendingSave) {
+                            const pending = window._drivePendingSave;
+                            window._drivePendingSave = null;
+                            saveToFile(pending).catch(err => {
+                                console.error('Drive save failed:', err);
+                                showToast('Drive 保存エラー: ' + (err && err.message ? err.message : err));
                             });
                         }
                     } else {
@@ -10580,6 +10587,7 @@ function getNodeEdgePoint(node, targetNode) {
                         }
                         if (window.driveTokenClient) {
                             window._drivePendingLoad = true;
+                            window._drivePendingSave = 'drive';
                             window.driveTokenClient.requestAccessToken({ prompt: 'consent' });
                             showToast('Drive 認証を開始しました（ポップアップを確認してください）');
                             return;
