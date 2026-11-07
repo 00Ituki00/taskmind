@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="version" content="v2.3.7">
+    <meta name="version" content="v2.3.8">
     <title>TaskMind</title>
     <!-- App Icons（GitHub Pagesでも表示されるよう相対パス） -->
     <link rel="icon" type="image/svg+xml" href="./icon.svg">
@@ -10282,6 +10282,15 @@ function getNodeEdgePoint(node, targetNode) {
         }
 
         function saveToFile(overwrite = false) {
+            // v2.3.8: 保存先として Drive を指定可能（'drive'）
+            if (overwrite === 'drive' || overwrite === 'upgrade') {
+                if (!window.driveAccessToken || (window.driveTokenExpiresAt && Date.now() > window.driveTokenExpiresAt - 60000)) {
+                    showToast('Drive 認証が必要です');
+                    return Promise.reject(new Error('Drive: no access token'));
+                }
+                state.saveDestination = 'drive';
+                return driveSave(overwrite === 'upgrade');
+            }
             // v2.2.8: buildSavePayloadに統一（groups/nextGroupId/drive情報を含む）
             const data = buildSavePayload();
             const json = JSON.stringify(data, null, 2);
@@ -10529,16 +10538,67 @@ function getNodeEdgePoint(node, targetNode) {
         document.getElementById('btn-redo').addEventListener('click', () => redo());
         // 保存ボタン（saveInProgressは二重保存防止。宣言が無いとReferenceErrorでボタンが死ぬ）
         let saveInProgress = false;
-        document.getElementById('btn-save').addEventListener('click', () => {
+        document.getElementById('btn-save').addEventListener('click', async () => {
             if (saveInProgress) return;
             saveInProgress = true;
-            Promise.resolve()
-                .then(() => saveToFile(true))
-                .catch(err => {
-                    console.error('Save failed:', err);
+            try {
+                const dest = await new Promise(resolve => {
+                    const menu = createPopup('context-menu', 0, 0, { minWidth: '160px', padding: '4px 0' });
+                    const close = v => { menu.remove(); resolve(v); };
+                    menu.style.gap = '0';
+                    const btn = document.getElementById('btn-save').getBoundingClientRect();
+                    menu.style.left = btn.left + 'px';
+                    menu.style.top = (btn.bottom + 6) + 'px';
+                    const items = [
+                        { label: 'ローカルに上書き保存', value: 'local' },
+                        { label: 'Google Drive に保存', value: 'drive' },
+                        { label: 'Google Drive に上書き保存', value: 'upgrade' },
+                        { label: 'キャンセル', value: null }
+                    ];
+                    items.forEach(it => {
+                        createEl('div', {
+                            class: 'context-menu-item',
+                            text: it.label,
+                            on: { click: () => close(it.value) },
+                            parent: menu
+                        });
+                    });
+                    setTimeout(() => {
+                        document.addEventListener('click', function handler(ev) {
+                            if (!menu.contains(ev.target)) {
+                                document.removeEventListener('click', handler);
+                                close(null);
+                            }
+                        });
+                    }, 10);
+                });
+                if (!dest) return;
+                if (dest === 'drive' || dest === 'upgrade') {
+                    if (!window.driveAccessToken) {
+                        if (!window.driveTokenClient) {
+                            initGoogleDrive();
+                        }
+                        if (window.driveTokenClient) {
+                            window._drivePendingLoad = true;
+                            window.driveTokenClient.requestAccessToken({ prompt: 'consent' });
+                            showToast('Drive 認証を開始しました（ポップアップを確認してください）');
+                            return;
+                        }
+                        showToast('Drive 認証エラー: CLIENT_ID が未設定です');
+                        return;
+                    }
+                    await saveToFile(dest);
+                } else {
+                    await saveToFile(true);
+                }
+            } catch (err) {
+                console.error('Save failed:', err);
+                if (!String(err && err.message ? err.message : err).includes('no access token')) {
                     showToast('保存に失敗しました: ' + (err && err.message ? err.message : err));
-                })
-                .finally(() => { saveInProgress = false; });
+                }
+            } finally {
+                saveInProgress = false;
+            }
         });
         document.getElementById('btn-load').addEventListener('click', () => {
             if ('showOpenFilePicker' in window) {
